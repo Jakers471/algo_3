@@ -36,6 +36,26 @@
 - Use **inline colored text** (ANSI color codes) to structure and highlight output — e.g. green for success/completed, yellow for warnings, red for errors, dim/grey for detail, bold for headers. Color carries the meaning that emoji would otherwise; it stays clean, professional, and terminal-native.
 - Keep it readable: aligned columns, clear labels, consistent phrasing. Elegant means *less* — enough structure to scan at a glance, no clutter.
 
+### Config — central, but sectioned by area
+
+**Config is centralised in one place, but organised into sections by the area that uses it** — never one giant flat file. This is one-file-one-job applied to settings: each config section holds only the settings for its own domain and sits next to the concept it configures.
+
+- Config lives in a `src/config/` package, one file per area of the system:
+  - `config/broker.py` — API URL, username, API key, account settings
+  - `config/data.py` — default symbol, timeframe, bar limits
+  - `config/backtest.py` — starting capital, commission, slippage
+  - `config/live.py` — poll interval, live-vs-sim flag
+  - `config/risk.py` — max risk per trade, max open positions, loss limits
+  - `config/logging.py` — log level, log directory
+  - (add a new section file when a new area appears — don't dump it into an existing one)
+- **Each caller imports only the section it needs** (`from src.config import risk`), same who-needs-what rule as everything else. The backtest never imports `live`; the risk engine never sees API keys.
+- **`config/__init__.py` loads `.env` once** (`load_dotenv()`) at the package front door, so every section reads secrets via `os.getenv()` without repeating it.
+- **Secrets vs settings — one hard line:**
+  - **Secrets** (API keys, passwords, usernames) live ONLY in a top-level `.env` file, git-ignored, **never committed**. Config sections read them with `os.getenv()`.
+  - **Settings** (limits, symbols, capital, log level) live in the `config/*.py` files and ARE committed — they're not sensitive.
+- **Never hard-code a value that might change** (keys, limits, symbols, URLs, intervals) into logic. Put it in the right config section and import it — one source of truth, changed in one place.
+- Config holds the *value* of a dial (e.g. `config/logging.py` sets the log level); the module that *applies* it (e.g. `logging_config.py`'s `setup_logging()`) reads that value. Keep the setting and the code that acts on it separate.
+
 ### Interface: CLI-first
 
 For now this is a **CLI-driven, Python-only project** — the primary interface is a command-line tool, no frontend yet. Keep the CLI entry point under `src/` (e.g. `src/cli/`).
