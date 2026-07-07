@@ -26,6 +26,9 @@ algo_3/
 │   ├── data/           load the NT8 Parquet store into clean bars — engine
 │   │   ├── loader.py      read a symbol/TF Parquet -> raw UTC OHLCV (I/O)
 │   │   └── prepare.py     window + gap-mark + zero-vol policy (logic)
+│   ├── indicators/     shared raw math (pure) — strategies compose these
+│   │   ├── volume_profile.py  volume-per-row + value area (POC/VAH/VAL core)
+│   │   └── grade.py           OHLCV window -> regime (efficiency/acceptance -> state)
 │   ├── strategy/       bars -> bracket order intents (signals)
 │   │   ├── bracket.py     Direction + Bracket (entry stop + SL/TP as absolute levels)
 │   │   ├── breakout.py    Donchian long/short starter (entry_signals) + params
@@ -84,8 +87,11 @@ cli.data         ─► data.prepare         (the bars engine it drives)
                  ├► logging.setup         (configure logging at startup)
                  └► core.console          (color the summary)
 
+indicators.grade  ─► indicators.volume_profile   (profile + value area)
+
 strategy.breakout ─► strategy.bracket   (emits Bracket order intents)
 strategy.registry ─► strategy.breakout   (name -> class)
+(a GRADE-based strategy will import indicators.grade to build its signals)
 backtest.engine   ─► backtest.fills      (resolve fills against a bar)
                   ├► strategy.bracket     (the order intent it consumes)
                   ├► config.backtest      (slippage, commission, hold policy)
