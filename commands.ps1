@@ -45,14 +45,14 @@ function Show-Menu {
         }
 
         Write-Host ''
-        $back = if ($IsRoot) { 'Esc quit' } else { 'Esc back' }
-        Write-Host "     Up/Down move    Enter select    $back" -ForegroundColor DarkGray
+        $back = if ($IsRoot) { 'Left quit' } else { 'Left back' }
+        Write-Host "     Up/Down move    Enter/Right select    $back" -ForegroundColor DarkGray
 
         $key = [Console]::ReadKey($true)
         switch ($key.Key) {
             'UpArrow'   { if ($items.Count) { $index = ($index - 1 + $items.Count) % $items.Count } }
             'DownArrow' { if ($items.Count) { $index = ($index + 1) % $items.Count } }
-            'Enter' {
+            { $_ -in 'Enter', 'RightArrow' } {
                 if ($items.Count -gt 0) {
                     $sel = $items[$index]
                     if ($sel.Submenu) {
@@ -69,6 +69,7 @@ function Show-Menu {
                     }
                 }
             }
+            'LeftArrow' { return }
             'Escape'    { return }
         }
     }
