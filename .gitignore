@@ -20,6 +20,9 @@ secrets.json
 data/
 logs/
 
+# Scratch — disposable spikes & experiments (README is force-added)
+scratch/
+
 # OS / editor
 .DS_Store
 Thumbs.db
