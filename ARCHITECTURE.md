@@ -13,7 +13,11 @@ algo_3/
 │   │   ├── __init__.py    loads .env once (single secret-load point)
 │   │   ├── broker.py      API endpoints; credentials from .env
 │   │   ├── data.py        default symbol, lookback, bar limits
-│   │   └── logging.py     log level + destination (the value of the dial)
+│   │   ├── logging.py     log level + destination (the value of the dial)
+│   │   ├── audit.py       front door to DATA_AUDIT.json (data-truth facts)
+│   │   ├── instruments.py per-symbol tick/point value (read from audit)
+│   │   ├── session.py     UTC + RTH hours (09:30-16:00 ET)
+│   │   └── backtest.py    slippage, backtest window, gap/hold policy
 │   ├── core/            shared infrastructure used everywhere
 │   │   ├── console.py       ANSI color codes + paint() (no emoji, ever)
 │   │   └── logging_config.py  setup_logging(): how/where logs render
@@ -40,6 +44,10 @@ core.logging_config ─► config.logging   (reads the dial value)
 
 config.__init__  ─► dotenv               (loads .env once)
 config.broker    ─► os                   (reads secrets from env)
+
+config.instruments ─► config.audit       (tick/point values from the audit)
+config.backtest    ─► config.audit       (data_end + handling flags)
+config.audit       ─► DATA_AUDIT.json     (the data's own rules, read once)
 ```
 
 ### What this shows at a glance
@@ -58,8 +66,8 @@ config.broker    ─► os                   (reads secrets from env)
 
 ## Backtest data reference
 
-The historical NQ/ES Parquet in `data/` is audited in `DATA_AUDIT.md` (human) and `DATA_AUDIT.json` (machine — the backtest engine reads its `handling` flags). Data is clean; the flags (gap-awareness, back-adjustment, fills/slippage, staleness) are what the engine must honor.
+The historical NQ/ES Parquet in `data/` is audited in `DATA_AUDIT.md` (human) and `DATA_AUDIT.json` (machine). `config/audit.py` is the code that reads that JSON; `config/instruments.py`, `config/session.py`, and `config/backtest.py` turn its fixed facts (contract specs, timezone, `handling` flags) into the dials the backtest engine runs on. Data is clean; the flags (gap-awareness, back-adjustment, fills/slippage, staleness) are what the engine must honor — they now live as config, seeded from the audit.
 
 ## Not built yet (planned shape)
 
-These get created — with their config section alongside — when the area is actually built: `cli/` (interface doors), `broker/orders.py`, `broker/positions.py`, `strategy/`, `backtest/`, `risk/`, `config/backtest.py`, `config/live.py`, `config/risk.py`.
+These get created — with their config section alongside — when the area is actually built: `cli/` (interface doors), `broker/orders.py`, `broker/positions.py`, `strategy/`, `backtest/` (the engine that reads `config/backtest.py`), `risk/`, `config/live.py`, `config/risk.py`.
