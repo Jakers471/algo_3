@@ -42,6 +42,7 @@
 - **Deleting an orchestrator never deletes its engine.** A thin door (e.g. `cli/connect.py`) can be removed once its purpose is served; the `broker/` modules it called are separate and stay. Kill the door, keep the engine.
 - **When a spike keeps getting re-run, it wants to graduate.** If you find yourself running an exploration repeatedly, that's the signal it's really a permanent job — promote it to a proper `src/` command (strip the throwaway bits) instead of leaving it in `scratch/`.
 - **A disclosed throwaway job may be ONE condensed script.** The modular rules (one file = one job, folders by category, thin doors) govern *permanent* `src/` code. When Jake explicitly discloses a task is a one-time job that gets deleted when done — a cleanup, a data comparison, a quick analysis — write it as a single self-contained script in `scratch/` rather than splitting it across modules. Because it's disposable, modularity buys nothing; condensing is faster and just as correct. This exception applies ONLY on explicit disclosure and ONLY in `scratch/` — never condense permanent `src/` code this way.
+- **NEVER run-then-delete a throwaway in one motion.** After running a scratch script, leave it in place. Deletion is Jake's call, not automatic — he needs to run it and see the raw output himself first. Show him the results, then *wait* for his explicit go-ahead before deleting. Summarizing the output is not a substitute for him seeing it. When in doubt, keep the script.
 
 ### Logging & debug
 
