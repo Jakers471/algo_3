@@ -17,6 +17,8 @@
 - Separate **plumbing from logic**. Code that talks to the outside world (API calls, file read/write) stays apart from your actual decision logic (strategy, backtest math), so logic can be tested without touching the API.
 - **Keep interface files thin.** A CLI command or `main.py` just parses input, calls the real function in a module, and formats the result — it holds no trading logic itself. The weight lives in the modules; the doors on top stay feather-light.
 - **Split when it hurts, not before.** It's fine to start with one file and break it apart the moment a second caller needs only part of it. Don't over-plan the structure up front — let the seams reveal themselves and refactor toward one-job-per-file as they do.
+- **A compound request is not a request for one script.** When Jake bundles several actions in one breath — "connect to ProjectX, grab accounts, fetch NQ data", or "x, y and z", or "this, this and that" — that is a list of *separate jobs*, each getting its own file, even though he didn't say "split it up." This is a trading algorithm built from many small, modular pieces; default to modularity. When in doubt, split.
+- **Never duplicate logic.** If something already exists, reuse it — import the existing file, don't rewrite it. When Jake reiterates "I need you to build X" and we already have X (or a piece of it), do NOT re-create it; extend or call what's there. Every file is reusable and pluggable: written once, imported everywhere. Duplicated logic is a bug.
 
 ### Logging & debug
 
@@ -27,6 +29,12 @@
 - **Log *configuration* is its own job** — format, level, and destinations live in one module (e.g. `src/logging_config.py`) with a `setup_logging()` called once at startup by the CLI/`main.py`. Change format or add a log file in that one place; every module follows.
 - Each module gets its logger with `logger = logging.getLogger(__name__)` at the top. Modules decide *what* to log; `logging_config.py` decides *how and where*.
 - **Log *output* is data, not code** — `.log` files go to a top-level `logs/` folder (git-ignored), never in `src/`.
+
+**Debug output style — structured, organised, neat, yet simple and elegant.**
+
+- **NEVER use emoji. Ever.** Not in logs, not in output, not in commit messages, not anywhere.
+- Use **inline colored text** (ANSI color codes) to structure and highlight output — e.g. green for success/completed, yellow for warnings, red for errors, dim/grey for detail, bold for headers. Color carries the meaning that emoji would otherwise; it stays clean, professional, and terminal-native.
+- Keep it readable: aligned columns, clear labels, consistent phrasing. Elegant means *less* — enough structure to scan at a glance, no clutter.
 
 ### Interface: CLI-first
 
