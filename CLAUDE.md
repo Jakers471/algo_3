@@ -41,6 +41,7 @@
 - **A spike's real output is the permanent module it forces you to build, not the spike itself.** When a spike proves something, *extract* the reusable part into a proper `src/` module, then *delete* the spike. Scaffolding comes down once the building stands.
 - **Deleting an orchestrator never deletes its engine.** A thin door (e.g. `cli/connect.py`) can be removed once its purpose is served; the `broker/` modules it called are separate and stay. Kill the door, keep the engine.
 - **When a spike keeps getting re-run, it wants to graduate.** If you find yourself running an exploration repeatedly, that's the signal it's really a permanent job — promote it to a proper `src/` command (strip the throwaway bits) instead of leaving it in `scratch/`.
+- **A disclosed throwaway job may be ONE condensed script.** The modular rules (one file = one job, folders by category, thin doors) govern *permanent* `src/` code. When Jake explicitly discloses a task is a one-time job that gets deleted when done — a cleanup, a data comparison, a quick analysis — write it as a single self-contained script in `scratch/` rather than splitting it across modules. Because it's disposable, modularity buys nothing; condensing is faster and just as correct. This exception applies ONLY on explicit disclosure and ONLY in `scratch/` — never condense permanent `src/` code this way.
 
 ### Logging & debug
 
