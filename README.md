@@ -31,7 +31,7 @@ python -m src.cli.backtest run_configs/breakout_nq5m.json       # backtest -> sa
 python -m src.cli.walkforward run_configs/wfa_breakout_nq5m.json  # walk-forward (IS/OOS) -> saved run
 ```
 
-A backtest saves a **labeled run** to `runs/<timestamp>_<strategy>_<params>/` (git-ignored): `trades.csv`/`trades.txt`, `summary.json`/`summary.txt`, `equity.png`, and a `run.json` manifest that replays as a config. Run recipes live in `run_configs/` (tracked JSON).
+A backtest saves a **labeled run** to `runs/<timestamp>_<strategy>_<params>/` (git-ignored): `trades.csv`/`trades.txt`, `summary.json`/`summary.txt`, `equity.png`, and a `run.json` manifest that replays as a config. Run recipes live in `run_configs/` (tracked JSON) — see `run_configs/README.md` for every field and the swappable objective/strategy names.
 
 _See `ARCHITECTURE.md` for all entry points. `src/broker/` is a reusable engine still awaiting its own command._
 
