@@ -1,6 +1,6 @@
 # ARCHITECTURE.md — the code map
 
-**How the code is wired.** This is the *code map*: the folder tree and who-imports-who. For what the trading words mean (account, contract, bar…), see `GLOSSARY.md` — the *domain map*.
+**How the code is wired.** This is the *code map*: the folder tree and who-imports-who. For what the trading words mean (account, contract, bar…), see the `projectX_API/` docs.
 
 Keep this file current: whenever a module is added, moved, renamed, or its imports change, update this map in the same commit.
 
@@ -71,4 +71,4 @@ New workflows (backtest, live, health) will each add a door here. See `COMMANDS.
 
 ## Not built yet (planned shape)
 
-These appear in `CLAUDE.md`/`GLOSSARY.md` as the target, and get created — with their config section alongside — when the area is actually built: `broker/orders.py`, `broker/positions.py`, `strategy/`, `backtest/`, `risk/`, `config/backtest.py`, `config/live.py`, `config/risk.py`.
+These get created — with their config section alongside — when the area is actually built: `broker/orders.py`, `broker/positions.py`, `strategy/`, `backtest/`, `risk/`, `config/backtest.py`, `config/live.py`, `config/risk.py`.
