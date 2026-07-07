@@ -15,6 +15,7 @@ from pathlib import Path
 
 from src.backtest.runspec import RunSpec
 from src.reporting import equity
+from src.reporting import folds as folds_report
 from src.reporting import stats as stats_mod
 from src.reporting import trades as trades_mod
 
@@ -55,4 +56,44 @@ def save(spec: RunSpec, trade_list, stats: dict, starting_capital: float, *, dat
         },
     }
     (run_dir / "run.json").write_text(json.dumps(manifest, indent=2, default=str), encoding="utf-8")
+    return run_dir
+
+
+def save_wfa(spec, wfa_result, starting_capital: float, *, data_meta: dict) -> Path:
+    """Bundle a walk-forward run: stitched-OOS artifacts + the per-fold table."""
+    ts = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    run_dir = RUNS_DIR / f"{ts}_{spec.label()}"
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    stitched = wfa_result.oos_trades
+    stats = stats_mod.compute_all(stitched, starting_capital)
+
+    trades_mod.write_csv(stitched, run_dir / "trades.csv")
+    trades_mod.write_text(stitched, run_dir / "trades.txt")
+    stats_mod.write_json(stats, run_dir / "summary.json")
+    stats_mod.write_text(stats, run_dir / "summary.txt")
+    equity.plot(stitched, run_dir / "equity.png", title=f"{spec.label()} (stitched OOS)")
+    folds_report.write_csv(wfa_result.fold_results, run_dir / "folds.csv")
+    folds_report.write_text(wfa_result.fold_results, run_dir / "folds.txt")
+
+    a = stats["all"]
+    manifest = {
+        **spec.to_dict(),
+        "run": {
+            "timestamp": ts,
+            "starting_capital": starting_capital,
+            "n_folds": len(wfa_result.fold_results),
+            "n_oos_trades": len(stitched),
+            **data_meta,
+        },
+        "walk_forward_efficiency": _num(wfa_result.wfe),
+        "headline": {
+            "oos_net_profit": _num(a.net_profit),
+            "oos_win_rate": _num(a.win_rate),
+            "oos_profit_factor": _num(a.profit_factor),
+            "oos_max_drawdown": _num(a.max_drawdown),
+            "oos_ambiguous_pct": _num(a.ambiguous_pct),
+        },
+    }
+    (run_dir / "wfa.json").write_text(json.dumps(manifest, indent=2, default=str), encoding="utf-8")
     return run_dir

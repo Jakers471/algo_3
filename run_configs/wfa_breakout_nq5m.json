@@ -1,0 +1,17 @@
+{
+  "strategy": "breakout",
+  "symbol": "NQ",
+  "timeframe": "5m",
+  "size": 1,
+  "objective": "profit_factor",
+  "is_days": 730,
+  "oos_days": 180,
+  "step_days": 180,
+  "anchored": false,
+  "min_trades": 10,
+  "param_grid": {
+    "lookback": [20, 40],
+    "stop_points": [15, 20],
+    "target_points": [30, 40]
+  }
+}

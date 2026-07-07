@@ -34,12 +34,21 @@ algo_3/
 │   │   ├── fills.py       pure fill model (slippage, gaps, adverse-first flag)
 │   │   ├── engine.py      the bar loop; emits Trades (MAE/MFE/ETD, hold policy)
 │   │   └── runspec.py     load a JSON run config; label a run (replayable)
+│   ├── optimize/       search a param grid over one window, rank by objective
+│   │   ├── grid.py        expand a param grid into every combo
+│   │   ├── objective.py   score Stats by a named objective (min-trades guard)
+│   │   └── sweep.py       backtest each combo on a window; rank best-first
+│   ├── walkforward/    optimize IS -> test OOS -> stitch (honest validation)
+│   │   ├── folds.py       generate IS/OOS window folds (rolling/anchored)
+│   │   ├── wfaspec.py     the JSON walk-forward run config (replayable)
+│   │   └── engine.py      per fold: sweep IS, run best on OOS, stitch + WFE
 │   ├── reporting/      Trades -> saved, shareable run artifacts
 │   │   ├── stats.py       All/Long/Short metrics (+ json/text writers)
 │   │   ├── trades.py      trade list -> CSV (machine) + aligned text (human)
 │   │   ├── equity.py      equity + drawdown image (matplotlib PNG)
-│   │   ├── console.py     terminal All/Long/Short summary (color)
-│   │   └── run.py         bundle everything into a labeled run/ folder
+│   │   ├── folds.py       walk-forward per-fold table -> CSV + text
+│   │   ├── console.py     terminal All/Long/Short + fold summaries (color)
+│   │   └── run.py         bundle a backtest or WFA into a labeled run/ folder
 │   ├── broker/         all ProjectX API access (plumbing) — the engine
 │   │   ├── client.py      connection + auth; exposes post() for reuse
 │   │   ├── accounts.py    search accounts, pick a tradable one
@@ -47,7 +56,8 @@ algo_3/
 │   │   └── history.py     fetch OHLCV bars for a contract
 │   └── cli/            thin doors: parse input, call an engine, format out
 │       ├── data.py        load & summarize prepared bars (python -m src.cli.data)
-│       └── backtest.py    run a backtest from a config; save a labeled run
+│       ├── backtest.py    run a backtest from a config; save a labeled run
+│       └── walkforward.py run a walk-forward from a config; save a labeled run
 ├── run_configs/        JSON run recipes (tracked) — strategy + params + data
 ├── runs/               labeled run outputs (git-ignored): trades, summary, equity.png
 ├── (top level, not code): .env, logs/, data/, projectX_API/
@@ -82,10 +92,17 @@ backtest.runspec  ─► json                 (load the run config; a manifest r
 reporting.stats   ─► backtest.engine      (the Trade type)
 reporting.trades  ─► backtest.engine      (Trade -> CSV/text)
 reporting.equity  ─► matplotlib, backtest.engine   (Trade -> PNG)
-reporting.console ─► reporting.stats, core.console (terminal summary)
-reporting.run     ─► reporting.{trades,stats,equity}, backtest.runspec  (labeled run)
+reporting.folds   ─► (walk-forward fold results -> CSV/text)
+reporting.console ─► reporting.stats, core.console (terminal summaries)
+reporting.run     ─► reporting.{trades,stats,equity,folds}, backtest.runspec  (labeled run)
+
+optimize.sweep    ─► optimize.{grid,objective}, backtest.engine, reporting.stats, strategy.registry
+walkforward.engine ─► walkforward.folds, optimize.{sweep,objective}, backtest.engine,
+                      reporting.stats, strategy.registry, config.backtest
 
 cli.backtest      ─► data.prepare, strategy.registry, backtest.{engine,runspec},
+                     reporting.{stats,console,run}, core.progress
+cli.walkforward   ─► data.prepare, walkforward.{engine,folds,wfaspec},
                      reporting.{stats,console,run}, core.progress
 
 logging.setup    ─► logging.settings    (reads the dial value)
@@ -110,6 +127,7 @@ audit.reader       ─► DATA_AUDIT.json     (the data's own rules, read once)
 
 - **`python -m src.cli.data [SYMBOL] [TIMEFRAME]`** — load prepared bars (default `NQ 5m`) and print a summary (rows, range, session-gap count). Wired into `commands.bat` → Data.
 - **`python -m src.cli.backtest run_configs/<name>.json`** — run a backtest from a JSON run config with a progress bar, print the All/Long/Short summary, and save a **labeled run** to `runs/<timestamp>_<strategy>_<params>/` (trades.csv/txt, summary.json/txt, equity.png, run.json manifest). The manifest replays as a config. A run is always defined by a config. Wired into `commands.bat` → Backtest.
+- **`python -m src.cli.walkforward run_configs/<name>.json`** — run a walk-forward analysis: for each fold, optimize the param grid in-sample and test the winner out-of-sample, then stitch the OOS trades. Prints the per-fold table + stitched-OOS summary + walk-forward efficiency; saves a labeled run (adds `folds.csv/txt`, `wfa.json`). Judge on the stitched OOS, never the in-sample optimization. Wired into `commands.bat` → Backtest.
 
 `broker/` is a verified, reusable engine (auth → account → contract → bars) still awaiting its own command (e.g. live trading, health check); when built it adds another thin `cli/` door here, wired into `commands.bat`.
 

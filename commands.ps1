@@ -96,7 +96,8 @@ $root = @{
             Submenu = @{
                 Title = 'Backtest'
                 Items = @(
-                    @{ Label = 'Run from config  (run_configs/breakout_nq5m.json)'; Run = { python -m src.cli.backtest run_configs/breakout_nq5m.json } }
+                    @{ Label = 'Run from config  (run_configs/breakout_nq5m.json)'; Run = { python -m src.cli.backtest run_configs/breakout_nq5m.json } },
+                    @{ Label = 'Walk-forward from config  (run_configs/wfa_breakout_nq5m.json)'; Run = { python -m src.cli.walkforward run_configs/wfa_breakout_nq5m.json } }
                 )
             }
         },
