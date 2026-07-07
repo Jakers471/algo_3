@@ -23,7 +23,13 @@ Launch the command menu (double-click or run from a shell):
 commands.bat
 ```
 
-_No default `python -m src.main` yet — `src/broker/` is a reusable engine awaiting its first command. See `ARCHITECTURE.md`._
+Or run a door directly, e.g. load and summarize prepared bars:
+
+```
+python -m src.cli.data NQ 5m
+```
+
+_See `ARCHITECTURE.md` for all entry points. `src/broker/` is a reusable engine still awaiting its own command._
 
 ## Layout & docs
 

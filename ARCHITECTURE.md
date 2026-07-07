@@ -22,11 +22,16 @@ algo_3/
 │   │   └── setup.py        setup_logging(): how/where logs render
 │   ├── core/            shared infrastructure used everywhere
 │   │   └── console.py       ANSI color codes + paint() (no emoji, ever)
-│   └── broker/          all ProjectX API access (plumbing) — the engine
-│       ├── client.py      connection + auth; exposes post() for reuse
-│       ├── accounts.py    search accounts, pick a tradable one
-│       ├── contracts.py   search contracts, resolve a symbol to its id
-│       └── history.py     fetch OHLCV bars for a contract
+│   ├── data/           load the NT8 Parquet store into clean bars — engine
+│   │   ├── loader.py      read a symbol/TF Parquet -> raw UTC OHLCV (I/O)
+│   │   └── prepare.py     window + gap-mark + zero-vol policy (logic)
+│   ├── broker/         all ProjectX API access (plumbing) — the engine
+│   │   ├── client.py      connection + auth; exposes post() for reuse
+│   │   ├── accounts.py    search accounts, pick a tradable one
+│   │   ├── contracts.py   search contracts, resolve a symbol to its id
+│   │   └── history.py     fetch OHLCV bars for a contract
+│   └── cli/            thin doors: parse input, call an engine, format out
+│       └── data.py        load & summarize prepared bars (python -m src.cli.data)
 ├── (top level, not code): .env, logs/, data/, projectX_API/
 ```
 
@@ -39,6 +44,14 @@ broker.accounts  ─► broker.client
 broker.contracts ─► broker.client
 broker.history   ─► broker.client
 broker.client    ─► requests            (external HTTP library)
+
+data.prepare     ─► data.loader         (raw bars to clean)
+                 └► config.backtest      (window + zero-vol policy)
+data.loader      ─► pandas               (reads the Parquet store)
+
+cli.data         ─► data.prepare         (the bars engine it drives)
+                 ├► logging.setup         (configure logging at startup)
+                 └► core.console          (color the summary)
 
 logging.setup    ─► logging.settings    (reads the dial value)
                  └► core.console         (color codes)
@@ -60,7 +73,9 @@ audit.reader       ─► DATA_AUDIT.json     (the data's own rules, read once)
 
 ## Entry points (the doors you can run)
 
-**None yet.** `broker/` is a verified, reusable engine (auth → account → contract → bars) awaiting its first command. When a workflow is built (e.g. live trading, health check), it adds a thin `cli/` door here, wired into `commands.bat`.
+- **`python -m src.cli.data [SYMBOL] [TIMEFRAME]`** — load prepared bars (default `NQ 5m`) and print a summary (rows, range, session-gap count). Wired into `commands.bat` → Data. This is the first runnable door over the data-loader engine.
+
+`broker/` is a verified, reusable engine (auth → account → contract → bars) still awaiting its own command (e.g. live trading, health check); when built it adds another thin `cli/` door here, wired into `commands.bat`.
 
 ## Note on API history depth
 
@@ -72,4 +87,4 @@ The historical NQ/ES Parquet in `data/` is audited in `DATA_AUDIT.md` (human) an
 
 ## Not built yet (planned shape)
 
-These get created — with their config section alongside — when the area is actually built: `cli/` (interface doors), `broker/orders.py`, `broker/positions.py`, `strategy/`, `backtest/` (the engine that reads `config/backtest.py`), `risk/`, `config/live.py`, `config/risk.py`.
+These get created — with their config section alongside — when the area is actually built: `broker/orders.py`, `broker/positions.py`, `strategy/`, `backtest/` (the engine that reads `config/backtest.py`), `risk/`, `execution/`, `config/live.py`, `config/risk.py`. (`data/` and `cli/` now exist.)

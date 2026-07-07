@@ -103,6 +103,7 @@ $root = @{
             Submenu = @{
                 Title = 'Data'
                 Items = @(
+                    @{ Label = 'Load & summarize bars  (python -m src.cli.data NQ 5m)'; Run = { python -m src.cli.data NQ 5m } },
                     @{ Label = 'Audit backtest data  (regenerate DATA_AUDIT.json/.md)'; Run = { python scratch/audit_parquet.py } },
                     @{ Label = 'Compare NT8 Parquet vs ProjectX API'; Run = { python scratch/compare_data.py } }
                 )
