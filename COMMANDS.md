@@ -1,13 +1,29 @@
 # Commands
 
-Run from repo root. Update this file whenever a command changes.
+The single hub for every runnable command. Organized by category; each entry is
+collapsible — toggle it open, copy the command, and run it from the repo root
+(`C:\Users\jakers\Desktop\algo_3`). No launcher files; this file is the one place.
+
+Kept structured, labeled, current, and cleaned on every change.
+
+---
 
 ## Setup
 
-| Command | Source |
-|---------|--------|
-| `python -m pip install -r requirements.txt` | `requirements.txt` |
+<details>
+<summary><b>Install dependencies</b> &nbsp;·&nbsp; <code>python -m pip install -r requirements.txt</code></summary>
 
-## CLI
+```bash
+python -m pip install -r requirements.txt
+```
 
-_No runnable CLI commands yet — `broker/` is a library awaiting its first command._
+Source: `requirements.txt` · Run once, and again whenever dependencies change.
+
+</details>
+
+---
+
+## CLI / Workflows
+
+_None yet. `broker/` is a verified engine (auth → account → contract → bars)
+awaiting its first command; its thin `cli/` door will add an entry here when built._

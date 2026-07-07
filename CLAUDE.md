@@ -90,12 +90,13 @@ A JS/TS frontend may come later. **When** it does, it gets its own self-containe
 
 ## Commands documentation
 
-**Every runnable command goes in the top-level `COMMANDS.md`.** Jake should never have to guess how to run anything.
+**`COMMANDS.md` is the single hub for every runnable command — structured, labeled, collapsible, always current.** Jake runs everything from here: open the file, toggle a command's section, copy it, run it from the repo root. It is the *one* place — there are no scattered launcher files (`.bat`, shell scripts, per-command runners). Don't create them; add a COMMANDS.md entry instead.
 
-- Any time a command is added, renamed, or changed in any way — a new CLI entry point, a script, a make/task target, a one-off invocation — **write it in `COMMANDS.md` in the same commit** as the code change.
-- **Keep it terse — a lookup table, not a manual.** The list will grow, so each row is just: the exact command, its source file, and a few-word "does". No long explanation — the source file's imports, dependencies, and functions are the real spec; point there instead of re-explaining in prose.
-- Keep it current: if a command is removed, delete its row. `COMMANDS.md` is the single source of truth for "how do I run this."
-- **`COMMANDS.md` is for permanent `src/` commands only — never document `scratch/` spikes there.** Scratch code is disposable and often run once; a throwaway doesn't earn a row, and documenting it just leaves a stale entry when the spike is deleted. If a spike graduates into a permanent `src/` command, *that's* when it gets a row.
+- **One entry per command, grouped under a labeled category heading** (`## Setup`, `## CLI / Workflows`, `## Data`, …). Add a new category heading when a new area of commands appears; never dump unrelated commands under one heading.
+- **Each entry is a collapsible `<details>` block** so the file stays scannable as it grows: the `<summary>` carries the command name **and** the exact command string; opening it shows the source file and a few-word "does". Toggle down, copy, run.
+- **Terse — a launcher, not a manual.** The summary *is* the command; the body is at most source + one line. The source file's imports and functions are the real spec; point there, don't re-explain in prose.
+- **Always updated, always cleaned** — add/rename/change a command → update its entry in the same commit; remove a command → delete its entry. No stale entries, ever.
+- **Permanent `src/` commands only** — never document `scratch/` spikes. A throwaway doesn't earn an entry; if a spike graduates into a permanent command, *that's* when it gets one.
 
 ## Project map — the code map, kept current
 
