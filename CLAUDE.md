@@ -8,25 +8,24 @@
 - Every source file you write, create, or move goes under `src/` (in an appropriate subpackage). Do not put code at the top level.
 - Reference/data directories (e.g. `projectX_API/`, `data/`) are not code and stay at the top level, not in `src/`.
 
-### Backend vs. frontend
+### Interface: CLI-first
 
-`src/` is **Python only**. The frontend is a separate world and gets its own top-level `frontend/` folder — self-contained, with its own `package.json`, build tools, dependencies, and its own JS/TS `src/` inside it. Never put JS/TS app code inside the Python `src/`.
+For now this is a **CLI-driven, Python-only project** — the primary interface is a command-line tool, no frontend yet. Keep the CLI entry point under `src/` (e.g. `src/cli/`).
 
 ```
 algo_3/
-├── src/               ← Python backend (engine, strategies, API)
+├── src/               ← Python backend (engine, strategies, API, CLI)
 │   ├── backtest/
 │   ├── strategy/
-│   └── api/           ← serves data to the frontend
-├── frontend/          ← the whole JS/TS app, self-contained
-│   ├── src/           ← its own src, in JS-land
-│   ├── package.json
-│   └── ...
+│   ├── cli/           ← command-line interface (primary interface for now)
+│   └── api/
 ├── data/
 └── requirements.txt
 ```
 
-Keep the two worlds cleanly separated: `src/` stays purely Python, `frontend/` stays purely JS/TS. The Python API layer (`src/api/`) is what serves data to the frontend.
+### Frontend (future — only when JS is added)
+
+A JS/TS frontend may come later. **When** it does, it gets its own self-contained top-level `frontend/` folder (its own `package.json`, build tools, dependencies, and internal JS/TS `src/`). Never put JS/TS app code inside the Python `src/` — keep the two worlds cleanly separated. Until then, don't scaffold a `frontend/` folder.
 
 ## Version control workflow
 
