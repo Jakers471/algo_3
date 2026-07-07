@@ -8,7 +8,8 @@
 #  file. An item is either:
 #     @{ Label = '...'; Run = { <command> } }        a runnable command
 #     @{ Label = '...'; Submenu = @{ Title=...; Items=@(...) } }   a submenu
-#  Keep it updated and cleaned; permanent src/ commands only, never scratch.
+#  Keep it updated and cleaned. Wire in every runnable command AND persistent
+#  scratch tool (audits, generators, comparisons) so Jake can run them here.
 # ===========================================================================
 
 $ErrorActionPreference = 'Stop'
@@ -101,7 +102,19 @@ $root = @{
             Label = 'Data'
             Submenu = @{
                 Title = 'Data'
-                Items = @()
+                Items = @(
+                    @{ Label = 'Audit backtest data  (regenerate DATA_AUDIT.json/.md)'; Run = { python scratch/audit_parquet.py } },
+                    @{ Label = 'Compare NT8 Parquet vs ProjectX API'; Run = { python scratch/compare_data.py } }
+                )
+            }
+        },
+        @{
+            Label = 'Maintenance'
+            Submenu = @{
+                Title = 'Maintenance'
+                Items = @(
+                    @{ Label = 'Project audit  (docs drift + dead code)'; Run = { python scratch/audit_project.py } }
+                )
             }
         }
     )

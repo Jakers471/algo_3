@@ -96,7 +96,7 @@ A JS/TS frontend may come later. **When** it does, it gets its own self-containe
 - **Every runnable command is a menu item** in the tree — either `@{ Label='...'; Run={ <command> } }` (runs it) or `@{ Label='...'; Submenu=@{...} }` (nests). Wire a new command into the tree in the *same commit* as the code that adds it.
 - **Items dispatch to the real command** (e.g. `Run = { python -m src.cli.<name> }`); the menu holds no trading logic, just labels and calls.
 - **Always updated, always cleaned** — add/rename/change a command → update its item; remove a command → delete its item. No dead menu items, ever.
-- **Permanent `src/` commands only** — never wire `scratch/` spikes into the menu. A throwaway doesn't earn an item; if a spike graduates into a permanent command, *that's* when it gets one.
+- **Wire in EVERYTHING runnable Jake will re-run — including persistent `scratch/` tools.** `src/` commands, workflows, AND scratch tools (audits, generators, comparisons) all get a menu item, added in the *same commit* you create them. Only a genuine one-shot spike (run once, never again) is exempt. **Whenever you build something runnable, wiring it into the menu is part of the job, not an afterthought — do not finish a runnable tool without giving Jake a way to run it here.**
 
 ## Project map — the code map, kept current
 
