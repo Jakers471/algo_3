@@ -1,0 +1,18 @@
+# Core dependencies for algo_3
+# Pin versions with == once you settle on them (pip freeze > requirements.txt)
+
+# Data & numerical
+pandas
+numpy
+
+# HTTP / API access
+requests
+
+# Config / secrets
+python-dotenv
+
+# --- add as you build ---
+# ccxt            # crypto exchange APIs
+# ta-lib          # technical indicators
+# matplotlib      # plotting
+# pytest          # testing
