@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from src.config import audit
+from src.audit import reader as audit
 
 # --- data-truth settings (dictated by DATA_AUDIT.json) --------------------
 # The last bar in the dataset — ~17 months behind live (audit: stale_data).

@@ -1,6 +1,6 @@
 """Logging configuration values: level and output destination.
 
-This holds the *value* of the dial; ``src/core/logging_config.py`` reads
+This holds the *value* of the dial; ``src/logging/setup.py`` reads
 these and applies them.
 """
 

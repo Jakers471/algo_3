@@ -12,21 +12,22 @@ algo_3/
 │   ├── config/          settings, sectioned by area (dials you edit)
 │   │   ├── __init__.py    loads .env once (single secret-load point)
 │   │   ├── broker.py      API endpoints; credentials from .env
-│   │   ├── data.py        default symbol, lookback, bar limits
-│   │   ├── logging.py     log level + destination (the value of the dial)
-│   │   ├── audit.py       front door to DATA_AUDIT.json (data-truth facts)
 │   │   ├── instruments.py per-symbol tick/point value (read from audit)
 │   │   ├── session.py     UTC + RTH hours (09:30-16:00 ET)
 │   │   └── backtest.py    slippage, backtest window, gap/hold policy
+│   ├── audit/           read the data-truth facts from DATA_AUDIT.json
+│   │   └── reader.py       front door: specs, handling flags, data end
+│   ├── logging/         the logging job: dials + the setup that applies them
+│   │   ├── settings.py     log level + destination (the value of the dial)
+│   │   └── setup.py        setup_logging(): how/where logs render
 │   ├── core/            shared infrastructure used everywhere
-│   │   ├── console.py       ANSI color codes + paint() (no emoji, ever)
-│   │   └── logging_config.py  setup_logging(): how/where logs render
+│   │   └── console.py       ANSI color codes + paint() (no emoji, ever)
 │   └── broker/          all ProjectX API access (plumbing) — the engine
 │       ├── client.py      connection + auth; exposes post() for reuse
 │       ├── accounts.py    search accounts, pick a tradable one
 │       ├── contracts.py   search contracts, resolve a symbol to its id
 │       └── history.py     fetch OHLCV bars for a contract
-├── config/data (top level, not code): .env, logs/, data/, projectX_API/
+├── (top level, not code): .env, logs/, data/, projectX_API/
 ```
 
 ## Dependency graph (who imports who)
@@ -39,22 +40,23 @@ broker.contracts ─► broker.client
 broker.history   ─► broker.client
 broker.client    ─► requests            (external HTTP library)
 
-core.logging_config ─► config.logging   (reads the dial value)
-                    └► core.console      (color codes)
+logging.setup    ─► logging.settings    (reads the dial value)
+                 └► core.console         (color codes)
 
 config.__init__  ─► dotenv               (loads .env once)
 config.broker    ─► os                   (reads secrets from env)
 
-config.instruments ─► config.audit       (tick/point values from the audit)
-config.backtest    ─► config.audit       (data_end + handling flags)
-config.audit       ─► DATA_AUDIT.json     (the data's own rules, read once)
+config.instruments ─► audit.reader       (tick/point values from the audit)
+config.backtest    ─► audit.reader       (data_end + handling flags)
+audit.reader       ─► DATA_AUDIT.json     (the data's own rules, read once)
 ```
 
 ### What this shows at a glance
 
 - **`broker.client` is the hub.** Every other broker module depends on it for the connection and its shared `post()`. Written once, reused everywhere — never duplicated.
-- **`core/` is the foundation.** `console` and `logging_config` are depended on but depend on almost nothing themselves (only stdlib + config). That's why they live in `core/`.
-- **`config/` is a leaf.** Everyone reads from it; it depends on nothing but `os`/`dotenv`. Settings flow *out*, never in.
+- **`core/` is the foundation.** `console` is depended on but depends on almost nothing itself. That's why it lives in `core/`. (The logging *setup* moved to its own `logging/` folder, sitting next to the `settings` dials it applies — one folder for the whole logging job.)
+- **`audit/` is the deepest data-truth leaf.** `audit.reader` reads `DATA_AUDIT.json` once and hands the facts out; `config.instruments` and `config.backtest` read *from* it. Data-truth flows out of `audit/`, never in.
+- **`config/` is (almost) a leaf.** Everyone reads dials from it; it depends on nothing but `os`/`dotenv` — except the two sections that draw data-truth from `audit.reader`. Settings flow *out*, never in.
 
 ## Entry points (the doors you can run)
 
@@ -66,7 +68,7 @@ config.audit       ─► DATA_AUDIT.json     (the data's own rules, read once)
 
 ## Backtest data reference
 
-The historical NQ/ES Parquet in `data/` is audited in `DATA_AUDIT.md` (human) and `DATA_AUDIT.json` (machine). `config/audit.py` is the code that reads that JSON; `config/instruments.py`, `config/session.py`, and `config/backtest.py` turn its fixed facts (contract specs, timezone, `handling` flags) into the dials the backtest engine runs on. Data is clean; the flags (gap-awareness, back-adjustment, fills/slippage, staleness) are what the engine must honor — they now live as config, seeded from the audit.
+The historical NQ/ES Parquet in `data/` is audited in `DATA_AUDIT.md` (human) and `DATA_AUDIT.json` (machine). `audit/reader.py` is the code that reads that JSON; `config/instruments.py`, `config/session.py`, and `config/backtest.py` turn its fixed facts (contract specs, timezone, `handling` flags) into the dials the backtest engine runs on. Data is clean; the flags (gap-awareness, back-adjustment, fills/slippage, staleness) are what the engine must honor — they now live as config, seeded from the audit.
 
 ## Not built yet (planned shape)
 

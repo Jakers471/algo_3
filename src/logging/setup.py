@@ -2,7 +2,7 @@
 
 One job: decide *how and where* logs are rendered. Every module gets its
 logger with ``logging.getLogger(__name__)`` and decides *what* to log; this
-module owns the look. It reads its dial values from ``src.config.logging``.
+module owns the look. It reads its dial values from ``src.logging.settings``.
 Call ``setup_logging()`` once at startup.
 
 Debug output is structured, neat, and elegant: an aligned timestamp and a
@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import os
 
-from src.config import logging as log_cfg
+from src.logging import settings as log_cfg
 from src.core import console
 
 # Level -> color for the level tag.

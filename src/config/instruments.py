@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from src.config import audit
+from src.audit import reader as audit
 
 
 @dataclass(frozen=True)
