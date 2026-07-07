@@ -4,6 +4,7 @@
 # Data & numerical
 pandas
 numpy
+pyarrow          # read/write Parquet (the NT8 historical data)
 
 # Backtesting / research
 vectorbt
