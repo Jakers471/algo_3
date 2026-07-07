@@ -12,6 +12,28 @@ import json
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
+# Saved run manifests are not curated recipes, so they are exempt from the
+# filename rule (they replay by content, whatever the folder is named).
+_MANIFESTS = {"run.json", "wfa.json"}
+
+
+def check_config_name(path: Path, strategy: str, symbol: str, timeframe: str) -> None:
+    """Refuse a run config whose filename doesn't reflect the strategy inside.
+
+    Each config is a saved recipe named for its contents; repurposing one file for
+    a different strategy makes the name lie. The rule: the strategy name must appear
+    in the filename. Manifests (replayed run outputs) are exempt.
+    """
+    if path.name in _MANIFESTS:
+        return
+    if strategy.lower() not in path.stem.lower():
+        raise ValueError(
+            f"Config '{path.name}' sets strategy '{strategy}', but the filename does "
+            f"not reflect it. A config is a saved recipe named for its contents - don't "
+            f"repurpose a file for a different strategy. Save a new file, e.g. "
+            f"'{strategy}_{symbol.lower()}{timeframe}.json', or fix the 'strategy' field."
+        )
+
 
 @dataclass
 class RunSpec:
@@ -28,8 +50,11 @@ class RunSpec:
 
     @classmethod
     def load(cls, path: str | Path) -> "RunSpec":
+        path = Path(path)
         with open(path, encoding="utf-8") as fh:
-            return cls.from_dict(json.load(fh))
+            spec = cls.from_dict(json.load(fh))
+        check_config_name(path, spec.strategy, spec.symbol, spec.timeframe)
+        return spec
 
     def to_dict(self) -> dict:
         return asdict(self)

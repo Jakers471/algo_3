@@ -4,6 +4,19 @@ JSON files that define a run. Each doubles as the format of the saved manifest
 (`run.json` / `wfa.json`), so any past run in `runs/` is replayable by pointing
 a CLI at its manifest. JSON has no comments — the valid values live here.
 
+## One file = one recipe (the filename must match its strategy)
+
+A config is a **saved recipe named for its contents**, not a file you edit into a
+different strategy. The CLI dispatches on the `strategy` field *inside* the JSON
+(via the registry) — the filename is a human label. To keep names honest, loading
+a config **fails** if the filename doesn't contain the `strategy` name. So:
+
+- Point the CLI at **any** config file — it runs whatever's inside. That's the
+  plug-and-play: many recipes, one CLI.
+- Want a different strategy/symbol/params? **Make a new file** named for it
+  (e.g. `va_breakout_nq1m.json`). Don't repurpose `breakout_nq5m.json`.
+- Saved run manifests (`run.json` / `wfa.json`) are exempt — they always replay.
+
 ## Backtest run config (e.g. `breakout_nq5m.json`)
 
 Run with: `python -m src.cli.backtest run_configs/breakout_nq5m.json`

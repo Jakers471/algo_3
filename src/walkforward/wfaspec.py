@@ -11,6 +11,8 @@ import json
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
+from src.backtest.runspec import check_config_name
+
 
 @dataclass
 class WFASpec:
@@ -33,8 +35,11 @@ class WFASpec:
 
     @classmethod
     def load(cls, path: str | Path) -> "WFASpec":
+        path = Path(path)
         with open(path, encoding="utf-8") as fh:
-            return cls.from_dict(json.load(fh))
+            spec = cls.from_dict(json.load(fh))
+        check_config_name(path, spec.strategy, spec.symbol, spec.timeframe)
+        return spec
 
     def to_dict(self) -> dict:
         return asdict(self)
