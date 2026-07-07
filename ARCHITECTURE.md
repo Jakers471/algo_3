@@ -109,7 +109,7 @@ audit.reader       ─► DATA_AUDIT.json     (the data's own rules, read once)
 ## Entry points (the doors you can run)
 
 - **`python -m src.cli.data [SYMBOL] [TIMEFRAME]`** — load prepared bars (default `NQ 5m`) and print a summary (rows, range, session-gap count). Wired into `commands.bat` → Data.
-- **`python -m src.cli.backtest --config run_configs/<name>.json`** (or `[SYMBOL] [TIMEFRAME] --lookback --stop --target`) — run a backtest from a JSON run config with a progress bar, print the All/Long/Short summary, and save a **labeled run** to `runs/<timestamp>_<strategy>_<params>/` (trades.csv/txt, summary.json/txt, equity.png, run.json manifest). The manifest replays as a config. Wired into `commands.bat` → CLI / Workflows.
+- **`python -m src.cli.backtest run_configs/<name>.json`** — run a backtest from a JSON run config with a progress bar, print the All/Long/Short summary, and save a **labeled run** to `runs/<timestamp>_<strategy>_<params>/` (trades.csv/txt, summary.json/txt, equity.png, run.json manifest). The manifest replays as a config. A run is always defined by a config. Wired into `commands.bat` → Backtest.
 
 `broker/` is a verified, reusable engine (auth → account → contract → bars) still awaiting its own command (e.g. live trading, health check); when built it adds another thin `cli/` door here, wired into `commands.bat`.
 
