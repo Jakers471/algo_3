@@ -95,7 +95,9 @@ $root = @{
             Label = 'CLI / Workflows'
             Submenu = @{
                 Title = 'CLI / Workflows'
-                Items = @()
+                Items = @(
+                    @{ Label = 'Backtest breakout  (python -m src.cli.backtest NQ 5m)'; Run = { python -m src.cli.backtest NQ 5m } }
+                )
             }
         },
         @{

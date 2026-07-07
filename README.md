@@ -23,10 +23,11 @@ Launch the command menu (double-click or run from a shell):
 commands.bat
 ```
 
-Or run a door directly, e.g. load and summarize prepared bars:
+Or run a door directly:
 
 ```
-python -m src.cli.data NQ 5m
+python -m src.cli.data NQ 5m                              # load & summarize prepared bars
+python -m src.cli.backtest NQ 5m --lookback 20 --stop 20 --target 40   # backtest the breakout starter
 ```
 
 _See `ARCHITECTURE.md` for all entry points. `src/broker/` is a reusable engine still awaiting its own command._

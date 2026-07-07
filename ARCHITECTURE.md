@@ -25,6 +25,13 @@ algo_3/
 │   ├── data/           load the NT8 Parquet store into clean bars — engine
 │   │   ├── loader.py      read a symbol/TF Parquet -> raw UTC OHLCV (I/O)
 │   │   └── prepare.py     window + gap-mark + zero-vol policy (logic)
+│   ├── strategy/       bars -> bracket order intents (signals)
+│   │   ├── bracket.py     Direction + Bracket (entry stop + SL/TP in points)
+│   │   └── breakout.py    Donchian long-only starter + its params
+│   ├── backtest/       resolve brackets against bars -> fills, PnL, stats
+│   │   ├── fills.py       pure fill model (slippage, gaps, adverse-first flag)
+│   │   ├── engine.py      the bar loop; emits Trades (honors hold policy)
+│   │   └── results.py     Trades -> metrics + color report
 │   ├── broker/         all ProjectX API access (plumbing) — the engine
 │   │   ├── client.py      connection + auth; exposes post() for reuse
 │   │   ├── accounts.py    search accounts, pick a tradable one
@@ -53,6 +60,14 @@ cli.data         ─► data.prepare         (the bars engine it drives)
                  ├► logging.setup         (configure logging at startup)
                  └► core.console          (color the summary)
 
+strategy.breakout ─► strategy.bracket   (emits Bracket order intents)
+backtest.engine   ─► backtest.fills      (resolve fills against a bar)
+                  ├► strategy.bracket     (the order intent it consumes)
+                  ├► config.backtest      (slippage, commission, hold policy)
+                  └► config.instruments   (tick/point value for PnL)
+backtest.results  ─► backtest.engine      (the Trade type) + core.console
+cli.backtest      ─► data.prepare, strategy.breakout, backtest.engine, backtest.results
+
 logging.setup    ─► logging.settings    (reads the dial value)
                  └► core.console         (color codes)
 
@@ -73,7 +88,8 @@ audit.reader       ─► DATA_AUDIT.json     (the data's own rules, read once)
 
 ## Entry points (the doors you can run)
 
-- **`python -m src.cli.data [SYMBOL] [TIMEFRAME]`** — load prepared bars (default `NQ 5m`) and print a summary (rows, range, session-gap count). Wired into `commands.bat` → Data. This is the first runnable door over the data-loader engine.
+- **`python -m src.cli.data [SYMBOL] [TIMEFRAME]`** — load prepared bars (default `NQ 5m`) and print a summary (rows, range, session-gap count). Wired into `commands.bat` → Data.
+- **`python -m src.cli.backtest [SYMBOL] [TIMEFRAME] [--lookback --stop --target]`** — run the breakout strategy through the backtest engine and print metrics (incl. ambiguous same-bar count). Wired into `commands.bat` → CLI / Workflows.
 
 `broker/` is a verified, reusable engine (auth → account → contract → bars) still awaiting its own command (e.g. live trading, health check); when built it adds another thin `cli/` door here, wired into `commands.bat`.
 
@@ -87,4 +103,4 @@ The historical NQ/ES Parquet in `data/` is audited in `DATA_AUDIT.md` (human) an
 
 ## Not built yet (planned shape)
 
-These get created — with their config section alongside — when the area is actually built: `broker/orders.py`, `broker/positions.py`, `strategy/`, `backtest/` (the engine that reads `config/backtest.py`), `risk/`, `execution/`, `config/live.py`, `config/risk.py`. (`data/` and `cli/` now exist.)
+These get created — with their config section alongside — when the area is actually built: `broker/orders.py`, `broker/positions.py`, `risk/` (sizing/limits, reads `config/risk.py`), `execution/` (live loop, reads `config/live.py`), `config/live.py`, `config/risk.py`. (`data/`, `strategy/`, `backtest/`, and `cli/` now exist.)
