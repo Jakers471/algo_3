@@ -18,31 +18,31 @@ SLIP_AMT = 0.25   # TICK * SLIP
 # --- entry: resting stop orders ------------------------------------------
 
 def test_long_entry_fills_at_trigger_plus_slippage():
-    b = Bracket(Direction.LONG, entry_stop=100.0, stop_offset=5, target_offset=10)
+    b = Bracket(Direction.LONG, entry_stop=100.0, stop_price=95.0, target_price=110.0)
     bar = Bar(open=99.0, high=101.0, low=98.0, close=100.0)
     assert entry_fill(b, bar, TICK, SLIP) == approx(100.0 + SLIP_AMT)
 
 
 def test_long_entry_gap_through_fills_at_open():
-    b = Bracket(Direction.LONG, entry_stop=100.0, stop_offset=5, target_offset=10)
+    b = Bracket(Direction.LONG, entry_stop=100.0, stop_price=95.0, target_price=110.0)
     bar = Bar(open=100.5, high=101.0, low=100.3, close=100.8)  # opened above trigger
     assert entry_fill(b, bar, TICK, SLIP) == approx(100.5 + SLIP_AMT)
 
 
 def test_long_entry_not_triggered_returns_none():
-    b = Bracket(Direction.LONG, entry_stop=100.0, stop_offset=5, target_offset=10)
+    b = Bracket(Direction.LONG, entry_stop=100.0, stop_price=95.0, target_price=110.0)
     bar = Bar(open=98.0, high=99.5, low=97.0, close=99.0)
     assert entry_fill(b, bar, TICK, SLIP) is None
 
 
 def test_short_entry_fills_at_trigger_minus_slippage():
-    b = Bracket(Direction.SHORT, entry_stop=100.0, stop_offset=5, target_offset=10)
+    b = Bracket(Direction.SHORT, entry_stop=100.0, stop_price=95.0, target_price=110.0)
     bar = Bar(open=101.0, high=102.0, low=99.0, close=100.0)
     assert entry_fill(b, bar, TICK, SLIP) == approx(100.0 - SLIP_AMT)
 
 
 def test_short_entry_gap_through_fills_at_open():
-    b = Bracket(Direction.SHORT, entry_stop=100.0, stop_offset=5, target_offset=10)
+    b = Bracket(Direction.SHORT, entry_stop=100.0, stop_price=95.0, target_price=110.0)
     bar = Bar(open=99.5, high=99.8, low=99.0, close=99.2)  # opened below trigger
     assert entry_fill(b, bar, TICK, SLIP) == approx(99.5 - SLIP_AMT)
 

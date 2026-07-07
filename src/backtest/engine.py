@@ -60,9 +60,10 @@ def run(bars: pd.DataFrame, strategy, symbol: str, *, size: int = 1, progress=No
     allow_hold = bt_cfg.ALLOW_OVERNIGHT_HOLD and bt_cfg.ALLOW_WEEKEND_HOLD
 
     signals = strategy.entry_signals(bars)
-    dirs = signals["direction"].to_numpy()      # Direction or None per bar
-    levels = signals["entry_stop"].to_numpy()
-    p = strategy.params
+    dirs = signals["direction"].to_numpy()          # Direction or None per bar
+    entries = signals["entry_stop"].to_numpy()      # absolute trigger price
+    stops = signals["stop_price"].to_numpy()        # absolute stop level
+    targets = signals["target_price"].to_numpy()    # absolute target level
 
     times = bars.index
     o = bars["open"].to_numpy()
@@ -130,8 +131,8 @@ def run(bars: pd.DataFrame, strategy, symbol: str, *, size: int = 1, progress=No
             if fill is not None:
                 pos = {
                     "dir": pending.direction, "entry_time": times[i], "entry_price": fill,
-                    "entry_index": i, "stop": pending.stop_price(fill),
-                    "target": pending.target_price(fill), "mfe_pts": 0.0, "mae_pts": 0.0,
+                    "entry_index": i, "stop": pending.stop_price,
+                    "target": pending.target_price, "mfe_pts": 0.0, "mae_pts": 0.0,
                 }
                 pending = None
                 fav, adv = excursion(pos["dir"] is Direction.LONG, fill, h[i], low[i])
@@ -144,9 +145,9 @@ def run(bars: pd.DataFrame, strategy, symbol: str, *, size: int = 1, progress=No
         # 4. Flat and nothing armed: arm the strategy's signal for this bar.
         if pos is None and pending is None:
             d = dirs[i]
-            level = levels[i]
-            if d is not None and level == level:  # has a direction and a non-NaN level
-                pending = Bracket(d, float(level), p.stop_points, p.target_points)
+            e = entries[i]
+            if d is not None and e == e:  # has a direction and a non-NaN entry level
+                pending = Bracket(d, float(e), float(stops[i]), float(targets[i]))
 
         if progress is not None and (i & 0x3FFF) == 0:
             progress.update(i)

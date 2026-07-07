@@ -27,7 +27,7 @@ algo_3/
 │   │   ├── loader.py      read a symbol/TF Parquet -> raw UTC OHLCV (I/O)
 │   │   └── prepare.py     window + gap-mark + zero-vol policy (logic)
 │   ├── strategy/       bars -> bracket order intents (signals)
-│   │   ├── bracket.py     Direction + Bracket (entry stop + SL/TP in points)
+│   │   ├── bracket.py     Direction + Bracket (entry stop + SL/TP as absolute levels)
 │   │   ├── breakout.py    Donchian long/short starter (entry_signals) + params
 │   │   └── registry.py    name -> strategy class (build one from a run config)
 │   ├── backtest/       resolve brackets against bars -> fills, PnL, stats
