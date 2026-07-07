@@ -12,6 +12,6 @@ Run from repo root. Update this file whenever a command changes.
 
 | Command | Source | Does |
 |---------|--------|------|
-| `python -m src.cli.connect` | `src/cli/connect.py` | Connect, select account, grab NQ bars |
+| `python -m src.cli.fetch` | `src/cli/fetch.py` | Fetch all available NQ history (every timeframe) → save `data/NQ_<TF>.csv` |
 
 _For detail, read the source file — its imports and functions are the spec._

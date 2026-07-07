@@ -12,7 +12,7 @@ algo_3/
 │   ├── config/          settings, sectioned by area (dials you edit)
 │   │   ├── __init__.py    loads .env once (single secret-load point)
 │   │   ├── broker.py      API endpoints; credentials from .env
-│   │   ├── data.py        default symbol, lookback, bar limits
+│   │   ├── data.py        symbol, lookback, fetch timeframes, data dir
 │   │   └── logging.py     log level + destination (the value of the dial)
 │   ├── core/            shared infrastructure used everywhere
 │   │   ├── console.py       ANSI color codes + paint() (no emoji, ever)
@@ -21,9 +21,11 @@ algo_3/
 │   │   ├── client.py      connection + auth; exposes post() for reuse
 │   │   ├── accounts.py    search accounts, pick a tradable one
 │   │   ├── contracts.py   search contracts, resolve a symbol to its id
-│   │   └── history.py     fetch OHLCV bars for a contract
+│   │   └── history.py     fetch OHLCV bars; retrieve_history() pages back
+│   ├── storage/         persist data to disk
+│   │   └── csv_store.py    save bars -> data/<SYMBOL>_<TF>.csv
 │   └── cli/             interface — thin doors that orchestrate
-│       └── connect.py     connect → select account → grab NQ data
+│       └── fetch.py       fetch all NQ history per timeframe → save CSV
 ├── config/data (top level, not code): .env, logs/, data/, projectX_API/
 ```
 
@@ -32,20 +34,22 @@ algo_3/
 Arrows point from a file to what it imports. Deeper = more foundational.
 
 ```
-cli/connect.py                          ← the entry point / orchestrator
+cli/fetch.py                            ← the entry point / orchestrator
   ├─► broker.client (ProjectXClient)
-  ├─► broker.accounts
   ├─► broker.contracts
-  ├─► broker.history
-  ├─► config.broker      (endpoints, credentials)
-  ├─► config.data        (symbol, lookback, limits)
-  ├─► core.console       (colored output)
+  ├─► broker.history      (retrieve_history — pages back to earliest)
+  ├─► storage.csv_store   (save each timeframe to CSV)
+  ├─► config.broker       (endpoints, credentials)
+  ├─► config.data         (symbol, timeframes, data dir)
+  ├─► core.console        (colored output)
   └─► core.logging_config (setup_logging)
 
 broker.accounts  ─► broker.client
 broker.contracts ─► broker.client
 broker.history   ─► broker.client
 broker.client    ─► requests            (external HTTP library)
+
+storage.csv_store   ─► pandas            (tidy CSV write)
 
 core.logging_config ─► config.logging   (reads the dial value)
                     └► core.console      (color codes)
@@ -58,16 +62,20 @@ config.broker    ─► os                   (reads secrets from env)
 
 - **`broker.client` is the hub.** Every other broker module depends on it for the connection and its shared `post()`. Written once, reused everywhere — never duplicated.
 - **`core/` is the foundation.** `console` and `logging_config` are depended on but depend on almost nothing themselves (only stdlib + config). That's why they live in `core/`.
-- **`cli/connect.py` sits on top.** It imports the most and is imported by nothing — the classic shape of an entry point. It only orchestrates; it holds no trading logic.
+- **`cli/fetch.py` sits on top.** It imports the most and is imported by nothing — the classic shape of an entry point. It only orchestrates; it holds no trading logic.
 - **`config/` is a leaf.** Everyone reads from it; it depends on nothing but `os`/`dotenv`. Settings flow *out*, never in.
 
 ## Entry points (the doors you can run)
 
 | Run this | File | What it does |
 |----------|------|--------------|
-| `python -m src.cli.connect` | `cli/connect.py` | Connect, select account, grab NQ bars |
+| `python -m src.cli.fetch` | `cli/fetch.py` | Fetch all available NQ history (every timeframe) → save `data/NQ_<TF>.csv` |
 
 New workflows (backtest, live, health) will each add a door here. See `COMMANDS.md` for exact invocations.
+
+## Note on API history depth
+
+`retrieveBars` is **per-contract**. The active NQ contract (`CON.F.US.ENQ.U26`) only serves ~1 month of history (verified: back to ~2026-06-07). The API is a *recent-data* source, not deep history — multi-year continuous history is the NT8 Parquet in `data/`. Building a continuous series would require stitching successive quarterly contracts.
 
 ## Not built yet (planned shape)
 
