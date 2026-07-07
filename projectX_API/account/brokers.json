@@ -1,0 +1,118 @@
+{
+  "brokers": {
+    "demo": {
+      "name": "Demo",
+      "api": "https://api.demo.projectx.com",
+      "userHub": "https://rtc.demo.projectx.com/hubs/user",
+      "marketHub": "https://rtc.demo.projectx.com/hubs/market"
+    },
+    "alphaticks": {
+      "name": "Alpha Ticks",
+      "api": "https://api.alphaticks.projectx.com",
+      "userHub": "https://rtc.alphaticks.projectx.com/hubs/user",
+      "marketHub": "https://rtc.alphaticks.projectx.com/hubs/market"
+    },
+    "aquafutures": {
+      "name": "Aqua Futures",
+      "api": "https://api.aquafutures.projectx.com",
+      "userHub": "https://rtc.aquafutures.projectx.com/hubs/user",
+      "marketHub": "https://rtc.aquafutures.projectx.com/hubs/market"
+    },
+    "blueguardian": {
+      "name": "Blue Guardian",
+      "api": "https://api.blueguardian.projectx.com",
+      "userHub": "https://rtc.blueguardian.projectx.com/hubs/user",
+      "marketHub": "https://rtc.blueguardian.projectx.com/hubs/market"
+    },
+    "blusky": {
+      "name": "Blusky",
+      "api": "https://api.blusky.projectx.com",
+      "userHub": "https://rtc.blusky.projectx.com/hubs/user",
+      "marketHub": "https://rtc.blusky.projectx.com/hubs/market"
+    },
+    "daytraders": {
+      "name": "Day Traders",
+      "api": "https://api.daytraders.projectx.com",
+      "userHub": "https://rtc.daytraders.projectx.com/hubs/user",
+      "marketHub": "https://rtc.daytraders.projectx.com/hubs/market"
+    },
+    "e8x": {
+      "name": "E8X",
+      "api": "https://api.e8x.projectx.com",
+      "userHub": "https://rtc.e8x.projectx.com/hubs/user",
+      "marketHub": "https://rtc.e8x.projectx.com/hubs/market"
+    },
+    "fundingfutures": {
+      "name": "Funding Futures",
+      "api": "https://api.fundingfutures.projectx.com",
+      "userHub": "https://rtc.fundingfutures.projectx.com/hubs/user",
+      "marketHub": "https://rtc.fundingfutures.projectx.com/hubs/market"
+    },
+    "thefuturesdesk": {
+      "name": "The Futures Desk",
+      "api": "https://api.thefuturesdesk.projectx.com",
+      "userHub": "https://rtc.thefuturesdesk.projectx.com/hubs/user",
+      "marketHub": "https://rtc.thefuturesdesk.projectx.com/hubs/market"
+    },
+    "futureselite": {
+      "name": "Futures Elite",
+      "api": "https://api.futureselite.projectx.com",
+      "userHub": "https://rtc.futureselite.projectx.com/hubs/user",
+      "marketHub": "https://rtc.futureselite.projectx.com/hubs/market"
+    },
+    "fxifyfutures": {
+      "name": "FXIFY Futures",
+      "api": "https://api.fxifyfutures.projectx.com",
+      "userHub": "https://rtc.fxifyfutures.projectx.com/hubs/user",
+      "marketHub": "https://rtc.fxifyfutures.projectx.com/hubs/market"
+    },
+    "goatfunded": {
+      "name": "GoatFunded",
+      "api": "https://api.goatfunded.projectx.com",
+      "userHub": "https://rtc.goatfunded.projectx.com/hubs/user",
+      "marketHub": "https://rtc.goatfunded.projectx.com/hubs/market"
+    },
+    "holaprime": {
+      "name": "Holaprime",
+      "api": "https://api.holaprime.projectx.com",
+      "userHub": "https://rtc.holaprime.projectx.com/hubs/user",
+      "marketHub": "https://rtc.holaprime.projectx.com/hubs/market"
+    },
+    "lucidtrading": {
+      "name": "Lucid Trading",
+      "api": "https://api.lucidtrading.projectx.com",
+      "userHub": "https://rtc.lucidtrading.projectx.com/hubs/user",
+      "marketHub": "https://rtc.lucidtrading.projectx.com/hubs/market"
+    },
+    "phidias": {
+      "name": "Phidias",
+      "api": "https://api.phidias.projectx.com",
+      "userHub": "https://rtc.phidias.projectx.com/hubs/user",
+      "marketHub": "https://rtc.phidias.projectx.com/hubs/market"
+    },
+    "tickticktrader": {
+      "name": "TickTickTrader",
+      "api": "https://api.tickticktrader.projectx.com",
+      "userHub": "https://rtc.tickticktrader.projectx.com/hubs/user",
+      "marketHub": "https://rtc.tickticktrader.projectx.com/hubs/market"
+    },
+    "toponefutures": {
+      "name": "TopOneFutures",
+      "api": "https://api.toponefutures.projectx.com",
+      "userHub": "https://rtc.toponefutures.projectx.com/hubs/user",
+      "marketHub": "https://rtc.toponefutures.projectx.com/hubs/market"
+    },
+    "topstepx": {
+      "name": "TopstepX",
+      "api": "https://api.topstepx.projectx.com",
+      "userHub": "https://rtc.topstepx.projectx.com/hubs/user",
+      "marketHub": "https://rtc.topstepx.projectx.com/hubs/market"
+    },
+    "tradeify": {
+      "name": "Tradeify",
+      "api": "https://api.tradeify.projectx.com",
+      "userHub": "https://rtc.tradeify.projectx.com/hubs/user",
+      "marketHub": "https://rtc.tradeify.projectx.com/hubs/market"
+    }
+  }
+}
