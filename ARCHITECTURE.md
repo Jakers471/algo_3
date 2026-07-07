@@ -28,7 +28,8 @@ algo_3/
 │   │   └── prepare.py     window + gap-mark + zero-vol policy (logic)
 │   ├── indicators/     shared raw math (pure) — strategies compose these
 │   │   ├── volume_profile.py  volume-per-row + value area (POC/VAH/VAL core)
-│   │   └── grade.py           OHLCV window -> regime (efficiency/acceptance -> state)
+│   │   ├── grade.py           OHLCV window -> regime (efficiency/acceptance -> state)
+│   │   └── sessions.py        group bars into Asia/London/NY session instances
 │   ├── strategy/       bars -> bracket order intents (signals)
 │   │   ├── bracket.py     Direction + Bracket (entry stop + SL/TP as absolute levels)
 │   │   ├── breakout.py    Donchian long/short starter (entry_signals) + params
@@ -87,7 +88,8 @@ cli.data         ─► data.prepare         (the bars engine it drives)
                  ├► logging.setup         (configure logging at startup)
                  └► core.console          (color the summary)
 
-indicators.grade  ─► indicators.volume_profile   (profile + value area)
+indicators.grade    ─► indicators.volume_profile   (profile + value area)
+indicators.sessions ─► config.session              (session windows + tz)
 
 strategy.breakout ─► strategy.bracket   (emits Bracket order intents)
 strategy.registry ─► strategy.breakout   (name -> class)
