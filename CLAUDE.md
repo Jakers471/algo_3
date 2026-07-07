@@ -92,6 +92,20 @@ A JS/TS frontend may come later. **When** it does, it gets its own self-containe
 - Each entry states the exact command (runnable from the repo root) and a one-line description of what it does.
 - Keep it current: if a command is removed, delete its entry. `COMMANDS.md` is the single source of truth for "how do I run this."
 
+## Project maps — two of them, kept current
+
+**The project is described by two maps, and they must never blur together.** Everything in the project exists in both at once; keeping them separate is what keeps the codebase understandable.
+
+- **The code map (`ARCHITECTURE.md`)** — how the *files* are wired: the folder tree and who-imports-who (the dependency graph). It answers "if I open this cold, how does it fit together, and where do I run it?"
+- **The domain map (`GLOSSARY.md`)** — what the project is *about*: plain-English definitions of the trading concepts (account, contract, bar, order, position). Each concept is a **thread** traced through its layers — config (which/how much) → code (does it) → API endpoint (serves it) → doc (explains it).
+
+Rules:
+
+- **A domain word is not a code word.** "Contract" means a tradeable futures instrument (a trading concept); `broker/contracts.py` is the code file whose job is to handle contracts. Never conflate the concept with the file that deals with it.
+- **Keep both maps current in the same commit** as the change. Add/move/rename a module or change its imports → update `ARCHITECTURE.md`. Introduce a new domain concept → add its definition and thread to `GLOSSARY.md`.
+- **The organizing principle is fractal** — one job, and a small map of its parts, at every zoom level: project → folder → file → function. A folder's map is its files; a file's map is its import block + function list; a function's map is the calls inside it. Read any unfamiliar file by asking: what does it import (attach), what does it define (jobs), what does the `__main__` guard run (the door)?
+- **The `projectX_API/` docs are the API map** — `projectX_API/README.md` is the index (every endpoint → its detail file); the individual `.md` files hold one endpoint each (one file = one job). Don't flatten them; link to them from `GLOSSARY.md`.
+
 ## Version control workflow
 
 **Commit after every change.** Any time code is written, edited, created, moved, or deleted — or any file is otherwise changed — make a git commit for it.
