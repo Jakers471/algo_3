@@ -5,6 +5,9 @@
 pandas
 numpy
 
+# Backtesting / research
+vectorbt
+
 # HTTP / API access
 requests
 
