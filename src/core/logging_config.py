@@ -1,8 +1,9 @@
-"""Logging configuration: format, level, and destinations in one place.
+"""Logging setup: format, level, and destinations in one place.
 
 One job: decide *how and where* logs are rendered. Every module gets its
-logger with ``logging.getLogger(__name__)`` and decides *what* to log;
-this module owns the look. Call ``setup_logging()`` once at startup.
+logger with ``logging.getLogger(__name__)`` and decides *what* to log; this
+module owns the look. It reads its dial values from ``src.config.logging``.
+Call ``setup_logging()`` once at startup.
 
 Debug output is structured, neat, and elegant: an aligned timestamp and a
 color-coded level tag carry the meaning that emoji would otherwise. No emoji.
@@ -11,10 +12,12 @@ color-coded level tag carry the meaning that emoji would otherwise. No emoji.
 from __future__ import annotations
 
 import logging
+import os
 
-from src import console
+from src.config import logging as log_cfg
+from src.core import console
 
-# Level name -> color for the level tag.
+# Level -> color for the level tag.
 _LEVEL_COLORS = {
     logging.DEBUG: console.GREY,
     logging.INFO: console.GREEN,
@@ -34,8 +37,11 @@ class ColorFormatter(logging.Formatter):
         return f"{console.paint('[', console.DIM)}{ts}{console.paint(']', console.DIM)} {level} {record.getMessage()}"
 
 
-def setup_logging(level: int = logging.INFO) -> None:
-    """Configure the root logger once, with colored console output."""
+def setup_logging(level: int | None = None) -> None:
+    """Configure the root logger once: colored console + plain file in logs/."""
+    if level is None:
+        level = log_cfg.LEVEL
+
     console.enable_windows_ansi()
 
     root = logging.getLogger()
@@ -48,3 +54,8 @@ def setup_logging(level: int = logging.INFO) -> None:
     stream = logging.StreamHandler()
     stream.setFormatter(ColorFormatter())
     root.addHandler(stream)
+
+    os.makedirs(log_cfg.LOG_DIR, exist_ok=True)
+    file_handler = logging.FileHandler(os.path.join(log_cfg.LOG_DIR, log_cfg.LOG_FILE), encoding="utf-8")
+    file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)-7s %(name)s: %(message)s"))
+    root.addHandler(file_handler)

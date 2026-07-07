@@ -11,8 +11,6 @@ import logging
 
 import requests
 
-from src.config import Settings
-
 logger = logging.getLogger(__name__)
 
 
@@ -23,10 +21,11 @@ class AuthError(RuntimeError):
 class ProjectXClient:
     """Authenticated session against the ProjectX Gateway API."""
 
-    def __init__(self, settings: Settings) -> None:
-        self._settings = settings
-        self._base = settings.api_base.rstrip("/")
-        self._token: str | None = settings.token
+    def __init__(self, base_url: str, username: str, api_key: str, token: str | None = None) -> None:
+        self._username = username
+        self._api_key = api_key
+        self._base = base_url.rstrip("/")
+        self._token: str | None = token
         self._session = requests.Session()
         self._session.headers.update({"accept": "text/plain", "Content-Type": "application/json"})
         if self._token:
@@ -39,13 +38,13 @@ class ProjectXClient:
             logger.info("Connected to ProjectX (validated stored token).")
             return
         self._login()
-        logger.info("Connected to ProjectX (fresh login as %s).", self._settings.username)
+        logger.info("Connected to ProjectX (fresh login as %s).", self._username)
 
     def _login(self) -> None:
         logger.debug("Requesting new session token via loginKey.")
         data = self._raw_post(
             "/api/Auth/loginKey",
-            {"userName": self._settings.username, "apiKey": self._settings.api_key},
+            {"userName": self._username, "apiKey": self._api_key},
         )
         token = data.get("token")
         if not data.get("success") or not token:
