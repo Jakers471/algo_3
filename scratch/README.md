@@ -1,10 +1,9 @@
-# scratch/ — disposable spikes & experiments
+# scratch/ — experiments, one-off tools & analysis
 
-Throwaway code that answers a **one-time question** — "what does this payload look like?", "does this endpoint work?", "what fields come back?".
+A git-ignored working area, separate from the permanent `src/` codebase. Spikes, comparisons, audits, quick analyses, and tools you're not ready to commit live here.
 
-- Everything here is **git-ignored and disposable.** Delete anything, anytime, no ceremony.
-- **Never** put permanent code here, and **never** import `scratch/` from `src/`.
-- When a spike proves something, **extract** the reusable part into a proper `src/` module and **delete** the spike. The spike's job was to birth the module; once born, the spike is trash.
-- If you keep re-running a spike, it wants to **graduate** into a real `src/` command.
+- **git-ignored and outside the product — but NOT auto-deleted.** Code here persists and may have ongoing use (a comparison you re-run, an audit generator). Nothing here is removed unless Jake specifically says so.
+- **Never** import `scratch/` from `src/`, and never write permanent product code here.
+- When something here earns a permanent place, **promote** the reusable part into a proper `src/` module. Promotion is additive — it doesn't require deleting the scratch original.
 
-See `CLAUDE.md` → "Scratch vs permanent — keep or kill" for the full rule.
+See `CLAUDE.md` → "Scratch vs permanent" for the full rule.

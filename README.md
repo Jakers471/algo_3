@@ -1,5 +1,7 @@
 # algo_3
 
+Algorithmic trading project (ProjectX / TopstepX) — Python, CLI-first.
+
 ## Setup
 
 ```powershell
@@ -11,14 +13,24 @@ pip install -r requirements.txt
 
 # 3. Copy the env template and fill in your keys
 copy .env.example .env
-
-# 4. Run
-python -m src.main
 ```
 
-## Layout
+## Run
 
-- `src/` — application code
-- `requirements.txt` — Python dependencies
-- `.env` — secrets (git-ignored; copy from `.env.example`)
-- `venv/` — virtual environment (git-ignored)
+Launch the command menu (double-click or run from a shell):
+
+```
+commands.bat
+```
+
+_No default `python -m src.main` yet — `src/broker/` is a reusable engine awaiting its first command. See `ARCHITECTURE.md`._
+
+## Layout & docs
+
+- `src/` — application code (live map: `ARCHITECTURE.md`)
+- `data/` — market data, git-ignored (quality audit: `DATA_AUDIT.md`)
+- `scratch/` — experiments & one-off tools, git-ignored
+- `projectX_API/` — ProjectX API reference docs
+- `commands.bat` — the runnable command menu
+- `CLAUDE.md` — project rules & conventions
+- `requirements.txt` · `.env` (from `.env.example`) · `venv/` (git-ignored)

@@ -31,18 +31,17 @@
 - **A compound request is not a request for one script.** When Jake bundles several actions in one breath — "connect to ProjectX, grab accounts, fetch NQ data", or "x, y and z", or "this, this and that" — that is a list of *separate jobs*, each getting its own file, even though he didn't say "split it up." This is a trading algorithm built from many small, modular pieces; default to modularity. When in doubt, split.
 - **Never duplicate logic.** If something already exists, reuse it — import the existing file, don't rewrite it. When Jake reiterates "I need you to build X" and we already have X (or a piece of it), do NOT re-create it; extend or call what's there. Every file is reusable and pluggable: written once, imported everywhere. Duplicated logic is a bug.
 
-### Scratch vs permanent — keep or kill
+### Scratch vs permanent
 
-**Every file is either permanent (a job the system does repeatedly) or a spike (code that answers a one-time question). Decide which before writing it, and put it in the right place.**
+**`src/` is the permanent, committed codebase; `scratch/` is a git-ignored working area for experiments, one-off tools, and analysis. Decide which a file is before writing it.**
 
-- **The keep-or-kill test:** ask *"is this a job the system does repeatedly, or a question I'm answering once?"* A repeated job (fetch bars, place an order) is permanent → `src/`. A one-time question ("what does the NQ payload look like?", "does auth work?", "what fields come back?") is a spike → `scratch/`, deleted once answered.
+- **The placement test:** ask *"is this part of the product — a job the system does repeatedly?"* If yes → `src/` (permanent, modular, maintained). If it's exploration, a one-off, an analysis, or a tool you're not sure about yet → `scratch/`.
 - **`src/` is permanent-only.** If code lives in `src/`, it's a commitment to keep and maintain it. Never write a throwaway experiment in `src/`.
-- **Spikes live in `scratch/`** — a top-level, git-ignored folder. Anything there is disposable by design; delete it freely, no ceremony. Never import `scratch/` from `src/`.
-- **A spike's real output is the permanent module it forces you to build, not the spike itself.** When a spike proves something, *extract* the reusable part into a proper `src/` module, then *delete* the spike. Scaffolding comes down once the building stands.
+- **`scratch/` is NOT auto-throwaway.** It's git-ignored and outside the product, but code there **persists and may have ongoing use** — a comparison you re-run, an audit generator, a tool you come back to. **Nothing in `scratch/` is deleted unless Jake specifically says so.** Do not remove a scratch file just because its immediate job is done. Never import `scratch/` from `src/`.
+- **When a scratch file earns a permanent place, graduate it.** If an experiment becomes something the product relies on, *promote* the reusable part into a proper `src/` module (strip the throwaway bits). Promotion is additive — it does not require deleting the scratch original unless Jake says so.
 - **Deleting an orchestrator never deletes its engine.** A thin door (e.g. `cli/connect.py`) can be removed once its purpose is served; the `broker/` modules it called are separate and stay. Kill the door, keep the engine.
-- **When a spike keeps getting re-run, it wants to graduate.** If you find yourself running an exploration repeatedly, that's the signal it's really a permanent job — promote it to a proper `src/` command (strip the throwaway bits) instead of leaving it in `scratch/`.
-- **A disclosed throwaway job may be ONE condensed script.** The modular rules (one file = one job, folders by category, thin doors) govern *permanent* `src/` code. When Jake explicitly discloses a task is a one-time job that gets deleted when done — a cleanup, a data comparison, a quick analysis — write it as a single self-contained script in `scratch/` rather than splitting it across modules. Because it's disposable, modularity buys nothing; condensing is faster and just as correct. This exception applies ONLY on explicit disclosure and ONLY in `scratch/` — never condense permanent `src/` code this way.
-- **NEVER run-then-delete a throwaway in one motion.** After running a scratch script, leave it in place. Deletion is Jake's call, not automatic — he needs to run it and see the raw output himself first. Show him the results, then *wait* for his explicit go-ahead before deleting. Summarizing the output is not a substitute for him seeing it. When in doubt, keep the script.
+- **A disclosed throwaway job may be ONE condensed script.** The modular rules (one file = one job, folders by category, thin doors) govern *permanent* `src/` code. When Jake explicitly discloses a task is a one-off, write it as a single self-contained script in `scratch/` rather than splitting it across modules — modularity buys nothing for a one-off; condensing is faster and just as correct. Applies ONLY on explicit disclosure and ONLY in `scratch/`; never condense permanent `src/` code this way.
+- **NEVER run-then-delete.** After running a scratch script, leave it in place. Deletion is always Jake's call — he needs to run it and see the raw output himself first. Show him the results, then *wait* for an explicit go-ahead before deleting. A summary is not a substitute for him seeing it. When in doubt, keep the script.
 
 ### Logging & debug
 
@@ -108,6 +107,16 @@ A JS/TS frontend may come later. **When** it does, it gets its own self-containe
 - **The organizing principle is fractal** — one job, and a small map of its parts, at every zoom level: project → folder → file → function. A folder's map is its files; a file's map is its import block + function list; a function's map is the calls inside it. Read any unfamiliar file by asking: what does it import (attach), what does it define (jobs), what does the `__main__` guard run (the door)?
 - **The `projectX_API/` docs are the API map** — `projectX_API/README.md` is the index (every endpoint → its detail file); the individual `.md` files hold one endpoint each (one file = one job). Don't flatten them.
 - **No separate domain glossary for now.** The vocabulary is small and already defined in `projectX_API/`. If the domain vocabulary grows large enough that terms are constantly re-looked-up, revisit — split when it hurts, not before.
+
+## Markdown docs (the "mds") — keep them consistent
+
+**When Jake says "mds" (or "the markdown files" / "the docs"), he means every project markdown file EXCEPT `CLAUDE.md` — check them all and make sure they agree.** These docs are one connected reference and must never contradict each other.
+
+- **Keeping the mds current is AUTOMATIC, not on-request.** Every time code is edited, check the mds (except `CLAUDE.md`) and update any the change affects — in the *same commit*. Don't wait for Jake to say "mds". A change that touches no doc needs no update; use judgment. This generalizes the "keep `ARCHITECTURE.md` current" and "wire `commands.bat` in the same commit" rules — the whole mds set must always match reality.
+- **`CLAUDE.md` is locked and separate.** It is rules only, and it is NOT part of "mds." Never read or edit `CLAUDE.md` on an "mds" request — touch it only when Jake explicitly names *CLAUDE.md* and tells you to read or update it.
+- The "mds" set is the project's *other* `.md` files: `README.md`, `ARCHITECTURE.md`, `DATA_AUDIT.md`, and per-folder `README.md`s (`data/`, `scratch/`). (`projectX_API/*.md` are external API reference; `venv/` docs belong to dependencies — neither is ours to reconcile.)
+- On an "mds" request, review them **overall** (no doc contradicts another; conventions match) and **specifically** (the exact thing Jake changed is reflected everywhere it appears), and reconcile any drift in the same pass.
+- When a shared fact changes, update every "mds" that mentions it in the same commit — never leave one saying the old thing.
 
 ## Version control workflow
 

@@ -13,9 +13,14 @@ OHLCV futures bar data exported from **NinjaTrader 8**.
 
 ## Format
 
-- One Parquet file per symbol/timeframe: `<SYMBOL>_<TF>.parquet` (e.g. `NQ_1m.parquet`).
+- One Parquet file per symbol/timeframe, under a per-symbol folder: `<SYMBOL>/<SYMBOL>_<TF>.parquet` (e.g. `NQ/NQ_1m.parquet`).
 - Columns: `open`, `high`, `low`, `close`, `volume`.
 - Datetime index in **UTC**.
+- Continuous, **back-adjusted** series (see `DATA_AUDIT.md`).
+
+## Quality audit
+
+Integrity, gaps, and how the backtest pipeline must handle this data: `DATA_AUDIT.md` (human) / `DATA_AUDIT.json` (machine), at the repo root.
 
 ## Source
 

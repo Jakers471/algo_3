@@ -56,6 +56,10 @@ config.broker    ─► os                   (reads secrets from env)
 
 `retrieveBars` is **per-contract**. The active NQ contract (`CON.F.US.ENQ.U26`) only serves ~1 month of history (verified: back to ~2026-06-07). The API is a *recent-data* source, not deep history — multi-year continuous history is the NT8 Parquet in `data/`. Building a continuous series would require stitching successive quarterly contracts.
 
+## Backtest data reference
+
+The historical NQ/ES Parquet in `data/` is audited in `DATA_AUDIT.md` (human) and `DATA_AUDIT.json` (machine — the backtest engine reads its `handling` flags). Data is clean; the flags (gap-awareness, back-adjustment, fills/slippage, staleness) are what the engine must honor.
+
 ## Not built yet (planned shape)
 
 These get created — with their config section alongside — when the area is actually built: `cli/` (interface doors), `broker/orders.py`, `broker/positions.py`, `strategy/`, `backtest/`, `risk/`, `config/backtest.py`, `config/live.py`, `config/risk.py`.
