@@ -89,8 +89,8 @@ A JS/TS frontend may come later. **When** it does, it gets its own self-containe
 **Every runnable command goes in the top-level `COMMANDS.md`.** Jake should never have to guess how to run anything.
 
 - Any time a command is added, renamed, or changed in any way — a new CLI entry point, a script, a make/task target, a one-off invocation — **write it in `COMMANDS.md` in the same commit** as the code change.
-- Each entry states the exact command (runnable from the repo root) and a one-line description of what it does.
-- Keep it current: if a command is removed, delete its entry. `COMMANDS.md` is the single source of truth for "how do I run this."
+- **Keep it terse — a lookup table, not a manual.** The list will grow, so each row is just: the exact command, its source file, and a few-word "does". No long explanation — the source file's imports, dependencies, and functions are the real spec; point there instead of re-explaining in prose.
+- Keep it current: if a command is removed, delete its row. `COMMANDS.md` is the single source of truth for "how do I run this."
 
 ## Project maps — two of them, kept current
 
