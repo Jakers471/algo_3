@@ -29,6 +29,17 @@
 - **A compound request is not a request for one script.** When Jake bundles several actions in one breath — "connect to ProjectX, grab accounts, fetch NQ data", or "x, y and z", or "this, this and that" — that is a list of *separate jobs*, each getting its own file, even though he didn't say "split it up." This is a trading algorithm built from many small, modular pieces; default to modularity. When in doubt, split.
 - **Never duplicate logic.** If something already exists, reuse it — import the existing file, don't rewrite it. When Jake reiterates "I need you to build X" and we already have X (or a piece of it), do NOT re-create it; extend or call what's there. Every file is reusable and pluggable: written once, imported everywhere. Duplicated logic is a bug.
 
+### Scratch vs permanent — keep or kill
+
+**Every file is either permanent (a job the system does repeatedly) or a spike (code that answers a one-time question). Decide which before writing it, and put it in the right place.**
+
+- **The keep-or-kill test:** ask *"is this a job the system does repeatedly, or a question I'm answering once?"* A repeated job (fetch bars, place an order) is permanent → `src/`. A one-time question ("what does the NQ payload look like?", "does auth work?", "what fields come back?") is a spike → `scratch/`, deleted once answered.
+- **`src/` is permanent-only.** If code lives in `src/`, it's a commitment to keep and maintain it. Never write a throwaway experiment in `src/`.
+- **Spikes live in `scratch/`** — a top-level, git-ignored folder. Anything there is disposable by design; delete it freely, no ceremony. Never import `scratch/` from `src/`.
+- **A spike's real output is the permanent module it forces you to build, not the spike itself.** When a spike proves something, *extract* the reusable part into a proper `src/` module, then *delete* the spike. Scaffolding comes down once the building stands.
+- **Deleting an orchestrator never deletes its engine.** A thin door (e.g. `cli/connect.py`) can be removed once its purpose is served; the `broker/` modules it called are separate and stay. Kill the door, keep the engine.
+- **When a spike keeps getting re-run, it wants to graduate.** If you find yourself running an exploration repeatedly, that's the signal it's really a permanent job — promote it to a proper `src/` command (strip the throwaway bits) instead of leaving it in `scratch/`.
+
 ### Logging & debug
 
 **Use Python's `logging` module, never bare `print`, for all debug/progress output.** `logging` has levels you can dial up or down without deleting code; `print` is permanent noise.
