@@ -20,6 +20,9 @@ secrets.json
 data/
 logs/
 
+# Backtest run outputs (labeled runs: trades, summary, equity.png, manifest)
+runs/
+
 # Scratch — disposable spikes & experiments (README is force-added)
 scratch/
 

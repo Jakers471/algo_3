@@ -96,7 +96,8 @@ $root = @{
             Submenu = @{
                 Title = 'CLI / Workflows'
                 Items = @(
-                    @{ Label = 'Backtest breakout  (python -m src.cli.backtest NQ 5m)'; Run = { python -m src.cli.backtest NQ 5m } }
+                    @{ Label = 'Backtest from config  (run_configs/breakout_nq5m.json)'; Run = { python -m src.cli.backtest --config run_configs/breakout_nq5m.json } },
+                    @{ Label = 'Backtest breakout  (ad-hoc: python -m src.cli.backtest NQ 5m)'; Run = { python -m src.cli.backtest NQ 5m } }
                 )
             }
         },

@@ -26,9 +26,11 @@ commands.bat
 Or run a door directly:
 
 ```
-python -m src.cli.data NQ 5m                              # load & summarize prepared bars
-python -m src.cli.backtest NQ 5m --lookback 20 --stop 20 --target 40   # backtest the breakout starter
+python -m src.cli.data NQ 5m                                    # load & summarize prepared bars
+python -m src.cli.backtest --config run_configs/breakout_nq5m.json   # backtest -> saved labeled run
 ```
+
+A backtest saves a **labeled run** to `runs/<timestamp>_<strategy>_<params>/` (git-ignored): `trades.csv`/`trades.txt`, `summary.json`/`summary.txt`, `equity.png`, and a `run.json` manifest that replays as a config. Run recipes live in `run_configs/` (tracked JSON).
 
 _See `ARCHITECTURE.md` for all entry points. `src/broker/` is a reusable engine still awaiting its own command._
 

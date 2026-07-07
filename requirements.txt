@@ -9,6 +9,9 @@ pyarrow          # read/write Parquet (the NT8 historical data)
 # Backtesting / research
 vectorbt
 
+# Plotting (equity/drawdown images for backtest runs)
+matplotlib
+
 # HTTP / API access
 requests
 
@@ -18,5 +21,4 @@ python-dotenv
 # --- add as you build ---
 # ccxt            # crypto exchange APIs
 # ta-lib          # technical indicators
-# matplotlib      # plotting
 # pytest          # testing

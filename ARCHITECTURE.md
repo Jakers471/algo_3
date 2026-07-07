@@ -21,24 +21,35 @@ algo_3/
 │   │   ├── settings.py     log level + destination (the value of the dial)
 │   │   └── setup.py        setup_logging(): how/where logs render
 │   ├── core/            shared infrastructure used everywhere
-│   │   └── console.py       ANSI color codes + paint() (no emoji, ever)
+│   │   ├── console.py       ANSI color codes + paint() (no emoji, ever)
+│   │   └── progress.py      in-place ANSI progress bar for long loops
 │   ├── data/           load the NT8 Parquet store into clean bars — engine
 │   │   ├── loader.py      read a symbol/TF Parquet -> raw UTC OHLCV (I/O)
 │   │   └── prepare.py     window + gap-mark + zero-vol policy (logic)
 │   ├── strategy/       bars -> bracket order intents (signals)
 │   │   ├── bracket.py     Direction + Bracket (entry stop + SL/TP in points)
-│   │   └── breakout.py    Donchian long-only starter + its params
+│   │   ├── breakout.py    Donchian long-only starter + its params
+│   │   └── registry.py    name -> strategy class (build one from a run config)
 │   ├── backtest/       resolve brackets against bars -> fills, PnL, stats
 │   │   ├── fills.py       pure fill model (slippage, gaps, adverse-first flag)
-│   │   ├── engine.py      the bar loop; emits Trades (honors hold policy)
-│   │   └── results.py     Trades -> metrics + color report
+│   │   ├── engine.py      the bar loop; emits Trades (MAE/MFE/ETD, hold policy)
+│   │   └── runspec.py     load a JSON run config; label a run (replayable)
+│   ├── reporting/      Trades -> saved, shareable run artifacts
+│   │   ├── stats.py       All/Long/Short metrics (+ json/text writers)
+│   │   ├── trades.py      trade list -> CSV (machine) + aligned text (human)
+│   │   ├── equity.py      equity + drawdown image (matplotlib PNG)
+│   │   ├── console.py     terminal All/Long/Short summary (color)
+│   │   └── run.py         bundle everything into a labeled run/ folder
 │   ├── broker/         all ProjectX API access (plumbing) — the engine
 │   │   ├── client.py      connection + auth; exposes post() for reuse
 │   │   ├── accounts.py    search accounts, pick a tradable one
 │   │   ├── contracts.py   search contracts, resolve a symbol to its id
 │   │   └── history.py     fetch OHLCV bars for a contract
 │   └── cli/            thin doors: parse input, call an engine, format out
-│       └── data.py        load & summarize prepared bars (python -m src.cli.data)
+│       ├── data.py        load & summarize prepared bars (python -m src.cli.data)
+│       └── backtest.py    run a backtest from a config; save a labeled run
+├── run_configs/        JSON run recipes (tracked) — strategy + params + data
+├── runs/               labeled run outputs (git-ignored): trades, summary, equity.png
 ├── (top level, not code): .env, logs/, data/, projectX_API/
 ```
 
@@ -61,12 +72,21 @@ cli.data         ─► data.prepare         (the bars engine it drives)
                  └► core.console          (color the summary)
 
 strategy.breakout ─► strategy.bracket   (emits Bracket order intents)
+strategy.registry ─► strategy.breakout   (name -> class)
 backtest.engine   ─► backtest.fills      (resolve fills against a bar)
                   ├► strategy.bracket     (the order intent it consumes)
                   ├► config.backtest      (slippage, commission, hold policy)
                   └► config.instruments   (tick/point value for PnL)
-backtest.results  ─► backtest.engine      (the Trade type) + core.console
-cli.backtest      ─► data.prepare, strategy.breakout, backtest.engine, backtest.results
+backtest.runspec  ─► json                 (load the run config; a manifest replays)
+
+reporting.stats   ─► backtest.engine      (the Trade type)
+reporting.trades  ─► backtest.engine      (Trade -> CSV/text)
+reporting.equity  ─► matplotlib, backtest.engine   (Trade -> PNG)
+reporting.console ─► reporting.stats, core.console (terminal summary)
+reporting.run     ─► reporting.{trades,stats,equity}, backtest.runspec  (labeled run)
+
+cli.backtest      ─► data.prepare, strategy.registry, backtest.{engine,runspec},
+                     reporting.{stats,console,run}, core.progress
 
 logging.setup    ─► logging.settings    (reads the dial value)
                  └► core.console         (color codes)
@@ -89,7 +109,7 @@ audit.reader       ─► DATA_AUDIT.json     (the data's own rules, read once)
 ## Entry points (the doors you can run)
 
 - **`python -m src.cli.data [SYMBOL] [TIMEFRAME]`** — load prepared bars (default `NQ 5m`) and print a summary (rows, range, session-gap count). Wired into `commands.bat` → Data.
-- **`python -m src.cli.backtest [SYMBOL] [TIMEFRAME] [--lookback --stop --target]`** — run the breakout strategy through the backtest engine and print metrics (incl. ambiguous same-bar count). Wired into `commands.bat` → CLI / Workflows.
+- **`python -m src.cli.backtest --config run_configs/<name>.json`** (or `[SYMBOL] [TIMEFRAME] --lookback --stop --target`) — run a backtest from a JSON run config with a progress bar, print the All/Long/Short summary, and save a **labeled run** to `runs/<timestamp>_<strategy>_<params>/` (trades.csv/txt, summary.json/txt, equity.png, run.json manifest). The manifest replays as a config. Wired into `commands.bat` → CLI / Workflows.
 
 `broker/` is a verified, reusable engine (auth → account → contract → bars) still awaiting its own command (e.g. live trading, health check); when built it adds another thin `cli/` door here, wired into `commands.bat`.
 
