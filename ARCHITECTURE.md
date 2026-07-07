@@ -50,7 +50,7 @@ config.broker    ─► os                   (reads secrets from env)
 
 ## Entry points (the doors you can run)
 
-**None yet.** `broker/` is a verified, reusable engine (auth → account → contract → bars) awaiting its first command. When a workflow is built (e.g. live trading, health check), it adds a thin `cli/` door here. See `COMMANDS.md`.
+**None yet.** `broker/` is a verified, reusable engine (auth → account → contract → bars) awaiting its first command. When a workflow is built (e.g. live trading, health check), it adds a thin `cli/` door here, wired into `commands.bat`.
 
 ## Note on API history depth
 

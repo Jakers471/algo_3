@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-**This file holds timeless *rules* only.** It is always loaded into memory, so it must never contain point-in-time snapshots — folder trees, file lists, current command sets — that drift out of date and then mislead every session. The live structure lives in `ARCHITECTURE.md` (the code map) and `COMMANDS.md` (how to run things), which are updated in the same commit as any change. Rules here; current facts there.
+**This file holds timeless *rules* only.** It is always loaded into memory, so it must never contain point-in-time snapshots — folder trees, file lists, current command sets — that drift out of date and then mislead every session. The live structure lives in `ARCHITECTURE.md` (the code map) and `commands.bat` (the runnable command menu — how to run things), which are updated in the same commit as any change. Rules here; current facts there.
 
 ## Project structure
 
@@ -88,15 +88,16 @@ For now this is a **CLI-driven, Python-only project** — the primary interface 
 
 A JS/TS frontend may come later. **When** it does, it gets its own self-contained top-level `frontend/` folder (its own `package.json`, build tools, dependencies, and internal JS/TS `src/`). Never put JS/TS app code inside the Python `src/` — keep the two worlds cleanly separated. Until then, don't scaffold a `frontend/` folder.
 
-## Commands documentation
+## Commands — the runnable menu (`commands.bat` + `commands.ps1`)
 
-**`COMMANDS.md` is the single hub for every runnable command — structured, labeled, collapsible, always current.** Jake runs everything from here: open the file, toggle a command's section, copy it, run it from the repo root. It is the *one* place — there are no scattered launcher files (`.bat`, shell scripts, per-command runners). Don't create them; add a COMMANDS.md entry instead.
+**The command hub is a runnable arrow-key menu, not a doc.** Jake double-clicks `commands.bat` (a thin launcher); it opens the menu defined in `commands.ps1`. Navigate with Up/Down, Enter to select, Esc to go back or quit. Selecting a command runs it. The hub is *runnable*, not a passive list to copy from.
 
-- **One entry per command, grouped under a labeled category heading** (`## Setup`, `## CLI / Workflows`, `## Data`, …). Add a new category heading when a new area of commands appears; never dump unrelated commands under one heading.
-- **Each entry is a collapsible `<details>` block** so the file stays scannable as it grows: the `<summary>` carries the command name **and** the exact command string; opening it shows the source file and a few-word "does". Toggle down, copy, run.
-- **Terse — a launcher, not a manual.** The summary *is* the command; the body is at most source + one line. The source file's imports and functions are the real spec; point there, don't re-explain in prose.
-- **Always updated, always cleaned** — add/rename/change a command → update its entry in the same commit; remove a command → delete its entry. No stale entries, ever.
-- **Permanent `src/` commands only** — never document `scratch/` spikes. A throwaway doesn't earn an entry; if a spike graduates into a permanent command, *that's* when it gets one.
+- **`commands.bat` is a thin door** — it only launches `commands.ps1`, no logic. All labels, structure, and dispatch live in the `commands.ps1` menu tree.
+- **The menu is a nested tree, grouped by labeled category** (Setup, CLI / Workflows, Data, …). A category is a submenu; menus nest freely. Add a new category submenu when a new area of commands appears; never pile unrelated commands under one heading.
+- **Every runnable command is a menu item** in the tree — either `@{ Label='...'; Run={ <command> } }` (runs it) or `@{ Label='...'; Submenu=@{...} }` (nests). Wire a new command into the tree in the *same commit* as the code that adds it.
+- **Items dispatch to the real command** (e.g. `Run = { python -m src.cli.<name> }`); the menu holds no trading logic, just labels and calls.
+- **Always updated, always cleaned** — add/rename/change a command → update its item; remove a command → delete its item. No dead menu items, ever.
+- **Permanent `src/` commands only** — never wire `scratch/` spikes into the menu. A throwaway doesn't earn an item; if a spike graduates into a permanent command, *that's* when it gets one.
 
 ## Project map — the code map, kept current
 
