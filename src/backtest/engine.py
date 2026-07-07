@@ -59,7 +59,9 @@ def run(bars: pd.DataFrame, strategy, symbol: str, *, size: int = 1, progress=No
     comm_side = bt_cfg.COMMISSION_PER_SIDE
     allow_hold = bt_cfg.ALLOW_OVERNIGHT_HOLD and bt_cfg.ALLOW_WEEKEND_HOLD
 
-    levels = strategy.entry_levels(bars).to_numpy()
+    signals = strategy.entry_signals(bars)
+    dirs = signals["direction"].to_numpy()      # Direction or None per bar
+    levels = signals["entry_stop"].to_numpy()
     p = strategy.params
 
     times = bars.index
@@ -139,11 +141,12 @@ def run(bars: pd.DataFrame, strategy, symbol: str, *, size: int = 1, progress=No
                     close_trade(i, ex.price, ex.reason, ex.ambiguous, True)
                     pos = None
 
-        # 4. Flat and nothing armed: ask the strategy to arm from this bar.
+        # 4. Flat and nothing armed: arm the strategy's signal for this bar.
         if pos is None and pending is None:
+            d = dirs[i]
             level = levels[i]
-            if level == level:  # not NaN
-                pending = Bracket(strategy.direction, float(level), p.stop_points, p.target_points)
+            if d is not None and level == level:  # has a direction and a non-NaN level
+                pending = Bracket(d, float(level), p.stop_points, p.target_points)
 
         if progress is not None and (i & 0x3FFF) == 0:
             progress.update(i)

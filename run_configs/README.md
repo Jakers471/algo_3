@@ -48,10 +48,14 @@ Higher is always better; the optimizer maximizes it.
 
 ## Strategies (swap the `strategy` string; set `params` / `param_grid` to match)
 
-- `breakout` — Donchian long-only breakout. Params:
-  - `lookback` (int) — bars for the rolling-high buy-stop
+- `breakout` — Donchian breakout, long or short. Params:
+  - `lookback` (int) — bars for the rolling high/low stop-entry
   - `stop_points` (float) — stop-loss distance in points
   - `target_points` (float) — take-profit distance in points
+  - `direction` (string) — `"long"` (buy-stop at the rolling high) or `"short"`
+    (sell-stop at the rolling low); default `"long"`. One direction at a time.
+    In a walk-forward `param_grid` you can sweep `"direction": ["long", "short"]`
+    to let the optimizer pick per fold.
 
 _Registered strategies live in `src/strategy/registry.py`; add a strategy there
 and it becomes usable by name here._
