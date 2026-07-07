@@ -18,6 +18,16 @@
 - **Keep interface files thin.** A CLI command or `main.py` just parses input, calls the real function in a module, and formats the result — it holds no trading logic itself. The weight lives in the modules; the doors on top stay feather-light.
 - **Split when it hurts, not before.** It's fine to start with one file and break it apart the moment a second caller needs only part of it. Don't over-plan the structure up front — let the seams reveal themselves and refactor toward one-job-per-file as they do.
 
+### Logging & debug
+
+**Use Python's `logging` module, never bare `print`, for all debug/progress output.** `logging` has levels you can dial up or down without deleting code; `print` is permanent noise.
+
+- **Log calls go inline** in the `.py` file doing the work — a `logger.info("completed X")` narrates the job it sits next to. This does not violate one-file-one-job; a log line reports on the file's existing job.
+- Use levels deliberately: `logger.debug()` for noisy detail (bug hunting), `logger.info()` for normal "completed / doing" progress, `logger.warning()` / `logger.error()` for problems. Set level to `DEBUG` while debugging, `INFO` when running normally — no lines get deleted.
+- **Log *configuration* is its own job** — format, level, and destinations live in one module (e.g. `src/logging_config.py`) with a `setup_logging()` called once at startup by the CLI/`main.py`. Change format or add a log file in that one place; every module follows.
+- Each module gets its logger with `logger = logging.getLogger(__name__)` at the top. Modules decide *what* to log; `logging_config.py` decides *how and where*.
+- **Log *output* is data, not code** — `.log` files go to a top-level `logs/` folder (git-ignored), never in `src/`.
+
 ### Interface: CLI-first
 
 For now this is a **CLI-driven, Python-only project** — the primary interface is a command-line tool, no frontend yet. Keep the CLI entry point under `src/` (e.g. `src/cli/`).
