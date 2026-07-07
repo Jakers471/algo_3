@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+**This file holds timeless *rules* only.** It is always loaded into memory, so it must never contain point-in-time snapshots — folder trees, file lists, current command sets — that drift out of date and then mislead every session. The live structure lives in `ARCHITECTURE.md` (the code map) and `COMMANDS.md` (how to run things), which are updated in the same commit as any change. Rules here; current facts there.
+
 ## Project structure
 
 **All code lives under `src/`. Keep `src/` clean.**
@@ -15,7 +17,7 @@
 - Group by what a file *is about*, and let the folder name say it: `config/` (settings), `core/` (shared infra like console + logging setup), `broker/` (API access), `cli/` (interface), and so on. The folder is the label; the label is the category.
 - The moment a second file of the same category appears, they share a folder. A category never lives loose next to unrelated files.
 - If a new file doesn't fit any existing category, create a new labeled folder for it — do not drop it at `src/` root "for now". There is no "for now"; loose files never happen.
-- Current layout: `src/config/`, `src/core/`, `src/broker/`, `src/cli/`. New areas (`strategy/`, `backtest/`, `risk/`, `data/` loaders, etc.) get their own folder as they arrive.
+- New areas get their own labeled folder as they arrive. For the current set of folders, see `ARCHITECTURE.md` — it is not listed here (snapshots go stale).
 
 ### One file = one job
 
@@ -78,18 +80,7 @@
 
 ### Interface: CLI-first
 
-For now this is a **CLI-driven, Python-only project** — the primary interface is a command-line tool, no frontend yet. Keep the CLI entry point under `src/` (e.g. `src/cli/`).
-
-```
-algo_3/
-├── src/               ← Python backend (engine, strategies, API, CLI)
-│   ├── backtest/
-│   ├── strategy/
-│   ├── cli/           ← command-line interface (primary interface for now)
-│   └── api/
-├── data/
-└── requirements.txt
-```
+For now this is a **CLI-driven, Python-only project** — the primary interface is a command-line tool, no frontend yet. Keep the CLI entry point under `src/` (e.g. `src/cli/`). The live folder layout is not drawn here; see `ARCHITECTURE.md`.
 
 ### Frontend (future — only when JS is added)
 
