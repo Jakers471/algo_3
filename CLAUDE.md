@@ -8,6 +8,15 @@
 - Every source file you write, create, or move goes under `src/` (in an appropriate subpackage). Do not put code at the top level.
 - Reference/data directories (e.g. `projectX_API/`, `data/`) are not code and stay at the top level, not in `src/`.
 
+### Folders by category — never loose files
+
+**Every file lives in a labeled subpackage named for its category. No loose files ever** — `src/` itself holds only `__init__.py` and subpackage folders, never a stray `.py`.
+
+- Group by what a file *is about*, and let the folder name say it: `config/` (settings), `core/` (shared infra like console + logging setup), `broker/` (API access), `cli/` (interface), and so on. The folder is the label; the label is the category.
+- The moment a second file of the same category appears, they share a folder. A category never lives loose next to unrelated files.
+- If a new file doesn't fit any existing category, create a new labeled folder for it — do not drop it at `src/` root "for now". There is no "for now"; loose files never happen.
+- Current layout: `src/config/`, `src/core/`, `src/broker/`, `src/cli/`. New areas (`strategy/`, `backtest/`, `risk/`, `data/` loaders, etc.) get their own folder as they arrive.
+
 ### One file = one job
 
 **Each file does one job — it has one reason to exist and one reason to change.** This keeps the codebase clean, organised, and easy to understand, build on, and debug.
