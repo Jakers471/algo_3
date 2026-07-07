@@ -117,6 +117,7 @@ $root = @{
             Submenu = @{
                 Title = 'Maintenance'
                 Items = @(
+                    @{ Label = 'Run tests  (pytest)'; Run = { python -m pytest tests/ -q } },
                     @{ Label = 'Project audit  (docs drift + dead code)'; Run = { python scratch/audit_project.py } }
                 )
             }

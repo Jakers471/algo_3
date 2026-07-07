@@ -60,6 +60,9 @@ algo_3/
 │       └── walkforward.py run a walk-forward from a config; save a labeled run
 ├── run_configs/        JSON run recipes (tracked) — strategy + params + data
 ├── runs/               labeled run outputs (git-ignored): trades, summary, equity.png
+├── tests/              pytest suite (dev tooling, not product code)
+│   └── test_fills.py     pins the fill model's honest assumptions
+├── conftest.py         puts repo root on sys.path so tests import `src`
 ├── (top level, not code): .env, logs/, data/, projectX_API/
 ```
 

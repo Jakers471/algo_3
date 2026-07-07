@@ -18,7 +18,9 @@ requests
 # Config / secrets
 python-dotenv
 
+# Testing
+pytest
+
 # --- add as you build ---
 # ccxt            # crypto exchange APIs
 # ta-lib          # technical indicators
-# pytest          # testing

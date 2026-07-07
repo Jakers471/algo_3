@@ -31,8 +31,10 @@ SKIP_ZERO_VOLUME_BARS = False
 BACKTEST_START = date(2015, 1, 1)
 # Account size to simulate.
 STARTING_CAPITAL = 50_000.0
-# PLACEHOLDER — set to your TopstepX commission per contract per side.
-COMMISSION_PER_SIDE = 0.0
+# TopstepX commission per contract PER SIDE. The engine charges it twice per
+# round trip (entry + exit), so $2.00/side = $4.00 round trip. Verify against
+# your actual TopstepX account/instrument and adjust here in one place.
+COMMISSION_PER_SIDE = 2.0
 # Explicit hold policy across session gaps (audit: gap_awareness, required):
 # never carry a position across the overnight/weekend boundary by default.
 ALLOW_OVERNIGHT_HOLD = False
