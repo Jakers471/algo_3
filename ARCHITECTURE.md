@@ -25,7 +25,8 @@ algo_3/
 │   │   └── progress.py      in-place ANSI progress bar for long loops
 │   ├── data/           load the NT8 Parquet store into clean bars — engine
 │   │   ├── loader.py      read a symbol/TF Parquet -> raw UTC OHLCV (I/O)
-│   │   └── prepare.py     window + gap-mark + zero-vol policy (logic)
+│   │   ├── prepare.py     window + gap-mark + zero-vol policy (logic)
+│   │   └── cache.py       compute-once/read-many derived series (cons mask) to cache/
 │   ├── indicators/     shared raw math (pure) — strategies compose these
 │   │   ├── volume_profile.py  volume-per-row + value area (POC/VAH/VAL core)
 │   │   ├── grade.py           OHLCV window -> regime; rolling_consolidation mask
@@ -94,9 +95,12 @@ indicators.grade         ─► indicators.volume_profile   (profile + value are
 indicators.sessions      ─► config.session              (session windows + tz)
 indicators.consolidation ─► indicators.grade            (grade each base run)
 
+data.cache           ─► data.loader, indicators.grade   (full-dataset cons mask -> cache/)
+
 strategy.breakout    ─► strategy.bracket   (emits Bracket order intents)
-strategy.va_breakout ─► indicators.{sessions, grade, consolidation}, strategy.bracket
-strategy.registry    ─► strategy.{breakout, va_breakout}   (name -> class)
+strategy.va_breakout ─► indicators.{sessions, grade, consolidation}, strategy.bracket,
+                        data.cache (full-dataset mask when symbol/tf known)
+strategy.registry    ─► strategy.{breakout, va_breakout}   (attaches symbol/tf)
 backtest.engine   ─► backtest.fills      (resolve fills against a bar)
                   ├► strategy.bracket     (the order intent it consumes)
                   ├► config.backtest      (slippage, commission, hold policy)

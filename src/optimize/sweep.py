@@ -33,6 +33,7 @@ def sweep(
     objective: str,
     symbol: str,
     *,
+    timeframe: str | None = None,
     size: int = 1,
     min_trades: int = 0,
     starting_capital: float = 0.0,
@@ -40,7 +41,7 @@ def sweep(
     """Backtest every grid combo on ``bars``; return them ranked best-first."""
     results: list[SweepResult] = []
     for params in grid_mod.expand(param_grid):
-        strat = registry.build(strategy_name, params)
+        strat = registry.build(strategy_name, params, symbol, timeframe)
         trades = engine.run(bars, strat, symbol, size=size)
         st = stats_mod.compute(trades, starting_capital, "all")
         results.append(SweepResult(params, obj_mod.score(st, objective, min_trades), st))

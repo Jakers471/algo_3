@@ -31,7 +31,7 @@ def main() -> None:
     args = ap.parse_args()
 
     spec = runspec.RunSpec.load(args.config)
-    strategy = registry.build(spec.strategy, spec.params)
+    strategy = registry.build(spec.strategy, spec.params, spec.symbol, spec.timeframe)
     bars = prepare.get_bars(spec.symbol, spec.timeframe)
 
     bar = ProgressBar(len(bars), "backtest")

@@ -44,11 +44,26 @@ class VaBreakoutParams:
 class VaBreakout:
     def __init__(self, params: VaBreakoutParams | None = None) -> None:
         self.params = params or VaBreakoutParams()
+        # Set by registry.build for a real run; enables the disk cache. None in
+        # tests / ad-hoc use, where the mask is computed directly on the slice.
+        self.symbol: str | None = None
+        self.timeframe: str | None = None
+
+    def _consolidation_mask(self, bars: pd.DataFrame) -> np.ndarray:
+        """CONSOLIDATION mask for these bars - from the full-dataset cache when the
+        symbol/timeframe is known, else computed directly on the slice."""
+        p = self.params
+        if self.symbol and self.timeframe:
+            from src.data.cache import consolidation_mask
+            full = consolidation_mask(self.symbol, self.timeframe,
+                                      p.state_window, p.e_cut, p.a_cut, p.n_rows)
+            return full.reindex(bars.index).fillna(False).to_numpy(dtype=bool)
+        return rolling_consolidation(bars, p.state_window, p.e_cut, p.a_cut, p.n_rows)
 
     def entry_signals(self, bars: pd.DataFrame) -> pd.DataFrame:
         p = self.params
         strength = session_strength(bars)
-        is_cons = rolling_consolidation(bars, p.state_window, p.e_cut, p.a_cut, p.n_rows)
+        is_cons = self._consolidation_mask(bars)
         vah, val = current_base(bars, is_cons, p.min_len, p.max_age, p.n_rows)
         close = bars["close"].to_numpy(float)
 

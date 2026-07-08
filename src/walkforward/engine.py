@@ -82,11 +82,12 @@ def run(bars: pd.DataFrame, spec: WFASpec, *, progress=None) -> WFAResult:
 
         ranked = sweep_mod.sweep(
             is_bars, spec.strategy, spec.param_grid, spec.objective, spec.symbol,
-            size=spec.size, min_trades=spec.min_trades, starting_capital=cap,
+            timeframe=spec.timeframe, size=spec.size, min_trades=spec.min_trades,
+            starting_capital=cap,
         )
         best = ranked[0]
 
-        strat = registry.build(spec.strategy, best.params)
+        strat = registry.build(spec.strategy, best.params, spec.symbol, spec.timeframe)
         oos_trades = bt_engine.run(oos_bars, strat, spec.symbol, size=spec.size)
         oos_stats = stats_mod.compute(oos_trades, cap, "all")
         oos_score = obj_mod.score(oos_stats, spec.objective, 0)
