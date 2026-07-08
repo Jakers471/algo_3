@@ -116,7 +116,8 @@ $root = @{
             Submenu = @{
                 Title = 'Tools  -  inspect / explain'
                 Items = @(
-                    @{ Label = 'Decode a VA-breakout signal  (NQ 5m)'; Run = { python scratch/va_breakout_demo.py NQ 5m } }
+                    @{ Label = 'Decode a VA-breakout signal  (NQ 5m)'; Run = { python scratch/va_breakout_demo.py NQ 5m } },
+                    @{ Label = 'Regime census  -  how common is each regime  (NQ 5m)'; Run = { python scratch/regime_census.py NQ 5m } }
                 )
             }
         },

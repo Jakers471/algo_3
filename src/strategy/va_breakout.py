@@ -54,10 +54,10 @@ class VaBreakout:
         symbol/timeframe is known, else computed directly on the slice."""
         p = self.params
         if self.symbol and self.timeframe:
-            from src.data.cache import consolidation_mask
-            full = consolidation_mask(self.symbol, self.timeframe,
-                                      p.state_window, p.e_cut, p.a_cut, p.n_rows)
-            return full.reindex(bars.index).fillna(False).to_numpy(dtype=bool)
+            from src.data.cache import state_series
+            full = state_series(self.symbol, self.timeframe,
+                                p.state_window, p.e_cut, p.a_cut, p.n_rows)
+            return (full.reindex(bars.index) == "CONSOLIDATION").to_numpy(dtype=bool)
         return rolling_consolidation(bars, p.state_window, p.e_cut, p.a_cut, p.n_rows)
 
     def entry_signals(self, bars: pd.DataFrame) -> pd.DataFrame:

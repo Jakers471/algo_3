@@ -26,10 +26,11 @@ algo_3/
 │   ├── data/           load the NT8 Parquet store into clean bars — engine
 │   │   ├── loader.py      read a symbol/TF Parquet -> raw UTC OHLCV (I/O)
 │   │   ├── prepare.py     window + gap-mark + zero-vol policy (logic)
-│   │   └── cache.py       compute-once/read-many derived series (cons mask) to cache/
+│   │   └── cache.py       compute-once/read-many derived series (regime state) to cache/
 │   ├── indicators/     shared raw math (pure) — strategies compose these
 │   │   ├── volume_profile.py  volume-per-row + value area (POC/VAH/VAL core)
-│   │   ├── grade.py           OHLCV window -> regime; rolling_consolidation mask
+│   │   ├── volume.py          per-bar volume facts: rvol / delta / vexp
+│   │   ├── grade.py           OHLCV window -> regime; rolling_state / _consolidation
 │   │   ├── sessions.py        session instances + per-bar session_strength (L1 bias)
 │   │   └── consolidation.py   CONSOLIDATION mask -> per-bar tradeable base (VAH/VAL)
 │   ├── strategy/       bars -> bracket order intents (signals)

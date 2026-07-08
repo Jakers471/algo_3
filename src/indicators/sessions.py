@@ -116,5 +116,7 @@ def session_strength(df: pd.DataFrame) -> np.ndarray:
         runhi = np.maximum.accumulate(h[pos])
         runlo = np.minimum.accumulate(lo[pos])
         rng = runhi - runlo
-        out[pos] = np.where(rng > 0, (c[pos] - o[pos[0]]) / rng, 0.0)
+        s = np.zeros(len(pos))
+        np.divide(c[pos] - o[pos[0]], rng, out=s, where=rng > 0)  # 0 where range is 0
+        out[pos] = s
     return out

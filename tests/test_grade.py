@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from pytest import approx
 
-from src.indicators.grade import MIN_BARS, grade
+from src.indicators.grade import MIN_BARS, grade, rolling_state
 
 
 def _bars(opens, closes, highs=None, lows=None, vols=None):
@@ -67,6 +67,24 @@ def test_derived_fields_are_correct():
     assert g.strength == approx(5.0 / 7.0)          # net / range
     assert 0.0 <= g.close_pos <= 1.0
     assert g.val <= g.poc <= g.vah                  # value area brackets the POC
+
+
+def test_rolling_state_matches_grade_exactly():
+    window = 25
+    rng = np.random.default_rng(1)
+    n = 120
+    close = 100 + np.cumsum(rng.normal(0, 1, n))
+    opens = close + rng.normal(0, 0.2, n)
+    highs = np.maximum(opens, close) + np.abs(rng.normal(0, 0.3, n))
+    lows = np.minimum(opens, close) - np.abs(rng.normal(0, 0.3, n))
+    vols = rng.integers(50, 150, n).astype(float)
+    idx = pd.date_range("2020-01-01", periods=n, freq="1min", tz="UTC")
+    bars = pd.DataFrame({"open": opens, "high": highs, "low": lows,
+                         "close": close, "volume": vols}, index=idx)
+    states = rolling_state(bars, window)
+    assert all(s == "UNCLEAR" for s in states[:window])   # warmup
+    for i in range(window, n):
+        assert states[i] == grade(bars.iloc[i - window:i + 1]).state
 
 
 def test_cutoffs_are_tunable():

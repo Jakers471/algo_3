@@ -126,6 +126,50 @@ def grade(bars, *, atr: float | None = None, e_cut: float = E_CUT,
     )
 
 
+def rolling_state(bars, window: int = 25, e_cut: float = E_CUT,
+                  a_cut: float = A_CUT, n_rows: int = N_ROWS):
+    """Per-bar full regime label = grade(trailing window+1 bars).state.
+
+    Returns an object array of "CONSOLIDATION" | "GRIND UP/DN" | "IMPULSE UP/DN" |
+    "WHIPSAW" | "UNCLEAR" (the warmup bars). Unlike rolling_consolidation this is
+    NOT pruned - GRIND vs IMPULSE needs the profile on directional bars too, so
+    every window is profiled. Matches grade() exactly.
+    """
+    import numpy as _np
+
+    o = bars["open"].to_numpy(float)
+    h = bars["high"].to_numpy(float)
+    l = bars["low"].to_numpy(float)
+    c = bars["close"].to_numpy(float)
+    v = bars["volume"].to_numpy(float)
+    n = len(c)
+    out = _np.array(["UNCLEAR"] * n, dtype=object)
+    if n <= window:
+        return out
+
+    absdiff = _np.abs(_np.diff(c, prepend=c[0]))
+    travel = _np.convolve(absdiff, _np.ones(window), "full")[:n]
+    travel = _np.where(travel > 0, travel, 1e-9)
+    net = c - _np.concatenate([_np.full(window, _np.nan), o[:-window]])
+    eff = _np.abs(net) / travel
+
+    for i in range(window, n):
+        a = i - window
+        hs, ls, vs = h[a:i + 1], l[a:i + 1], v[a:i + 1]
+        lo, hi = float(ls.min()), float(hs.max())
+        rng = (hi - lo) or 1e-9
+        binvol = profile_for(hs, ls, vs, lo, rng / n_rows, n_rows)
+        if binvol.sum() <= 0:
+            acc = 0.0
+        else:
+            va_lo, va_hi = value_area(binvol, int(binvol.argmax()), VALUE_AREA_PCT)
+            acc = 1 - (va_hi - va_lo + 1) / n_rows
+        ni = net[i]
+        direction = "bull" if ni > 0 else "bear" if ni < 0 else "flat"
+        out[i] = _classify(eff[i], acc, direction, True, e_cut, a_cut)
+    return out
+
+
 def rolling_consolidation(bars, window: int = 25, e_cut: float = E_CUT,
                           a_cut: float = A_CUT, n_rows: int = N_ROWS):
     """Per-bar boolean: is bar i's trailing (window+1)-bar window a CONSOLIDATION?
