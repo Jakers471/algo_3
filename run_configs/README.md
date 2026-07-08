@@ -70,5 +70,15 @@ Higher is always better; the optimizer maximizes it.
     In a walk-forward `param_grid` you can sweep `"direction": ["long", "short"]`
     to let the optimizer pick per fold.
 
+- `va_breakout` — value-area breakout in a directional session. Enters the break
+  of a CONSOLIDATION's value area in the session's direction; stop at the opposite
+  edge (1R), target `target_r`. Direction is automatic (session-bias sign). Params:
+  - *detection* (define the consolidation base — fix these per walk-forward so the
+    cached state series is reused): `state_window`, `e_cut`, `a_cut`, `n_rows`,
+    `min_len`, `max_age`
+  - *trading* (cheap to sweep): `bias_str` (min |session strength| to trade),
+    `target_r` (reward in R)
+  - Run on `5m` for a fast coarse-base variant; `1m` for the faithful (finer) base.
+
 _Registered strategies live in `src/strategy/registry.py`; add a strategy there
 and it becomes usable by name here._

@@ -28,11 +28,13 @@ algo_3/
 │   │   └── prepare.py     window + gap-mark + zero-vol policy (logic)
 │   ├── indicators/     shared raw math (pure) — strategies compose these
 │   │   ├── volume_profile.py  volume-per-row + value area (POC/VAH/VAL core)
-│   │   ├── grade.py           OHLCV window -> regime (efficiency/acceptance -> state)
-│   │   └── sessions.py        group bars into Asia/London/NY session instances
+│   │   ├── grade.py           OHLCV window -> regime; rolling_consolidation mask
+│   │   ├── sessions.py        session instances + per-bar session_strength (L1 bias)
+│   │   └── consolidation.py   CONSOLIDATION mask -> per-bar tradeable base (VAH/VAL)
 │   ├── strategy/       bars -> bracket order intents (signals)
 │   │   ├── bracket.py     Direction + Bracket (entry stop + SL/TP as absolute levels)
 │   │   ├── breakout.py    Donchian long/short starter (entry_signals) + params
+│   │   ├── va_breakout.py value-area breakout in a directional session (GRADE-based)
 │   │   └── registry.py    name -> strategy class (build one from a run config)
 │   ├── backtest/       resolve brackets against bars -> fills, PnL, stats
 │   │   ├── fills.py       pure fill model (slippage, gaps, adverse-first flag)
@@ -88,12 +90,13 @@ cli.data         ─► data.prepare         (the bars engine it drives)
                  ├► logging.setup         (configure logging at startup)
                  └► core.console          (color the summary)
 
-indicators.grade    ─► indicators.volume_profile   (profile + value area)
-indicators.sessions ─► config.session              (session windows + tz)
+indicators.grade         ─► indicators.volume_profile   (profile + value area)
+indicators.sessions      ─► config.session              (session windows + tz)
+indicators.consolidation ─► indicators.grade            (grade each base run)
 
-strategy.breakout ─► strategy.bracket   (emits Bracket order intents)
-strategy.registry ─► strategy.breakout   (name -> class)
-(a GRADE-based strategy will import indicators.grade to build its signals)
+strategy.breakout    ─► strategy.bracket   (emits Bracket order intents)
+strategy.va_breakout ─► indicators.{sessions, grade, consolidation}, strategy.bracket
+strategy.registry    ─► strategy.{breakout, va_breakout}   (name -> class)
 backtest.engine   ─► backtest.fills      (resolve fills against a bar)
                   ├► strategy.bracket     (the order intent it consumes)
                   ├► config.backtest      (slippage, commission, hold policy)

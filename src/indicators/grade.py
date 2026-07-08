@@ -124,3 +124,47 @@ def grade(bars, *, atr: float | None = None, e_cut: float = E_CUT,
         acceptance=acceptance, scale=(rng / atr if atr else None),
         state=state, meta={"open": O, "high": H, "low": L, "close": C, "volume": float(v.sum())},
     )
+
+
+def rolling_consolidation(bars, window: int = 25, e_cut: float = E_CUT,
+                          a_cut: float = A_CUT, n_rows: int = N_ROWS):
+    """Per-bar boolean: is bar i's trailing (window+1)-bar window a CONSOLIDATION?
+
+    Matches ``grade(...).state == "CONSOLIDATION"`` exactly (efficiency < e_cut AND
+    acceptance >= a_cut), but pruned: efficiency is vectorized, and the expensive
+    per-window volume profile is computed ONLY where efficiency already qualifies.
+    """
+    import numpy as _np
+
+    o = bars["open"].to_numpy(float)
+    h = bars["high"].to_numpy(float)
+    l = bars["low"].to_numpy(float)
+    c = bars["close"].to_numpy(float)
+    v = bars["volume"].to_numpy(float)
+    n = len(c)
+    out = _np.zeros(n, dtype=bool)
+    if n <= window:
+        return out
+
+    # Vectorized efficiency over the (window+1)-bar window ending at i.
+    absdiff = _np.abs(_np.diff(c, prepend=c[0]))
+    travel = _np.convolve(absdiff, _np.ones(window), "full")[:n]  # sum of last `window` diffs
+    travel = _np.where(travel > 0, travel, 1e-9)
+    net = c - _np.concatenate([_np.full(window, _np.nan), o[:-window]])  # c[i] - o[i-window]
+    eff = _np.abs(net) / travel
+
+    acc_cut = 1 - a_cut
+    for i in range(window, n):
+        if not (eff[i] < e_cut):  # NaN or >= cut -> can't be CONSOLIDATION
+            continue
+        a = i - window
+        hs, ls, vs = h[a:i + 1], l[a:i + 1], v[a:i + 1]
+        lo, hi = float(ls.min()), float(hs.max())
+        rng = (hi - lo) or 1e-9
+        binvol = profile_for(hs, ls, vs, lo, rng / n_rows, n_rows)
+        if binvol.sum() <= 0:
+            continue
+        va_lo, va_hi = value_area(binvol, int(binvol.argmax()), VALUE_AREA_PCT)
+        if (va_hi - va_lo + 1) <= acc_cut * n_rows:  # va_frac <= 1 - a_cut  ->  acceptance >= a_cut
+            out[i] = True
+    return out

@@ -93,3 +93,28 @@ def latest_session_bars(df: pd.DataFrame) -> pd.DataFrame:
         return df
     last = insts[-1]
     return df.iloc[last["start_pos"]:last["end_pos"] + 1]
+
+
+def session_strength(df: pd.DataFrame) -> np.ndarray:
+    """Per-bar session bias = GRADE's strength, computed cheaply and exactly.
+
+    strength[i] = (close[i] - session_open) / (running_high - running_low), reset
+    each session. This equals grade(session_so_far).strength but is resolution-
+    invariant and vectorized - net and range depend only on the session's first
+    open, last close, and extremes, not the bar size. 0 outside any session.
+    """
+    n = len(df)
+    out = np.zeros(n)
+    if n == 0:
+        return out
+    o = df["open"].to_numpy(float)
+    h = df["high"].to_numpy(float)
+    lo = df["low"].to_numpy(float)
+    c = df["close"].to_numpy(float)
+    for it in session_instances(df, max_sessions=n + 1):
+        pos = it["positions"]
+        runhi = np.maximum.accumulate(h[pos])
+        runlo = np.minimum.accumulate(lo[pos])
+        rng = runhi - runlo
+        out[pos] = np.where(rng > 0, (c[pos] - o[pos[0]]) / rng, 0.0)
+    return out

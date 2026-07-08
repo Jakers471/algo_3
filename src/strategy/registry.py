@@ -8,9 +8,11 @@ the same commit you add it.
 from __future__ import annotations
 
 from src.strategy.breakout import BreakoutParams, DonchianBreakout
+from src.strategy.va_breakout import VaBreakout, VaBreakoutParams
 
 STRATEGIES: dict[str, tuple[type, type]] = {
     "breakout": (DonchianBreakout, BreakoutParams),
+    "va_breakout": (VaBreakout, VaBreakoutParams),
 }
 
 

@@ -97,7 +97,9 @@ $root = @{
                 Title = 'Backtest'
                 Items = @(
                     @{ Label = 'Run from config  (run_configs/breakout_nq5m.json)'; Run = { python -m src.cli.backtest run_configs/breakout_nq5m.json } },
-                    @{ Label = 'Walk-forward from config  (run_configs/wfa_breakout_nq5m.json)'; Run = { python -m src.cli.walkforward run_configs/wfa_breakout_nq5m.json } }
+                    @{ Label = 'Run VA-breakout  (run_configs/va_breakout_nq5m.json)'; Run = { python -m src.cli.backtest run_configs/va_breakout_nq5m.json } },
+                    @{ Label = 'Walk-forward from config  (run_configs/wfa_breakout_nq5m.json)'; Run = { python -m src.cli.walkforward run_configs/wfa_breakout_nq5m.json } },
+                    @{ Label = 'Demo: decode a VA-breakout signal (both scales)'; Run = { python scratch/va_breakout_demo.py NQ 5m } }
                 )
             }
         },
