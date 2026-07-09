@@ -77,7 +77,9 @@ Because the overlay request carries only the bars replay has revealed, a drawing
 leak the future. See `BUILD_PLAN.md` for the road from here.
 
 Editing HTML/CSS/JS? Just refresh the page. Editing Python? Add `--reload` and the server
-restarts itself.
+restarts itself — replay sessions live in memory, so a restart retires them, and the chart
+notices and silently re-seeds at the bar it had reached rather than reconnecting forever to
+a session that no longer exists.
 
 ## Snapshot table
 

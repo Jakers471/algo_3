@@ -113,9 +113,11 @@ algo_3/
 │           ├── vertical_lines.js  chart primitive: dashed rules with labels
 │           ├── format.js     time/price/volume display strings
 │           └── replay/
-│               ├── stream.js   EventSource + control POSTs to the session
+│               ├── stream.js   EventSource + control POSTs; detects a retired
+│               │               session instead of reconnecting at it forever
 │               ├── window.js   the bounded display buffer (append + trim)
-│               ├── engine.js   subscribes to snapshots; owns no clock
+│               ├── engine.js   subscribes to snapshots; owns no clock;
+│               │               re-seeds itself when its session is retired
 │               └── controls.js toolbar -> engine wiring (the thin door)
 ├── BUILD_PLAN.md       the phased road to a live brain (read before a phase)
 ├── cache/              packed bar cache + server pidfile (git-ignored)

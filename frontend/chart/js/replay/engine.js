@@ -29,6 +29,11 @@ export class ReplayEngine {
     this.speed = 1;
     this.atEnd = false;
 
+    // What we are replaying, so a lost session can be rebuilt where it stood.
+    this.symbol = null;
+    this.timeframe = null;
+    this._recovering = false;
+
     this._listeners = { bar: [], state: [] };
 
     this.stream.on('snapshot', (snap) => this._onSnapshot(snap));
@@ -38,6 +43,28 @@ export class ReplayEngine {
       this.atEnd = state.at_end;
       this._emit('state', state);
     });
+    this.stream.on('lost', () => this._recover());
+  }
+
+  /**
+   * The server forgot our session; seed a new one at the bar we had reached.
+   *
+   * Sessions live in the server's memory, so `--reload` wipes them mid-replay.
+   * Re-seeding replays the warmup silently, which is precisely how a seek works
+   * - so the indicators come back holding exactly what they held before, and the
+   * chart continues instead of stranding the user on a dead stream.
+   */
+  async _recover() {
+    if (this._recovering || !this.symbol) return;
+    this._recovering = true;
+    try {
+      await this.start(this.symbol, this.timeframe, this.cursor + 1);
+      console.warn('replay session was retired; re-seeded at the same bar');
+    } catch (err) {
+      console.error('could not re-seed the replay', err);
+    } finally {
+      this._recovering = false;
+    }
   }
 
   on(event, fn) {
@@ -59,6 +86,8 @@ export class ReplayEngine {
    * so what we draw and what it believes are the same thing.
    */
   async start(symbol, timeframe, index) {
+    this.symbol = symbol;
+    this.timeframe = timeframe;
     const seed = await this.stream.start(symbol, timeframe, index);
 
     // History bars still come over the binary endpoint: 5,000 bars is 120KB of
@@ -79,6 +108,14 @@ export class ReplayEngine {
 
   _onSnapshot(snap) {
     const bar = { time: snap.time, ...snap.bar };
+
+    // Replay time only ever moves forward. A snapshot at or before the newest
+    // bar we hold is a straggler from a session that has been retired - it was
+    // already in flight when we cut back and seeded a new one. Appending it
+    // would hand lightweight-charts a bar older than its last ("Cannot update
+    // oldest data") and, worse, draw a bar the current cursor has not revealed.
+    if (this.buffer.bars.length && bar.time <= this.buffer.newestTime) return;
+
     const trimmed = this.buffer.push(bar);
 
     if (snap.marks.length) this.marks = this.marks.concat(snap.marks);

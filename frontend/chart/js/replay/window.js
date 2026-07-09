@@ -55,4 +55,9 @@ export class BarBuffer {
   get oldestTime() {
     return this.bars.length ? this.bars[0].time : 0;
   }
+
+  /** The newest bar time held. A snapshot at or before it is a straggler. */
+  get newestTime() {
+    return this.bars.length ? this.bars[this.bars.length - 1].time : 0;
+  }
 }

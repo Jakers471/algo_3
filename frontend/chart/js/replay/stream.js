@@ -32,7 +32,11 @@ const post = async (path, body) => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body || {}),
   });
-  if (!res.ok) throw new Error(`${path} -> ${res.status} ${await res.text()}`);
+  if (!res.ok) {
+    const err = new Error(`${path} -> ${res.status} ${await res.text()}`);
+    err.status = res.status;
+    throw err;
+  }
   return res.json();
 };
 
@@ -40,10 +44,13 @@ export class ReplayStream {
   constructor() {
     this.sessionId = null;
     this._source = null;
-    this._handlers = { snapshot: [], state: [] };
+    this._handlers = { snapshot: [], state: [], lost: [] };
   }
 
-  /** Subscribe to 'snapshot' (a row) or 'state' (playing / speed / at_end). */
+  /**
+   * Subscribe to 'snapshot' (a row), 'state' (playing / speed / at_end), or
+   * 'lost' (the server no longer has our session; re-seed if you want one).
+   */
   on(event, fn) {
     this._handlers[event].push(fn);
     return this;
@@ -79,16 +86,64 @@ export class ReplayStream {
       if (payload.state) this._emit('state', payload.state);
       else this._emit('snapshot', payload);
     };
-    this._source.onerror = () => {
-      // EventSource reconnects on its own. The session outlives the gap by
-      // design, so the cursor and indicator state survive a refresh.
-      console.warn('replay stream interrupted; EventSource will retry');
+    this._source.onerror = async () => {
+      // EventSource reconnects on its own, forever, with no way to switch that
+      // off. When the session still exists that is exactly what we want - the
+      // cursor and indicator state survive the gap. When it does not, every
+      // retry 404s and the retries never stop. Sessions live in memory, so
+      // `--reload` restarting the server retires all of them at once; that is
+      // the common way to arrive here. Ask once, and if we have been retired,
+      // close the socket and say so rather than storm.
+      if (await this._alive()) {
+        console.warn('replay stream interrupted; EventSource will retry');
+      } else {
+        this._lost();
+      }
     };
   }
 
-  step(n = 1) { return post('/api/replay/step', { session: this.sessionId, n }); }
-  play(speed) { return post('/api/replay/play', { session: this.sessionId, speed }); }
-  pause() { return post('/api/replay/pause', { session: this.sessionId }); }
+  /** Does the server still know our session? */
+  async _alive() {
+    if (!this.sessionId) return false;
+    try {
+      const res = await fetch('/api/replay/sessions');
+      if (!res.ok) return false;
+      const { sessions } = await res.json();
+      return sessions.some((s) => s.id === this.sessionId);
+    } catch {
+      return false;   // the server is unreachable; retrying the stream is no better
+    }
+  }
+
+  /** Our session is gone. Stop talking to it, and tell whoever cares. */
+  _lost() {
+    const id = this.sessionId;
+    this.close();
+    this.sessionId = null;
+    if (id) this._emit('lost', { session: id });
+  }
+
+  /**
+   * Send one control command.
+   *
+   * Two guards. Without a session there is nobody to command, so we do not POST
+   * `session: null` and collect a 404 for it. And a 404 from a command we *did*
+   * address means the session was retired underneath us - the same condition the
+   * stream discovers, reached by a different door.
+   */
+  async _control(send) {
+    if (!this.sessionId) return null;
+    try {
+      return await send();
+    } catch (err) {
+      if (err.status === 404) { this._lost(); return null; }
+      throw err;
+    }
+  }
+
+  step(n = 1) { return this._control(() => post('/api/replay/step', { session: this.sessionId, n })); }
+  play(speed) { return this._control(() => post('/api/replay/play', { session: this.sessionId, speed })); }
+  pause() { return this._control(() => post('/api/replay/pause', { session: this.sessionId })); }
 
   async stop() {
     this.close();
