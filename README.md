@@ -56,9 +56,23 @@ five is noise on the candles. The NT8 `NQ`/`ES`
 bars have no aggressor recorded, so the strip is simply empty for them — never a flat zero,
 which would claim the buying and selling were balanced.
 
+**Structure points** are marked with an arrow above the swing high or below the swing low
+that price later turned away from. A swing is confirmed only once price has retraced
+`RETRACE x range_scale` from the extreme — so the arrow appears late, on the bar that
+*proved* the turn, but lands on the bar that *made* it. Nothing else is honest: a high
+does not announce itself.
+
+That threshold is measured in **multiples of the current typical bar range**
+(`src/indicators/range_scale.py`), never in points. NQ's median 30s range moved between
+4.50 and 14.25 points across 29 months, so a fixed point threshold is correct for one
+volatility regime and silently wrong for the next. Measured in units of itself, "a real
+pullback" means the same thing in a quiet August and in April 2025 — multiply every price
+in the data by ten and the identical swings are found.
+
 The chart draws; it does not compute. Indicators are computed once in Python and arrive
-over `/api/overlays` as drawing instructions — today a dashed, labelled rule at each
-trading-session open (Asia / London / NY), straight from `src/indicators/sessions.py`.
+over `/api/overlays` as drawing instructions — a dashed, labelled rule at each
+trading-session open (Asia / London / NY), and arrows at the swings. Both are shapes the
+frontend renders without knowing what a session or a swing is.
 Because the overlay request carries only the bars replay has revealed, a drawing can never
 leak the future. See `BUILD_PLAN.md` for the road from here.
 

@@ -24,12 +24,16 @@ import pandas as pd
 from src.chart import store
 from src.config.indicators import absorption as absorption_cfg
 from src.config.indicators import orderflow as orderflow_cfg
+from src.config.indicators import range_scale as range_scale_cfg
 from src.config.indicators import sessions as sessions_cfg
+from src.config.indicators import swing as swing_cfg
 from src.events.types import BarClose
 from src.indicators.absorption import Absorption
 from src.indicators.orderflow import OrderFlow
+from src.indicators.range_scale import RangeScale
 from src.indicators.registry import Registry
 from src.indicators.sessions import Sessions
+from src.indicators.swing import Swing
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +47,13 @@ def build_registry() -> Registry:
         indicators.append(OrderFlow())
     if absorption_cfg.ENABLED:
         indicators.append(Absorption())
+    # swing measures its threshold in multiples of range_scale, so the scale must
+    # run even when nobody asked for it directly. The registry would raise on the
+    # missing dependency; better to satisfy it than to make the dial a trap.
+    if range_scale_cfg.ENABLED or swing_cfg.ENABLED:
+        indicators.append(RangeScale())
+    if swing_cfg.ENABLED:
+        indicators.append(Swing())
     # The registry topologically sorts by declared dependencies, so the order
     # they are appended in here does not matter.
     return Registry(indicators)
@@ -100,6 +111,7 @@ def marks_for(time: int, row: dict, *, is_first: bool = False) -> list[dict]:
         buying = side == "buy"
         marks.append({
             "kind": "marker",
+            "source": "absorption",
             "time": int(time),
             # Buyers absorbed: the resting interest is UNDER the bar. Mark it there.
             "position": "belowBar" if buying else "aboveBar",
@@ -108,18 +120,41 @@ def marks_for(time: int, row: dict, *, is_first: bool = False) -> list[dict]:
             "shape": absorption_cfg.MARKER_SHAPE,
             "text": "",
         })
+
+    if swing_cfg.ENABLED and swing_cfg.DRAW_MARKERS and row.get("swing"):
+        is_high = row["swing"] == "high"
+        marks.append({
+            "kind": "marker",
+            "source": "swing",
+            # The bar that MADE the extreme, not the later bar that confirmed it.
+            # A swing is always stamped in the past; that is what "confirmed"
+            # costs. The mark therefore lands on the high it names.
+            "time": int(row["swing_time"]),
+            "position": "aboveBar" if is_high else "belowBar",
+            "color": swing_cfg.MARKER_COLOR,
+            "shape": swing_cfg.HIGH_SHAPE if is_high else swing_cfg.LOW_SHAPE,
+            "text": "",
+        })
     return marks
 
 
 def group_marks(marks: list[dict]) -> list[dict]:
-    """Group flat marks into the overlay specs the frontend renders."""
+    """Group flat marks into the overlay specs the frontend renders.
+
+    Markers are grouped by the indicator that produced them, so a spec stays
+    named after one job. The frontend concatenates them regardless - it renders
+    shapes, not meanings - but a spec called "absorption" that also carried swing
+    points would be a lie to the next reader.
+    """
     specs = []
     lines = [m for m in marks if m["kind"] == "vline"]
     if lines:
         specs.append({"id": "sessions", "kind": "vlines", "lines": lines})
+
     markers = [m for m in marks if m["kind"] == "marker"]
-    if markers:
-        specs.append({"id": "absorption", "kind": "markers", "markers": markers})
+    for source in dict.fromkeys(m.get("source", "markers") for m in markers):
+        group = [m for m in markers if m.get("source", "markers") == source]
+        specs.append({"id": source, "kind": "markers", "markers": group})
     return specs
 
 

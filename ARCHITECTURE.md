@@ -23,7 +23,9 @@ algo_3/
 │   │   └── indicators/    one module per indicator, named for its id
 │   │       ├── sessions.py  enable + line colors for the sessions indicator
 │   │       ├── orderflow.py enable + delta strip colors and placement
-│   │       └── absorption.py thresholds + marker colors
+│   │       ├── absorption.py thresholds + marker colors
+│   │       ├── range_scale.py rolling-median window (in BARS, not minutes)
+│   │       └── swing.py     retrace threshold (multiples of range_scale)
 │   ├── audit/           read the data-truth facts from DATA_AUDIT.json
 │   │   └── reader.py       front door: specs, handling flags, data end
 │   ├── logging/         the logging job: dials + the setup that applies them
@@ -48,7 +50,9 @@ algo_3/
 │   │   ├── registry.py    topological order by dependency; merged field row
 │   │   ├── sessions.py    Asia/London/NY + running session extremes
 │   │   ├── orderflow.py   delta/buy/sell/trades, or Unavailable on bar files
-│   │   └── absorption.py  closed against its own flow; depends on orderflow
+│   │   ├── absorption.py  closed against its own flow; depends on orderflow
+│   │   ├── range_scale.py rolling median bar range - the adaptive unit
+│   │   └── swing.py       confirmed structure points; threshold in range_scale
 │   ├── data/           load the NT8 Parquet store into clean bars — engine
 │   │   ├── loader.py      read a symbol/TF Parquet -> raw UTC OHLCV (I/O)
 │   │   ├── prepare.py     window + gap-mark + zero-vol policy (logic)
@@ -126,6 +130,7 @@ algo_3/
 │   ├── test_resample.py    pins the tick->bar rebuild: ties, chunk seams, roll
 │   ├── test_orderflow.py   pins the rule that absent is never zero
 │   ├── test_absorption.py  pins the definition + the dependency ordering
+│   ├── test_swing.py       pins scale invariance: 10x the prices, same swings
 │   ├── test_table_columns.py  pins row rendering: absent != zero, colour rules
 │   ├── test_table_client.py   pins the reconnect storm: backoff, adoption
 │   └── test_lifecycle.py   pins per-port pidfiles; the Windows os.kill trap
@@ -204,11 +209,25 @@ indicators.sessions  ─► config.session, indicators.base   (Asia/London/NY)
 indicators.orderflow ─► indicators.base   (lifts delta off the bar; refuses if absent)
 indicators.absorption ─► indicators.base, config.indicators.absorption
                          (depends on `orderflow`; reads delta, never recomputes it)
+indicators.range_scale ─► indicators.base, config.indicators.range_scale
+                         (rolling median bar range; refuses until MIN_BARS seen)
+indicators.swing     ─► indicators.base, config.indicators.swing
+                         (depends on `range_scale`; retrace measured in it, never in points)
 events.types         ─► (BarClose; Trade/Quote arrive with their sources)
+
+`range_scale` is the denominator the rest of the system is meant to grow into.
+NQ's median 30s bar range swung 3.17x across 29 months, so any threshold written
+in points is right for one regime and wrong for the next. A rolling estimate is
+possible only because bar range is persistent (the last 60 bars' median predicts
+the next 60 at r = 0.65). `swing` is the first consumer: its retrace threshold is
+`RETRACE x range_scale`, which makes the structure it finds invariant to how loud
+the market is. Multiply every price by ten and the same swings appear - pinned by
+`tests/test_swing.py`.
 
 chart.packer     ─► data.loader, numpy  (Parquet -> flat bar records)
 chart.store      ─► chart.packer, numpy (memmap the cache; slice + binary-search)
-chart.overlays   ─► chart.store, indicators.{registry,sessions}, config.indicators.sessions
+chart.overlays   ─► chart.store, indicators.{registry,sessions,orderflow,absorption,
+                    range_scale,swing}, config.indicators.*
 chart.api        ─► chart.store, chart.overlays, config.chart   (routes -> bytes)
 
 replay.session   ─► chart.{overlays,store}, config.{chart,replay}, replay.snapshot
