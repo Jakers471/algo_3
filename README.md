@@ -42,8 +42,10 @@ It stays fast by never sending a dataset it does not need: bars are packed into 
 flat 24-byte record file that the server memmaps and slices, they cross the wire as
 raw bytes rather than JSON, and replay holds a bounded window (~5,000 bars of
 history) that prefetches ahead and trims behind. A 6-million-bar 1m dataset opens as
-one small fetch. Indicators plug in through `frontend/chart/js/indicators/registry.js`
-and are computed off that same window, so they can never see past the replay cursor.
+one small fetch.
+
+The chart draws; it does not compute. Indicators are computed once in Python and will
+arrive as drawing instructions — see `BUILD_PLAN.md` for the phased road from here.
 
 The page **must be served** — opening `index.html` from the filesystem cannot work.
 Starting reclaims the port from any older chart server, so they never stack;
@@ -70,5 +72,6 @@ _See `ARCHITECTURE.md` for all entry points. `src/broker/` is a reusable engine 
 - `capture/` — recorded live market sessions (raw JSONL), git-ignored
 - `projectX_API/` — ProjectX API reference docs
 - `commands.bat` — the runnable command menu
+- `BUILD_PLAN.md` — the phased build plan (what we decided, what we verified, what's next)
 - `CLAUDE.md` — project rules & conventions
 - `requirements.txt` · `.env` (from `.env.example`) · `venv/` (git-ignored)

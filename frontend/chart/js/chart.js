@@ -4,7 +4,7 @@
  * One job: create the chart and its price/volume series, and own the two
  * operations that touch the time scale in a way replay depends on -
  * `rebuild()` (setData without throwing away the user's zoom) and `push()`
- * (append one bar). Replay logic lives in replay/; indicators in indicators/.
+ * (append one bar). Replay logic lives in replay/. It draws; it never computes.
  */
 
 const UP = '#26a69a';

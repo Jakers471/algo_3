@@ -1,17 +1,19 @@
 /**
  * Boot the chart and connect the pieces.
  *
- * One job: construct surface, indicators, browser, engine and controls, and
- * route events between them. All the weight lives in those modules - this file
- * only decides who talks to whom. Add an indicator by importing it and calling
- * `indicators.add(...)` below; nothing else changes.
+ * One job: construct surface, browser, engine and controls, and route events
+ * between them. All the weight lives in those modules - this file only decides
+ * who talks to whom.
+ *
+ * There are deliberately no indicators here. Indicators are computed in Python
+ * and arrive as drawing instructions; the chart never calculates one. A second
+ * implementation in JavaScript would drift from the backtest, and the day it
+ * drifts is the day a chart contradicts a backtest. See BUILD_PLAN.md phase 2.
  */
 
 import { getConfig, getDatasets, locate } from './api.js';
 import { Browser } from './browse.js';
 import { createChart } from './chart.js';
-import { IndicatorRegistry } from './indicators/registry.js';
-import { sma } from './indicators/sma.js';
 import { Controls } from './replay/controls.js';
 import { ReplayEngine } from './replay/engine.js';
 
@@ -25,12 +27,7 @@ async function boot() {
   }
 
   const surface = createChart(document.getElementById('chart'));
-
-  const indicators = new IndicatorRegistry(surface.chart);
-  indicators.add(sma(20, '#58a6ff'));
-  indicators.add(sma(50, '#d29922'));
-
-  const browser = new Browser(surface, indicators, cfg);
+  const browser = new Browser(surface, cfg);
   const engine = new ReplayEngine(cfg);
 
   // Replay redraws through exactly three paths, cheapest first.
@@ -38,16 +35,13 @@ async function boot() {
     if (seeded) {
       // New cut point: everything is new.
       surface.rebuild(bars);
-      indicators.rebuild(bars);
       surface.fit();
     } else if (trimmed) {
       // The buffer shed its oldest chunk; rebuild, holding the user's zoom.
       surface.rebuild(bars, trimmed);
-      indicators.rebuild(bars);
     } else {
       // The common case: one bar appended, no redraw.
       surface.push(bar);
-      indicators.push(bars);
     }
 
     if (bar) {
@@ -61,7 +55,6 @@ async function boot() {
     engine,
     browser,
     surface,
-    indicators,
     datasets,
 
     /** Cut back to a point in time and hand the bars to replay. */

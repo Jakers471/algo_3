@@ -77,13 +77,11 @@ algo_3/
 │           ├── chart.js      the chart surface: rebuild (zoom-safe) / push
 │           ├── browse.js     non-replay view; backfills older bars on scroll
 │           ├── format.js     time/price/volume display strings
-│           ├── replay/
-│           │   ├── window.js   the sliding bar buffer (prefetch + trim)
-│           │   ├── engine.js   play/pause/step/speed; owns the clock
-│           │   └── controls.js toolbar -> engine wiring (the thin door)
-│           └── indicators/
-│               ├── registry.js the indicator seam: create/compute/last
-│               └── sma.js      the reference indicator; copy its shape
+│           └── replay/
+│               ├── window.js   the sliding bar buffer (prefetch + trim)
+│               ├── engine.js   play/pause/step/speed; owns the clock
+│               └── controls.js toolbar -> engine wiring (the thin door)
+├── BUILD_PLAN.md       the phased road to a live brain (read before a phase)
 ├── cache/              packed bar cache + server pidfile (git-ignored)
 ├── capture/            recorded live sessions, raw JSONL (git-ignored)
 ├── runs/               labeled run outputs (git-ignored): trades, summary, equity.png
@@ -157,6 +155,11 @@ cli.chart        ─► chart.{server,packer,lifecycle}, logging.setup, core.con
 The browser talks only to chart.api. Bars cross the wire as raw 24-byte records
 (uint32 time + 5 float32s), never JSON - at 1m there are ~6M of them per symbol.
 frontend/chart/js/api.js decodes that layout; tests/test_chart_store.py pins it.
+
+The chart DRAWS; it never computes. There are no indicators in the frontend and
+none may be added: indicators are computed once, in Python, and arrive as
+drawing instructions. A second implementation in JavaScript would drift from the
+backtest. See BUILD_PLAN.md phase 2 for how they land.
 
 logging.setup    ─► logging.settings    (reads the dial value)
                  └► core.console         (color codes)

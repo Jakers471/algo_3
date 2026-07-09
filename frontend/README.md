@@ -36,8 +36,6 @@ Edits to HTML/CSS/JS take effect on a plain browser refresh — the server sends
 | `js/replay/window.js` | the sliding bar buffer: prefetch ahead, trim behind |
 | `js/replay/engine.js` | play / pause / step / speed — owns the clock |
 | `js/replay/controls.js` | toolbar → engine wiring; the thin door |
-| `js/indicators/registry.js` | the indicator seam |
-| `js/indicators/sma.js` | the reference indicator — copy its shape |
 
 ### Why it stays fast
 
@@ -51,18 +49,16 @@ oldest chunk once the buffer exceeds its cap. Dropping bars renumbers the chart'
 logical indices, so `chart.js` shifts the visible range by the same amount — which is
 why the view never jumps and your zoom survives a trim.
 
-### Adding an indicator
+### Indicators do not live here
 
-Write a module exporting an object with `create` / `compute` / `last`, then register it
-in `main.js`:
+**The chart draws; it never computes.** There is no indicator code in this folder, and
+none may be added. Every indicator is computed once, in Python, and will arrive over the
+wire as drawing instructions (a line, a shaded band, a marker) that the chart renders
+without knowing what they mean.
 
-```js
-import { myIndicator } from './indicators/my_indicator.js';
-indicators.add(myIndicator(params));
-```
+This is not a style preference. Two implementations of an indicator — one in Python for
+the backtest, one in JavaScript for the chart — *will* drift, and the day they drift is
+the day the chart contradicts a backtest and you cannot tell which one lied.
 
-It draws in browse mode and in replay, gets a toggle in the toolbar automatically, and
-recomputes off the same bounded window the chart draws — so **an indicator cannot see
-past the replay cursor.** `last()` returns only the newest point (cheap, called every
-step); `compute()` rebuilds the whole series (called on seed and on trim). Omit `last`
-and the registry falls back to a full recompute.
+Because the backend computes indicators from events at or before the replay cursor, an
+indicator structurally cannot see the future. See `BUILD_PLAN.md` phase 2.

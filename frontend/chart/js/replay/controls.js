@@ -1,9 +1,8 @@
 /**
  * Wire the toolbar to the engine.
  *
- * One job: DOM in, calls out. Every button here delegates to ReplayEngine,
- * Browser, or IndicatorRegistry - no replay logic, no chart calls, no fetching.
- * The frontend's thin door.
+ * One job: DOM in, calls out. Every button here delegates to ReplayEngine or
+ * Browser - no replay logic, no chart calls, no fetching. The frontend's thin door.
  */
 
 import { fmtPrice, fmtTime, fmtVol, fromInputValue, toInputValue } from '../format.js';
@@ -12,14 +11,13 @@ const $ = (id) => document.getElementById(id);
 
 export class Controls {
   /**
-   * @param {object} deps { engine, browser, surface, indicators, datasets, onStart, onExit }
+   * @param {object} deps { engine, browser, surface, datasets, onStart, onExit }
    */
   constructor(deps) {
     Object.assign(this, deps);
     this.picking = false;
 
     this._buildSelectors();
-    this._buildIndicatorToggles();
     this._wireTransport();
     this._wireNavigation();
     this._wireReadout();
@@ -53,22 +51,6 @@ export class Controls {
     this.engine.pause();
     this.setMode('browse');
     this.onExit();
-  }
-
-  // --- indicators -----------------------------------------------------------
-
-  _buildIndicatorToggles() {
-    const host = $('indicators');
-    host.innerHTML = '';
-    for (const { id, label, visible } of this.indicators.list()) {
-      const el = document.createElement('label');
-      el.className = 'toggle';
-      el.innerHTML = `<input type="checkbox" ${visible ? 'checked' : ''}><span>${label}</span>`;
-      el.querySelector('input').addEventListener('change', (e) => {
-        this.indicators.setVisible(id, e.target.checked);
-      });
-      host.appendChild(el);
-    }
   }
 
   // --- transport ------------------------------------------------------------
