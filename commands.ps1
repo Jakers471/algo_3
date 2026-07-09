@@ -125,9 +125,21 @@ $root = @{
                 Items = @(
                     @{ Label = 'Load & summarize bars  (python -m src.cli.data NQ 5m)'; Run = { python -m src.cli.data NQ 5m } },
                     @{ Label = 'Rebuild bars from ticks  (15s/1m/5m/15m/1h/4h + delta)'; Run = { python -m src.cli.resample } },
-                    @{ Label = 'Rebuild bars from ticks  (15s/1m/5m/15m/1h/4h + delta)'; Run = { python -m src.cli.resample } },
                     @{ Label = 'Audit backtest data  (regenerate DATA_AUDIT.json/.md)'; Run = { python scratch/audit_parquet.py } },
                     @{ Label = 'Compare NT8 Parquet vs ProjectX API'; Run = { python scratch/compare_data.py } }
+                )
+            }
+        },
+        @{
+            Label = 'Analysis'
+            Submenu = @{
+                Title = 'Analysis'
+                Items = @(
+                    @{ Label = 'Break sequences  (continuation / consolidation, NY session)'; Run = { python -m scratch.analysis.break_sequences --session ny } },
+                    @{ Label = 'Break sequences  (sweep the retrace dial)'; Run = { python -m scratch.analysis.break_sequences --session ny --retrace 1.5 3.0 5.0 } },
+                    @{ Label = 'Break sequences  (all hours)'; Run = { python -m scratch.analysis.break_sequences --session all } },
+                    @{ Label = 'Timeframe scaling  (open the measured chart)'; Run = { Start-Process 'scratch/analysis/timeframe_scaling.html' } },
+                    @{ Label = 'Regime census'; Run = { python scratch/regime_census.py } }
                 )
             }
         },

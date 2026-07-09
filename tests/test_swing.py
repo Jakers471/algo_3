@@ -83,6 +83,31 @@ def test_old_bars_age_out_of_the_window():
     assert out["range_scale"] == 8.0
 
 
+def test_a_dead_tape_has_no_scale_at_all():
+    """Zero is not a small unit. A threshold measured in it is zero.
+
+    Real: on 0.21% of tick-built 30s bars, most of the last 60 printed one price.
+    Left as 0, swing's threshold becomes 0 and it confirms a structure point on
+    almost every bar of a market that is not moving.
+    """
+    scale = RangeScale()
+    out = None
+    for i in range(scale_cfg.MIN_BARS + 2):
+        try:
+            out = scale.update(bar(i, 10, 10))       # high == low, every bar
+        except Unavailable:
+            out = None
+    assert out is None, "a flat window must not publish a scale of zero"
+
+
+def test_swing_finds_no_structure_on_a_dead_tape():
+    """The refusal has to reach the consumer, or it bought nothing."""
+    reg = registry()
+    rows = [reg.update(bar(i, 10, 10)) for i in range(scale_cfg.MIN_BARS + 5)]
+    assert all(r["range_scale"] is None for r in rows)
+    assert all(r["swing"] is None for r in rows), "no swings in a market that never moved"
+
+
 def test_an_event_with_no_high_or_low_is_refused_not_guessed():
     class Trade:
         ts = START

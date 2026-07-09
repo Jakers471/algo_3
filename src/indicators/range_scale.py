@@ -23,6 +23,14 @@ quietly wrong for the opening minutes of every replay. It raises ``Unavailable``
 so the row records None. None means "nobody could say yet". Zero would mean "the
 bars have no size", which is a claim about the market.
 
+**And why it refuses on a dead tape.** The median range really can be zero: on
+0.21% of tick-built 30s bars, most of the last 60 bars printed a single price and
+never moved off it. Zero is not a small unit, it is *no unit* - a threshold
+measured in it is zero, and ``swing`` would then confirm a structure point on
+almost every bar of a market that is not moving. Dividing by it is worse. So a
+zero scale is Unavailable too, and everything downstream honestly reports absent
+until the tape wakes up.
+
 It is deliberately not drawn. A denominator is not a picture.
 """
 
@@ -67,7 +75,14 @@ class RangeScale(Indicator):
             raise Unavailable(
                 f"range_scale has seen {len(self._arrivals)} of {cfg.MIN_BARS} bars")
 
-        return {"range_scale": self._median()}
+        median = self._median()
+        if median <= 0:
+            # A dead tape: most of the window printed one price and never left
+            # it. Zero is no unit at all - a threshold measured in it is zero,
+            # and a ratio measured in it is undefined.
+            raise Unavailable("range_scale is zero; the tape has not moved")
+
+        return {"range_scale": median}
 
     def _observe(self, bar_range: float) -> None:
         """Record this bar's range and age out anything past the window."""
