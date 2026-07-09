@@ -28,7 +28,8 @@ algo_3/
 │   │       ├── range_scale.py window in MINUTES of market time, floored in bars
 │   │       ├── swing.py     retrace threshold (multiples of range_scale)
 │   │       ├── legs.py      staircase colors (muted: a leg is not news)
-│   │       └── breaks.py    close-vs-wick definition + break colors
+│   │       ├── breaks.py    close-vs-wick definition + break colors
+│   │       └── profile.py   which range (developing/leg/box) + bin width
 │   ├── audit/           read the data-truth facts from DATA_AUDIT.json
 │   │   └── reader.py       front door: specs, handling flags, data end
 │   ├── logging/         the logging job: dials + the setup that applies them
@@ -57,7 +58,8 @@ algo_3/
 │   │   ├── range_scale.py rolling median bar range - the adaptive unit
 │   │   ├── swing.py       confirmed structure points + the live high/low rails
 │   │   ├── legs.py        the staircase from one swing to the next
-│   │   └── breaks.py      a swing level closed through: break of structure
+│   │   ├── breaks.py      a swing level closed through: break of structure
+│   │   └── profile.py     volume at price over a structure: POC, VAL, VAH
 │   ├── profile/        volume at price - what bars can never carry
 │   │   ├── build.py       ticks -> 1-tick histograms, packed (I/O + fold)
 │   │   ├── store.py       memmap the pack; slice a time range -> histogram
@@ -239,6 +241,10 @@ indicators.legs      ─► indicators.base   (depends on `swing`; joins consecu
 indicators.breaks    ─► indicators.base, config.indicators.breaks
                          (depends on `swing`; a level closed through, fired once)
 
+indicators.profile ─► profile.{store,value_area}, config.indicators.profile
+                      (depends on `range_scale` for its bin width and on `swing`
+                       for the range; refuses on a bar with no volume at price)
+
 profile.build      ─► data.resample (anchor + aggressor), config.{profile,ticks}
 profile.store      ─► profile.build (the packed dtypes), config.profile, numpy
 profile.value_area ─► config.profile, numpy    (POC/VAL/VAH; pure, no I/O)
@@ -323,9 +329,9 @@ frontend/chart/js/api.js decodes that layout; tests/test_chart_store.py pins it.
 
 The chart DRAWS; it never computes. There are no indicators in the frontend and
 none may be added: indicators are computed once, in Python, and arrive over
-/api/overlays as drawing instructions. Three shapes exist: "vlines" (a dashed rule
-with a label), "markers" (a dot on a bar), and "segments" (a polyline through
-(time, price) corners). The first and third are lightweight-charts primitives
+/api/overlays as drawing instructions. Four shapes exist: "vlines" (a dashed rule
+with a label), "markers" (a dot on a bar), "segments" (a polyline through
+(time, price) corners), and "levels" (a price line across the pane). The first and third are lightweight-charts primitives
 drawing onto the chart's own canvas, so they track every pan and zoom exactly.
 overlays.js understands *shapes*, never meaning - it drops a labelled rule without
 knowing what a trading session is, a dot without knowing what absorption is, and a
@@ -345,6 +351,13 @@ running state: `swing`'s provisional rails are re-emitted on every bar, one bar
 longer, and the newest pair replaces the last. `overlays.collapse_redrawn` does it
 server-side (walking 3,000 bars yields two rails, not six thousand) and
 `engine.js` does it in the browser as snapshots arrive.
+
+A mark may instead carry a `layer`, and then the whole GROUP is redrawn: only the
+marks from the last bar that emitted that layer survive. The volume profile
+publishes a different number of bins on every bar, so matching them by id would
+leave ghost bins behind from a range that has since been reset. The profile added
+no frontend at all - a histogram bin is a `segment`, and a shape vocabulary earns
+its keep when the fourth indicator to reach the chart needs nothing new.
 
 The overlay request carries the REVEALED bar range, so indicators are fed only
 bars at or before the replay cursor and a drawing cannot leak the future.

@@ -77,10 +77,28 @@ volatility regime and silently wrong for the next. Measured in units of itself, 
 pullback" means the same thing in a quiet August and in April 2025 — multiply every price
 in the data by ten and the identical swings are found.
 
+**The volume profile** is the toolbar's rightmost control, and it offers three ranges so
+you can see how differently they read: **developing** (from the last confirmed swing to
+now — always exists, even right after a break), **last leg** (frozen between two confirmed
+swings), and **box** (the same bars, clipped to the price band between the last confirmed
+high and low). Each bin is coloured by who crossed the spread; the amber line is the point
+of control and the faint pair around it is the value area.
+
+A leg is an interval in **time**; a box is an interval in **price**. They are not the same
+range — a real leg beginning at a swing low of 27,666.75 has volume ninety points *below*
+it, because once a low confirms, `swing` turns to hunting a high and nothing stops price
+falling under it.
+
+Volume at price lives only in the ticks: a bar records its total volume, its high and its
+low, never where between them the contracts changed hands. So it is folded once into a
+packed store (`python -m src.cli.vap`, ~80s, git-ignored), and the control is **disabled on
+symbols that have no ticks** rather than offered and quietly drawing nothing.
+
 The chart draws; it does not compute. Indicators are computed once in Python and arrive
 over `/api/overlays` as drawing instructions — a dashed, labelled rule at each
 trading-session open (Asia / London / NY), and arrows at the swings. Both are shapes the
-frontend renders without knowing what a session or a swing is.
+frontend renders without knowing what a session or a swing is. The profile added no
+frontend at all: a histogram bin is a segment, and that shape already existed.
 Because the overlay request carries only the bars replay has revealed, a drawing can never
 leak the future. See `BUILD_PLAN.md` for the road from here.
 

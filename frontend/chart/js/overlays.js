@@ -17,6 +17,7 @@ export class OverlayLayer {
   constructor(surface) {
     this.surface = surface;
     this._seq = 0;   // guards against a slow response overwriting a newer one
+    this.profile = 'off';   // which volume-profile range the server should run
   }
 
   /**
@@ -29,7 +30,7 @@ export class OverlayLayer {
     if (!bars.length) return;
     const seq = ++this._seq;
     try {
-      const { overlays } = await getOverlays(symbol, timeframe, startIndex, bars.length);
+      const { overlays } = await getOverlays(symbol, timeframe, startIndex, bars.length, this.profile);
       if (seq !== this._seq) return;   // a newer refresh already landed
       this.draw(overlays);
     } catch (err) {

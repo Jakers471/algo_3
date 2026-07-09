@@ -49,6 +49,7 @@ async function boot() {
     browser,
     surface,
     datasets,
+    profileSymbols: cfg.profileSymbols || [],
 
     /** Cut back to a point in time; the server seeds and starts publishing. */
     async onStart(epochSeconds) {
@@ -57,8 +58,24 @@ async function boot() {
       // Browse and replay share one surface. Hand it over before replay draws,
       // or a scroll-triggered backfill will rebuild the series out from under it.
       browser.suspend();
-      await engine.start(controls.symbol, controls.timeframe, index);
+      await engine.start(controls.symbol, controls.timeframe, index, controls.profile);
       controls.showProgress(engine.cursor, engine.total);
+    },
+
+    /**
+     * Switch which volume-profile range is drawn.
+     *
+     * The indicator's state IS the range it has accumulated, so this cannot be
+     * a setting toggled mid-flight: replay re-seeds at the bar it had reached
+     * (the same machinery a retired session uses), and browse simply refetches.
+     */
+    async onProfileChange(mode) {
+      overlays.profile = mode;
+      if (controls.mode === 'replay' && engine.symbol) {
+        await engine.start(engine.symbol, engine.timeframe, engine.cursor + 1, mode);
+      } else {
+        overlays.refresh(browser.symbol, browser.timeframe, browser.firstIndex, browser.bars);
+      }
     },
 
     /** Leave replay: retire the session, go back to the live tail of the data. */

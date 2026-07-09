@@ -21,6 +21,8 @@ import logging
 from src.chart import overlays, store
 from src.config import chart as chart_cfg
 from src.config.indicators import orderflow as orderflow_cfg
+from src.config.indicators import profile as profile_cfg
+from src.profile.build import paths as vap_paths
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +83,22 @@ def handle(path: str, query: dict) -> Response:
     return _error(404, f"no such route: {path}")
 
 
+def _profile_symbols() -> list[str]:
+    """Symbols with a volume-at-price store, so the chart can say why not.
+
+    A bar file records total volume and a high and a low; it cannot say where
+    between them the contracts changed hands. Offering a profile on one and
+    quietly drawing nothing is worse than not offering it - the user reads the
+    empty chart as a bug, and the honest answer is that the data never existed.
+    """
+    with_vap = []
+    for symbol in store.datasets():
+        vap_path, idx_path = vap_paths(symbol, profile_cfg.BASE_TIMEFRAME)
+        if vap_path.exists() and idx_path.exists():
+            with_vap.append(symbol)
+    return with_vap
+
+
 def _config() -> dict:
     """The replay dials, served so config/chart.py stays the single source."""
     return {
@@ -99,6 +117,9 @@ def _config() -> dict:
             "pane_top": orderflow_cfg.PANE_TOP,
             "pane_bottom": orderflow_cfg.PANE_BOTTOM,
         },
+        # Which symbols can be profiled at all. Volume at price lives in the
+        # ticks; a bar file has none, and none can be derived from it.
+        "profile_symbols": _profile_symbols(),
     }
 
 
@@ -143,4 +164,5 @@ def _overlays(query: dict) -> Response:
     if n < 0:
         raise ValueError("'count' must not be negative")
     n = min(n, chart_cfg.MAX_BARS_PER_REQUEST)
-    return _json(200, {"overlays": overlays.for_range(symbol, timeframe, start, n)})
+    mode = query.get("profile", [None])[0]
+    return _json(200, {"overlays": overlays.for_range(symbol, timeframe, start, n, mode)})

@@ -49,6 +49,14 @@ class BarClose:
     sell_volume: float | None = None
     trades: float | None = None
 
+    #: Volume at price: ``(prices, volume, buy_volume)``, prices ascending.
+    #:
+    #: A bar knows its total volume, its high and its low. It does not know WHERE
+    #: between them the contracts changed hands - that is in the ticks and nowhere
+    #: else. Spreading a bar's volume across its range would be a fabrication, so
+    #: this is None on any bar file and an indicator that needs it must refuse.
+    vap: tuple | None = None
+
     @property
     def range(self) -> float:
         return self.high - self.low
@@ -60,3 +68,7 @@ class BarClose:
     @property
     def has_order_flow(self) -> bool:
         return self.delta is not None
+
+    @property
+    def has_volume_at_price(self) -> bool:
+        return self.vap is not None

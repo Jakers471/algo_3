@@ -35,6 +35,7 @@ export class ReplayEngine {
     // What we are replaying, so a lost session can be rebuilt where it stood.
     this.symbol = null;
     this.timeframe = null;
+    this.profile = 'off';
     this._recovering = false;
     this._recoveryFailures = 0;
     this._generation = 0;   // guards a slow start against a newer one
@@ -100,12 +101,15 @@ export class ReplayEngine {
    * The server seeds its indicators over the same window it hands us marks for,
    * so what we draw and what it believes are the same thing.
    */
-  async start(symbol, timeframe, index) {
+  async start(symbol, timeframe, index, profile = this.profile) {
     this.symbol = symbol;
     this.timeframe = timeframe;
+    // The profile indicator's state IS the range it has accumulated, so a change
+    // of range is a new session, not a new setting on this one.
+    this.profile = profile;
     const generation = ++this._generation;
 
-    const seed = await this.stream.start(symbol, timeframe, index);
+    const seed = await this.stream.start(symbol, timeframe, index, profile);
 
     // History bars still come over the binary endpoint: 5,000 bars is 120KB of
     // packed records, versus megabytes of JSON inside a snapshot.
@@ -142,14 +146,17 @@ export class ReplayEngine {
     const trimmed = this.buffer.push(bar);
 
     if (snap.marks.length) {
-      // A mark carrying an `id` is a redraw, not an event: the provisional rails
-      // arrive again on every bar, one bar longer. The newest replaces the last.
-      // Everything else - a swing, a leg, a break - is an event and accumulates.
-      const redrawn = new Set(snap.marks.map((m) => m.id).filter(Boolean));
-      const kept = redrawn.size
-        ? this.marks.filter((m) => !redrawn.has(m.id))
-        : this.marks;
-      this.marks = kept.concat(snap.marks);
+      // Two kinds of redraw, and everything else is an event that accumulates.
+      //
+      // An `id` names one shape re-emitted each bar, one bar longer: the newest
+      // replaces the last. A `layer` names a GROUP re-emitted wholesale - the
+      // volume profile publishes a different number of bins on every bar, so
+      // matching them by id would leave ghost bins from a range already reset.
+      const layers = new Set(snap.marks.map((m) => m.layer).filter(Boolean));
+      const ids = new Set(snap.marks.map((m) => m.id).filter(Boolean));
+      const stale = (m) => (m.layer && layers.has(m.layer)) || (m.id && ids.has(m.id));
+      this.marks = (layers.size || ids.size ? this.marks.filter((m) => !stale(m)) : this.marks)
+        .concat(snap.marks);
     }
     if (trimmed) {
       // Marks scrolled off the front can never be drawn again; dropping them

@@ -39,17 +39,22 @@ logger = logging.getLogger(__name__)
 class ReplaySession:
     """One cursor over one symbol/timeframe, with live indicator state."""
 
-    def __init__(self, symbol: str, timeframe: str, owner: str = "") -> None:
+    def __init__(self, symbol: str, timeframe: str, owner: str = "",
+                 profile_mode: str | None = None) -> None:
         self.id = uuid.uuid4().hex[:12]
         self.symbol = symbol
         self.timeframe = timeframe
+        # Which volume-profile range this session draws. Changing it needs a new
+        # session: the indicator's state IS the range it has accumulated, and a
+        # state machine cannot be re-pointed halfway through.
+        self.profile_mode = profile_mode
         # Who asked for this replay. A browser identifies itself with a stable
         # id, so starting a new replay retires the one it left behind - even
         # across a page refresh, when it has forgotten the session id itself.
         self.owner = owner
         self.started = time.time()
 
-        self.registry = overlays.build_registry()
+        self.registry = overlays.build_registry(profile_mode)
         self.total = store.count(symbol, timeframe)
 
         self.cursor = -1          # dataset index of the last bar revealed
@@ -84,7 +89,8 @@ class ReplaySession:
             bars = store.slice_bars(self.symbol, self.timeframe, self.first_index,
                                     index - self.first_index)
             marks: list[dict] = []
-            for i, (bar, event) in enumerate(zip(bars, overlays.bar_events(bars))):
+            events = overlays.bar_events(bars, self.symbol, self.timeframe)
+            for i, (bar, event) in enumerate(zip(bars, events)):
                 row = self.registry.update(event)
                 marks.extend(overlays.marks_for(int(bar["time"]), row, is_first=(i == 0),
                                                 close=float(bar["close"])))
@@ -121,7 +127,7 @@ class ReplaySession:
                 return None
 
             bar = bars[0]
-            event = overlays.bar_events(bars)[0]
+            event = overlays.bar_events(bars, self.symbol, self.timeframe)[0]
             row = self.registry.update(event)
 
             self.cursor = index

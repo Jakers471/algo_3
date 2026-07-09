@@ -16,13 +16,15 @@ const $ = (id) => document.getElementById(id);
 
 export class Controls {
   /**
-   * @param {object} deps { engine, browser, surface, datasets, onStart, onExit }
+   * @param {object} deps
+   *   { engine, browser, surface, datasets, onStart, onExit, onProfileChange }
    */
   constructor(deps) {
     Object.assign(this, deps);
     this.picking = false;
 
     this._buildSelectors();
+    this._wireProfile();
     this._wireTransport();
     this._wireNavigation();
     this._wireReadout();
@@ -51,6 +53,35 @@ export class Controls {
 
   get symbol() { return $('symbol').value; }
   get timeframe() { return $('timeframe').value; }
+  get profile() { return $('profile').value; }
+
+  /** Which range the volume profile covers: off / developing / leg / box. */
+  _wireProfile() {
+    $('profile').addEventListener('change', () => this.onProfileChange(this.profile));
+    $('symbol').addEventListener('change', () => this._syncProfile());
+    this._syncProfile();
+  }
+
+  /**
+   * A profile needs volume at price, and only the ticks have it.
+   *
+   * The NT8 bar files record a bar's total volume, its high and its low - never
+   * where between them the contracts changed hands, and nothing recovers it. So
+   * on those symbols the control is disabled and says why, rather than being
+   * offered and quietly drawing nothing.
+   */
+  _syncProfile() {
+    const select = $('profile');
+    const available = (this.profileSymbols || []).includes(this.symbol);
+    select.disabled = !available;
+    select.title = available
+      ? 'Volume profile range'
+      : `${this.symbol} has no volume at price - it is a bar file. Use a tick-built symbol.`;
+    if (!available && select.value !== 'off') {
+      select.value = 'off';
+      this.onProfileChange('off');
+    }
+  }
 
   _reload() {
     this.engine.pause();

@@ -26,6 +26,7 @@ from src.config.indicators import absorption as absorption_cfg
 from src.config.indicators import breaks as breaks_cfg
 from src.config.indicators import legs as legs_cfg
 from src.config.indicators import orderflow as orderflow_cfg
+from src.config.indicators import profile as profile_cfg
 from src.config.indicators import range_scale as range_scale_cfg
 from src.config.indicators import sessions as sessions_cfg
 from src.config.indicators import swing as swing_cfg
@@ -34,16 +35,23 @@ from src.indicators.absorption import Absorption
 from src.indicators.breaks import Breaks
 from src.indicators.legs import Legs
 from src.indicators.orderflow import OrderFlow
+from src.indicators.profile import Profile
 from src.indicators.range_scale import RangeScale
 from src.indicators.registry import Registry
 from src.indicators.sessions import Sessions
 from src.indicators.swing import Swing
+from src.profile import store as store_vap
 
 logger = logging.getLogger(__name__)
 
 
-def build_registry() -> Registry:
-    """The indicators that run. Add one here when it earns a place in the row."""
+def build_registry(profile_mode: str | None = None) -> Registry:
+    """The indicators that run. Add one here when it earns a place in the row.
+
+    ``profile_mode`` overrides ``config.indicators.profile.MODE`` for one request,
+    which is how the chart's toolbar switches between the developing range, the
+    last leg, and the box without editing a file. "off" runs no profile at all.
+    """
     indicators = []
     if sessions_cfg.ENABLED:
         indicators.append(Sessions())
@@ -64,6 +72,10 @@ def build_registry() -> Registry:
         indicators.append(Legs())
     if breaks_cfg.ENABLED:
         indicators.append(Breaks())
+
+    mode = profile_mode or profile_cfg.MODE
+    if profile_cfg.ENABLED and mode != "off":
+        indicators.append(Profile(mode))
     # The registry topologically sorts by declared dependencies, so the order
     # they are appended in here does not matter.
     return Registry(indicators)
@@ -74,26 +86,57 @@ def _optional(value) -> float | None:
     return None if value is None or math.isnan(value) else float(value)
 
 
-def bar_events(bars) -> list[BarClose]:
+_UNIT_SECONDS = {"s": 1, "m": 60, "h": 3600, "d": 86400}
+
+
+def step_seconds(timeframe: str) -> int:
+    """'15m' -> 900. Bars are close-stamped, so a bar T covers (T - step, T]."""
+    return int(timeframe[:-1]) * _UNIT_SECONDS[timeframe[-1]]
+
+
+def _vap_for(symbol: str, timeframe: str, times) -> list:
+    """Each bar's volume-at-price, or None for every bar if the store is absent.
+
+    The store is built from ticks (``python -m src.cli.vap``) and only exists for
+    tick-rebuilt symbols. A bar file cannot supply one, and inventing one from the
+    bar's high, low and volume would be a fabrication - so None it is, and the
+    profile indicator refuses rather than draws a guess.
+    """
+    step = step_seconds(timeframe)
+    try:
+        return [store_vap.histogram(symbol, profile_cfg.BASE_TIMEFRAME, t - step, t)
+                for t in times]
+    except store_vap.NotBuilt:
+        return [None] * len(times)
+
+
+def bar_events(bars, symbol: str = None, timeframe: str = None) -> list[BarClose]:
     """Structured bar records -> BarClose events, in order.
 
     Columns are pulled to Python lists once. Reading fields off numpy scalars
     per bar costs several times more than the indicator pass itself.
     """
-    times = pd.to_datetime(bars["time"].astype("int64"), unit="s", utc=True)
+    epochs = bars["time"].astype("int64")
+    times = pd.to_datetime(epochs, unit="s", utc=True)
     o, h = bars["open"].tolist(), bars["high"].tolist()
     lo, c, v = bars["low"].tolist(), bars["close"].tolist(), bars["volume"].tolist()
     d = bars["delta"].tolist()
     bv, sv = bars["buy_volume"].tolist(), bars["sell_volume"].tolist()
     tr = bars["trades"].tolist()
+
+    wants_vap = symbol and timeframe and profile_cfg.ENABLED
+    vaps = _vap_for(symbol, timeframe, epochs.tolist()) if wants_vap else [None] * len(times)
+
     return [BarClose(ts=t, open=o[i], high=h[i], low=lo[i], close=c[i], volume=v[i],
                      delta=_optional(d[i]), buy_volume=_optional(bv[i]),
-                     sell_volume=_optional(sv[i]), trades=_optional(tr[i]))
+                     sell_volume=_optional(sv[i]), trades=_optional(tr[i]),
+                     vap=vaps[i])
             for i, t in enumerate(times)]
 
 
 def _segment(source: str, points: list[tuple], color: str, width: int,
-             mark_id: str | None = None) -> dict:
+             mark_id: str | None = None, layer: str | None = None,
+             at: int | None = None) -> dict:
     """A polyline in (time, price) space, for the chart to stroke.
 
     ``time`` is the EARLIEST point, because that is what the replay trim filter
@@ -116,6 +159,13 @@ def _segment(source: str, points: list[tuple], color: str, width: int,
     }
     if mark_id is not None:
         mark["id"] = mark_id
+    if layer is not None:
+        # A LAYER is redrawn wholesale: the newest bar's marks for it replace
+        # every earlier one. An id alone cannot do that, because a profile emits
+        # a different number of bins on every bar and the surplus ids would
+        # linger as ghost bars from a range that has since been reset.
+        mark["layer"] = layer
+        mark["at"] = int(at)
     return mark
 
 
@@ -251,25 +301,77 @@ def marks_for(time: int, row: dict, *, is_first: bool = False,
             breaks_cfg.UP_COLOR if up else breaks_cfg.DOWN_COLOR,
             breaks_cfg.WIDTH,
         ))
+
+    if profile_cfg.ENABLED and profile_cfg.DRAW and row.get("profile_bins"):
+        marks.extend(_profile_marks(int(time), row))
+    return marks
+
+
+def _profile_marks(time: int, row: dict) -> list[dict]:
+    """The histogram, drawn inside the range it describes.
+
+    Each bin is a horizontal bar anchored at the range's right edge and growing
+    left, its length a share of the range's own width. No new shape is needed -
+    a bin is a segment, and `segments` already exists. That is the point of a
+    shape vocabulary: the fourth indicator to reach the chart adds no frontend.
+    """
+    bins = row["profile_bins"]
+    start, end = int(row["profile_from_time"]), int(row["profile_to_time"])
+    span = max(end - start, 1)
+    heaviest = max(v for _, v, _ in bins) or 1
+
+    marks: list[dict] = []
+    for price, volume, buy in bins:
+        length = span * profile_cfg.MAX_WIDTH * volume / heaviest
+        if length < 1:
+            continue
+        # A bin is coloured by who crossed the spread inside it, the same green
+        # and red as the delta strip - the same measurement, against price
+        # instead of against time.
+        bought_it = buy * 2 >= volume
+        marks.append(_segment(
+            "profile", [(end - length, price), (end, price)],
+            profile_cfg.BUY_COLOR if bought_it else profile_cfg.SELL_COLOR,
+            profile_cfg.BIN_HEIGHT, layer="profile", at=time,
+        ))
+
+    for key, color, width in (("profile_val", profile_cfg.VALUE_AREA_COLOR, 1),
+                              ("profile_vah", profile_cfg.VALUE_AREA_COLOR, 1),
+                              ("profile_poc", profile_cfg.POC_COLOR, profile_cfg.POC_WIDTH)):
+        level = row.get(key)
+        if level is not None:
+            marks.append(_segment("profile", [(start, level), (end, level)],
+                                  color, width, layer="profile", at=time))
     return marks
 
 
 def collapse_redrawn(marks: list[dict]) -> list[dict]:
-    """Keep only the newest of each ``id``. Marks without one are events; keep all.
+    """Drop every redraw but the last. Marks without one are events; keep all.
 
-    Walking a bar range re-emits the provisional rails once per bar. Only the
-    last pair describes the range's final state - the rest are the same rail at
-    earlier lengths, and drawing them all would fur the chart with hundreds of
-    stacked lines.
+    Two kinds of redraw. A mark with an ``id`` is a single shape re-emitted on
+    every bar, one bar longer - the newest wins. A mark with a ``layer`` belongs
+    to a group re-emitted wholesale, and only the group from the LAST bar that
+    emitted it survives: a profile publishes a different number of bins each bar,
+    and matching them by id would leave ghost bins behind from a range that has
+    since been reset.
     """
+    latest: dict[str, int] = {}
+    for mark in marks:
+        layer = mark.get("layer")
+        if layer is not None:
+            latest[layer] = max(latest.get(layer, -1), mark["at"])
+
     kept: list[dict] = []
     newest: dict[str, dict] = {}
     for mark in marks:
-        mark_id = mark.get("id")
-        if mark_id is None:
-            kept.append(mark)
+        layer = mark.get("layer")
+        if layer is not None:
+            if mark["at"] == latest[layer]:
+                kept.append(mark)
+        elif mark.get("id") is not None:
+            newest[mark["id"]] = mark
         else:
-            newest[mark_id] = mark
+            kept.append(mark)
     return kept + list(newest.values())
 
 
@@ -303,7 +405,8 @@ def group_marks(marks: list[dict]) -> list[dict]:
     return specs
 
 
-def for_range(symbol: str, timeframe: str, start: int, count: int) -> list[dict]:
+def for_range(symbol: str, timeframe: str, start: int, count: int,
+              profile_mode: str | None = None) -> list[dict]:
     """Overlay specs for bars ``[start, start+count)``. Used by browse mode.
 
     Indicators are fed only these bars, in order, so nothing in the output can
@@ -313,11 +416,12 @@ def for_range(symbol: str, timeframe: str, start: int, count: int) -> list[dict]
     if len(bars) == 0:
         return []
 
-    registry = build_registry()
+    registry = build_registry(profile_mode)
     registry.reset()
 
     marks: list[dict] = []
-    for i, (bar, event) in enumerate(zip(bars, bar_events(bars))):
+    events = bar_events(bars, symbol, timeframe)
+    for i, (bar, event) in enumerate(zip(bars, events)):
         row = registry.update(event)
         marks.extend(marks_for(int(bar["time"]), row, is_first=(i == 0),
                                close=float(bar["close"])))
