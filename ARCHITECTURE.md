@@ -203,11 +203,16 @@ not per-event. A quote update need not carry both sides - 211 of 508 arrived wit
 no bestBid or bestAsk - so a live source holds the last known value PER SIDE.
 
 ``GatewayTrade.type`` IS the aggressor side: **0 = aggressive buy** (lifted the
-ask), **1 = aggressive sell** (hit the bid). Measured against the prevailing
-quote over 78 trades: 100% agreement when the quote is fresher than 25ms, 98%
-overall, the single disagreement being a 25.7ms stale quote. Live delta therefore
-needs no bid/ask inference at all - the feed states the side, which is stronger
-than the at-ask/at-bid rule we apply to the historical ticks.
+ask), **1 = aggressive sell** (hit the bid). Live delta MUST be read from it, and
+must never be inferred from ``GatewayQuote``: that feed is conflated (13 msgs/sec
+against 8 trades/sec; a 0.75pt spread on 60% of quotes where NQ trades one tick;
+40.7% of trades print outside the quoted bid/ask). Inferring live delta from the
+quote would inject a systematic ~7% misclassification that the historical
+pipeline - which reads NinjaTrader's exchange-stamped bid/ask, 0.0005% mid-spread
+- does not have, and live would quietly disagree with the backtest.
+
+Trades arrive BATCHED: one ``GatewayTrade`` carried up to 34 of them. Iterate
+``payload[1]``; never read ``payload[1][0]``.
 
 ``GatewayLogout`` fires and is currently unhandled; a long-running feed must
 treat it as end-of-session and re-authenticate.

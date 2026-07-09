@@ -107,12 +107,30 @@ contracts of delta.** The projection from ticks to a bar is not injective and ha
 - On the quote, use **`lastUpdated`** (real event time). `timestamp` is a constant session
   anchor. Its `volume` is **session-cumulative**, not per-event.
 - **`GatewayTrade.type` is the aggressor side.** `0` = aggressive buy (lifted the ask),
-  `1` = aggressive sell (hit the bid). Settled from a 60s capture, 78 trades: **100%
-  agreement with the prevailing quote when that quote is fresher than 25ms**, 98% overall,
-  and the one disagreement was a 25.7ms stale quote. **Live delta needs no bid/ask
-  inference** — the feed states the side, which is stronger than the historical inference.
-- A quote update need not carry both sides: 211 of 508 arrived with no `bestBid`/`bestAsk`.
-  A live source must hold the last known value **per side**, not per quote.
+  `1` = aggressive sell (hit the bid). **Live delta must be read from `type`.** Never infer it
+  from `GatewayQuote`.
+- **`GatewayQuote` is CONFLATED and cannot classify trades.** From a 60s RTH capture (482
+  trades, 799 quotes):
+  - only **13.3 quote messages/sec** while 8 trades/sec arrive. NQ top-of-book updates
+    hundreds of times a second.
+  - the reported spread is **0.75 pts on 385 of 649 quotes**, 0.25 on only 7. NQ front month
+    trades a one-tick spread almost continuously in RTH. This is a sampled book, not the book.
+  - **40.7% of trades printed outside the quoted [bid, ask]** — impossible for a genuinely
+    contemporaneous quote.
+  - `type` therefore agrees with bid/ask classification only **93%** at RTH. It is not a clock
+    problem (sliding the quote timeline ±400ms peaks at **zero shift**) and not ordinary
+    staleness (agreement is 92.9% whether the trade sits inside the quoted spread or outside
+    it). The quote is the unreliable party.
+  - **The bug this prevents:** inferring live delta from the quote — the natural thing, and
+    what the *historical* pipeline does — would inject a systematic ~7% misclassification the
+    backtest does not have. Live and backtested delta would quietly disagree. The historical
+    ticks are safe: NinjaTrader stamps each trade with the exchange's bid/ask at that instant,
+    which is why only 0.0005% of them print mid-spread.
+  - Any indicator needing **spread** (not delta) cannot use `GatewayQuote`. That needs `GatewayDepth`.
+- **Trades arrive BATCHED.** One `GatewayTrade` event carried up to **34** trades (median 1).
+  A live source must iterate `payload[1]`, never read `payload[1][0]`.
+- A quote update need not carry both sides: 150 of 799 arrived with no `bestBid`/`bestAsk`
+  (211 of 508 on the overnight tape). A live source must hold the last known value **per side**.
 - **`GatewayLogout` fires and nothing handles it.** It arrived 27s into a 60s capture. Events
   kept flowing, but a long-running live feed must treat it as end-of-session and re-auth
   rather than silently trusting the stream.
