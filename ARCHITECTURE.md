@@ -122,6 +122,7 @@ algo_3/
 │   │                       boundary rule, and the indicator registry
 │   ├── test_replay_session.py  pins seek == play-into, fan-out, no lookahead
 │   ├── test_resample.py    pins the tick->bar rebuild: ties, chunk seams, roll
+│   ├── test_orderflow.py   pins the rule that absent is never zero
 │   ├── test_table_columns.py  pins row rendering: absent != zero, colour rules
 │   ├── test_table_client.py   pins the reconnect storm: backoff, adoption
 │   └── test_lifecycle.py   pins per-port pidfiles; the Windows os.kill trap
@@ -181,7 +182,18 @@ top-of-book bid/ask, pushed on quote change, ~80x more frequent. A NinjaTrader
 join of the two. Subscribing to quotes alone yields no trades and every volume
 indicator reads zero. On the quote, use ``lastUpdated`` (real event time), not
 ``timestamp`` (a constant session anchor); its ``volume`` is session-cumulative,
-not per-event.
+not per-event. A quote update need not carry both sides - 211 of 508 arrived with
+no bestBid or bestAsk - so a live source holds the last known value PER SIDE.
+
+``GatewayTrade.type`` IS the aggressor side: **0 = aggressive buy** (lifted the
+ask), **1 = aggressive sell** (hit the bid). Measured against the prevailing
+quote over 78 trades: 100% agreement when the quote is fresher than 25ms, 98%
+overall, the single disagreement being a 25.7ms stale quote. Live delta therefore
+needs no bid/ask inference at all - the feed states the side, which is stronger
+than the at-ask/at-bid rule we apply to the historical ticks.
+
+``GatewayLogout`` fires and is currently unhandled; a long-running feed must
+treat it as end-of-session and re-authenticate.
 
 indicators.base      ─► (the Indicator interface + Unavailable)
 indicators.registry  ─► indicators.base         (toposort deps; merged field row)

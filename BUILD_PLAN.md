@@ -106,10 +106,16 @@ contracts of delta.** The projection from ticks to a bar is not injective and ha
   and every volume indicator reads zero.
 - On the quote, use **`lastUpdated`** (real event time). `timestamp` is a constant session
   anchor. Its `volume` is **session-cumulative**, not per-event.
-- **Open question:** `GatewayTrade.type` may be the aggressor side. If so, TopstepX gives
-  signed volume directly and delta needs no bid/ask inference. Only 3 trades arrived on a
-  quiet overnight tape. **Needs an RTH capture** (13:30–20:00 UTC) to correlate `type`
-  against `bestBid`/`bestAsk`.
+- **`GatewayTrade.type` is the aggressor side.** `0` = aggressive buy (lifted the ask),
+  `1` = aggressive sell (hit the bid). Settled from a 60s capture, 78 trades: **100%
+  agreement with the prevailing quote when that quote is fresher than 25ms**, 98% overall,
+  and the one disagreement was a 25.7ms stale quote. **Live delta needs no bid/ask
+  inference** — the feed states the side, which is stronger than the historical inference.
+- A quote update need not carry both sides: 211 of 508 arrived with no `bestBid`/`bestAsk`.
+  A live source must hold the last known value **per side**, not per quote.
+- **`GatewayLogout` fires and nothing handles it.** It arrived 27s into a 60s capture. Events
+  kept flowing, but a long-running live feed must treat it as end-of-session and re-auth
+  rather than silently trusting the stream.
 
 ---
 
@@ -235,8 +241,9 @@ it — that vocabulary is deliberately independent of any strategy.
   collision rate, spread distribution and whether the wide tail is stale quotes or thin
   markets, zero/negative volumes, roll seams across the 10 contracts, and whether
   `GatewayTrade.type` agrees with bid/ask classification where both exist.
-- **RTH live capture** to settle the `type` question. `python -m src.cli.capture --seconds 300`
-  between 13:30 and 20:00 UTC.
+- ~~**RTH live capture** to settle the `type` question.~~ **Done** — see above. A busier
+  capture is still worth taking, to characterise trade *batching* (one `GatewayTrade` event
+  carried up to several trades) and to watch `GatewayLogout` be handled.
 - ~~**15s and the rebuilt timeframes.**~~ **Done.** `NQ_continuous_ticks.parquet` holds
   **296,029,228 ticks** (2.0 GB, 2024-03-12 → 2026-07-03, 10 contracts). `src/data/resample.py`
   streams it once into 15s bars and folds every other timeframe up from those — verified
