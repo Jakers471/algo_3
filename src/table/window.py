@@ -225,6 +225,14 @@ class TableWindow(QMainWindow):
         view.setItemDelegate(GroupSeams(view))
         return view
 
+    def _size_columns(self) -> None:
+        """Fit the content, then stop a long header from reserving a long column."""
+        self.view.resizeColumnsToContents()
+        header = self.view.horizontalHeader()
+        for section in range(self.model.columnCount()):
+            if header.sectionSize(section) > cfg.COLUMN_MAX_PX:
+                header.resizeSection(section, cfg.COLUMN_MAX_PX)
+
     def _legend_text(self) -> str:
         """Which colour is which indicator. The chart's own vocabulary, in words."""
         chips = []
@@ -268,9 +276,12 @@ class TableWindow(QMainWindow):
                 selection-color: {cfg.TEXT};
                 border: none;
             }}
+            /* No `color` here, deliberately. A stylesheet colour on a header
+               section OVERRIDES the model's ForegroundRole, so every block was
+               painted the same muted grey and the per-indicator hue never
+               reached the screen. The colour comes from headerData(). */
             QHeaderView::section {{
                 background: {cfg.PANEL};
-                color: {cfg.MUTED};
                 border: 0px;
                 border-bottom: 1px solid {cfg.LINE};
                 padding: 4px 10px;
@@ -313,7 +324,7 @@ class TableWindow(QMainWindow):
             self.model.append(row)
         self.view.setModel(self.model)
         self.legend.setText(self._legend_text())
-        self.view.resizeColumnsToContents()
+        self._size_columns()
         if self.following:
             self.view.scrollToBottom()
 
@@ -386,7 +397,7 @@ class TableWindow(QMainWindow):
             self.follow_button.setText(f"Follow ({self.pending})")
 
         if self.received == appended:      # the very first rows: size the columns
-            self.view.resizeColumnsToContents()
+            self._size_columns()
         self._render_status()
 
     def _render_status(self) -> None:

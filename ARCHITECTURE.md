@@ -149,6 +149,8 @@ algo_3/
 │   ├── test_absorption.py  pins the definition + the dependency ordering
 │   ├── test_swing.py       pins scale invariance: 10x the prices, same swings
 │   ├── test_fields.py      pins the contract; fails when FIELDS.md goes stale
+│   ├── test_table_window.py grabs the header and reads back the pixels: a
+│   │                       stylesheet colour silently overrides ForegroundRole
 │   ├── test_profile.py     pins the value area: contiguous, grown from the POC
 │   ├── test_profile_indicator.py  pins the freeze: at the bar that MADE the swing
 │   ├── test_structure.py   pins legs + breaks: a level fires once; a swing's

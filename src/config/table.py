@@ -75,6 +75,11 @@ FONT_FAMILY = "JetBrains Mono, Consolas, Courier New, monospace"
 FONT_SIZE_PT = 10
 ROW_HEIGHT = 22
 
+# Columns are sized to their contents, but a long HEADER ("absorption side",
+# "session new") then reserves width for a word rather than for the values
+# underneath it, and the row spreads across the screen with nothing in it.
+COLUMN_MAX_PX = 130
+
 # Follow the newest row unless the user has scrolled away from the bottom.
 # Slack in pixels: a scrollbar parked "at the bottom" is rarely exactly there.
 FOLLOW_SLACK_PX = 4
