@@ -11,6 +11,7 @@ Control is POST; the stream is a GET that stays open:
   POST /api/replay/play   {session, speed}                     -> {playing}
   POST /api/replay/pause  {session}                            -> {playing}
   POST /api/replay/stop   {session}                            -> {}
+  GET  /api/replay/sessions                                    -> live sessions
   GET  /api/replay/stream?session=ID                           -> text/event-stream
 
 The stream is the point. The chart subscribes and draws each row; the TUI
@@ -42,6 +43,13 @@ def _json(status: int, payload: dict) -> Response:
 
 def _error(status: int, message: str) -> Response:
     return _json(status, {"error": message})
+
+
+def handle_get(path: str, query: dict) -> Response:
+    """Read-only replay routes. The stream is handled by the server directly."""
+    if path == "/api/replay/sessions":
+        return _json(200, {"sessions": manager.list_sessions()})
+    return _error(404, f"no such route: {path}")
 
 
 def handle_post(path: str, body: dict) -> Response:

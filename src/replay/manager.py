@@ -62,6 +62,27 @@ def count() -> int:
         return len(_SESSIONS)
 
 
+def list_sessions() -> list[dict]:
+    """Every live session, so another process can attach to one.
+
+    This is how the desktop table finds the replay the chart is already driving:
+    it asks, attaches, and both then watch the same cursor.
+    """
+    with _LOCK:
+        sessions = list(_SESSIONS.values())
+    return [{
+        "id": s.id,
+        "symbol": s.symbol,
+        "timeframe": s.timeframe,
+        "cursor": s.cursor,
+        "total": s.total,
+        "playing": s.playing,
+        "speed": s.speed,
+        "fields": s.registry.field_names(),
+        "subscribers": s.subscriber_count,
+    } for s in sessions]
+
+
 def _ensure_reaper() -> None:
     global _REAPER
     if _REAPER is not None and _REAPER.is_alive():

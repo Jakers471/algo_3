@@ -101,7 +101,8 @@ $root = @{
                     @{ Label = 'Open chart, auto-reload on Python edits  (dev)'; Run = { python -m src.cli.chart --open --reload } },
                     @{ Label = 'Serve only  (no browser)'; Run = { python -m src.cli.chart } },
                     @{ Label = 'Rebuild bar cache, then serve  (after new data)'; Run = { python -m src.cli.chart --repack } },
-                    @{ Label = 'Stop chart server  (confirm port closed)'; Run = { python -m src.cli.chart --stop } }
+                    @{ Label = 'Stop chart server  (confirm port closed)'; Run = { python -m src.cli.chart --stop } },
+                    @{ Label = 'Snapshot table  (desktop window; attach to the running replay)'; Run = { python -m src.cli.table } }
                 )
             }
         },

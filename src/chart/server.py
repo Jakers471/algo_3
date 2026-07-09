@@ -70,6 +70,9 @@ class ChartHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/replay/stream":
             self._serve_stream(parse_qs(parsed.query))
             return
+        if parsed.path.startswith("/api/replay/"):
+            self._write(*replay_routes.handle_get(parsed.path, parse_qs(parsed.query)))
+            return
         if parsed.path.startswith("/api/"):
             self._serve_api(parsed.path, parse_qs(parsed.query))
             return

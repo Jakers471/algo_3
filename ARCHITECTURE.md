@@ -18,6 +18,7 @@ algo_3/
 │   │   ├── chart.py       chart server host/port, bar cache, replay dials
 │   │   ├── ticks.py       tick file path, rebuilt-bar symbol + timeframes
 │   │   ├── replay.py      session idle timeout, subscriber queue, speeds
+│   │   ├── table.py       desktop table: server URL, row cap, theme
 │   │   ├── live.py        contract id, which market streams, capture dir
 │   │   └── indicators/    one module per indicator, named for its id
 │   │       └── sessions.py  enable + band colors for the sessions indicator
@@ -31,6 +32,10 @@ algo_3/
 │   │   └── progress.py      in-place ANSI progress bar for long loops
 │   ├── events/         the market event vocabulary (bars, later ticks/quotes)
 │   │   └── types.py       BarClose: a completed bar, stamped at its close
+│   ├── table/          a desktop window of snapshot rows (second subscriber)
+│   │   ├── client.py      find/attach a session; read its SSE stream (no Qt)
+│   │   ├── columns.py     snapshot -> cells: text, alignment, colour (no Qt)
+│   │   └── window.py      the Qt table: never wraps, follows with escape
 │   ├── replay/         the server-side replay session (one cursor, many views)
 │   │   ├── snapshot.py    one flat row: bar + indicator fields + drawings
 │   │   ├── session.py     owns the cursor and live indicator state; publishes
@@ -83,6 +88,7 @@ algo_3/
 │   └── cli/            thin doors: parse input, call an engine, format out
 │       ├── data.py        load & summarize prepared bars (python -m src.cli.data)
 │       ├── resample.py    rebuild bars from ticks (python -m src.cli.resample)
+│       ├── table.py       desktop snapshot table (python -m src.cli.table)
 │       ├── chart.py       serve the replay chart (python -m src.cli.chart)
 │       └── capture.py     record the live market feed (python -m src.cli.capture)
 ├── frontend/           browser code — never inside the Python src/
@@ -114,6 +120,7 @@ algo_3/
 │   │                       boundary rule, and the indicator registry
 │   ├── test_replay_session.py  pins seek == play-into, fan-out, no lookahead
 │   ├── test_resample.py    pins the tick->bar rebuild: ties, chunk seams, roll
+│   ├── test_table_columns.py  pins row rendering: absent != zero, colour rules
 │   └── test_lifecycle.py   pins per-port pidfiles; the Windows os.kill trap
 ├── conftest.py         puts repo root on sys.path so tests import `src`
 ├── (top level, not code): .env, logs/, data/, projectX_API/
@@ -188,6 +195,17 @@ replay.manager   ─► replay.session, config.replay   (registry + idle reaper)
 replay.routes    ─► replay.manager, config.replay   (POST control; SSE stream)
 chart.server     ─► replay.{routes,manager}         (dispatches /api/replay/*)
 
+table.client     ─► urllib            (find a session; read its SSE stream)
+table.columns    ─► config.table      (snapshot -> cells; pure, no Qt)
+table.window     ─► PySide6, table.columns, config.table
+cli.table        ─► table.{client,window}
+
+The desktop table is a SECOND SUBSCRIBER to the session the chart is driving. It
+cannot step the cursor and cannot disagree with the chart: the same Snapshot
+object is delivered to both. Its columns are not configured anywhere - the fixed
+six describe the bar, the rest are whatever fields the session reports, so a new
+indicator grows a new column with no edit to the table.
+
 The replay cursor and the live indicator state live on the SERVER, not in the
 browser. A step is a POST; bars arrive because the session published a Snapshot.
 The chart subscribes to that stream and draws it; the TUI will subscribe to the
@@ -257,6 +275,13 @@ return when the new strategy layer lands (a door wires its catalogue into the
 engines' ``build`` callable).
 
 - **`python -m src.cli.capture --seconds N`** — record the live market feed for one contract to `capture/<stamp>_<contract>.jsonl`, one raw event per line with a local receipt timestamp. It interprets nothing: the ProjectX docs name the hub events but do not document their payloads, so we record first and write the adapter against what the feed really sends. A recording also serves as a test fixture (drives the live code path with no network) and as the only way to check whether TopstepX's stream agrees with the NinjaTrader tick export. Wired into `commands.bat` → Live.
+
+- **`python -m src.cli.table`** — a desktop window (PySide6) showing each replay snapshot as
+  a row: the bar, every indicator field, colour-coded. It attaches to the replay the chart is
+  already driving, so the drawings and the numbers move together. It never wraps — columns clip
+  and the view scrolls horizontally, per pixel — and it follows the newest row until you scroll
+  up, then holds position and counts what has landed. Start a replay on the chart first, or pass
+  `--symbol NQT --timeframe 5m` to start one. Wired into `commands.bat` → Chart.
 
 `broker/` is a verified, reusable engine (auth → account → contract → bars) still awaiting its own command (e.g. live trading, health check); when built it adds another thin `cli/` door here, wired into `commands.bat`.
 

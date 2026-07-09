@@ -57,6 +57,20 @@ leak the future. See `BUILD_PLAN.md` for the road from here.
 Editing HTML/CSS/JS? Just refresh the page. Editing Python? Add `--reload` and the server
 restarts itself.
 
+## Snapshot table
+
+`python -m src.cli.table` opens a desktop window showing every replay snapshot as a row —
+the bar, plus each indicator field, colour-coded. It **attaches to the replay the chart is
+already driving**, so the drawings and the numbers move together and cannot disagree: there
+is one cursor and one computation on the server, and both windows are subscribers.
+
+It never wraps. Columns clip and the view scrolls horizontally. It follows the newest row
+until you scroll up, then stays where you put it and counts what has landed; click **Follow**
+(or scroll back to the bottom) to resume.
+
+Columns are not configured anywhere: the first six describe the bar, the rest are whatever
+fields the session publishes. Add an indicator and a column appears.
+
 The page **must be served** — opening `index.html` from the filesystem cannot work.
 Starting reclaims the port from any older chart server, so they never stack;
 `--stop` closes one and confirms the port is free.

@@ -173,7 +173,21 @@ speed are requests; the button repaints when the *server* says the session chang
 Still to come in this phase: **the TUI itself** — a horizontal table, one row per snapshot,
 columns scrolling as price moves, running beside the chart off the same stream.
 
-### Phase 3b — the TUI table
+### Phase 3b — the desktop snapshot table  *(built — awaiting review)*
+
+Not a TUI: a real desktop window (PySide6). A terminal wraps; a table widget clips and
+scrolls, which is what the table actually needs. Verified rather than assumed — 1,970px of
+content in a 506px viewport gives a horizontal scrollbar range of 1,464, per-pixel, with
+`wordWrap = False`.
+
+It is a **second subscriber** to the session the chart drives. It cannot step the cursor and
+cannot disagree with the chart. Its columns come from the session's own field list, so
+Phase 4's indicators grow columns with no edit to the table.
+
+Auto-follow with escape: it sticks to the newest row, releases the moment you scroll up,
+counts what has landed, and resumes on Follow or on scrolling back to the bottom.
+
+### Phase 3c — the TUI table (dropped)
 - The snapshot: one flat, immutable, market-time-stamped row of named fields.
 - The registry: indicators declare fields and dependencies; topological sort; emit trigger
   from config.

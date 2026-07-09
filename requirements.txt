@@ -19,6 +19,9 @@ signalrcore     # SignalR websocket client (live market hub)
 # Config / secrets
 python-dotenv
 
+# Desktop UI (the snapshot table window)
+PySide6
+
 # Testing
 pytest
 
