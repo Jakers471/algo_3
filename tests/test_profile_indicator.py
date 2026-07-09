@@ -220,3 +220,65 @@ def test_a_layer_is_replaced_wholesale_so_a_shrinking_profile_leaves_no_ghosts()
 
     assert all(m["at"] == 3000 for m in kept), "only the newest emission survives"
     assert len(kept) == len(narrow), "the wider profile's surplus bins are gone"
+
+
+# --- the readings: what a profile says, not where its levels sit --------------
+
+def test_value_width_is_measured_in_typical_bars_not_points():
+    """A width of ten points means one thing at the NY open and another at 04:00.
+
+    Note it is not simply `points / scale` rescaled: `scale` also sets the bin
+    width, so a louder market bins more coarsely and the value area lands on
+    different edges. What is pinned is the definition, not a proportionality.
+    """
+    levels = tuple((100.0 + 0.25 * i, 10, 5) for i in range(40))
+    for scale in (2.0, 8.0):
+        row = Profile().update(vbar(0, levels=levels), up(scale=scale))
+        assert row["value_width"] == pytest.approx(
+            (row["profile_vah"] - row["profile_val"]) / scale)
+        assert row["value_width"] > 0
+
+
+def test_poc_position_says_where_value_sits_inside_the_range():
+    """Value at the top with price at the bottom is not the same market."""
+    high = ((100.0, 1, 0), (101.0, 1, 0), (102.0, 50, 25))
+    low = ((100.0, 50, 25), (101.0, 1, 0), (102.0, 1, 0))
+    assert Profile().update(vbar(0, levels=high), up(scale=0.5))["poc_position"] == 1.0
+    assert Profile().update(vbar(0, levels=low), up(scale=0.5))["poc_position"] == 0.0
+
+
+def test_price_outside_the_value_area_is_the_market_declining_to_accept_it():
+    from src.indicators.profile import ABOVE, BELOW, INSIDE
+
+    levels = ((100.0, 1, 0), (101.0, 50, 25), (102.0, 1, 0))
+    bar = vbar(0, levels=levels)                       # close == 100.0, the low
+    row = Profile().update(bar, up(scale=0.5))
+    assert row["price_vs_value"] == BELOW
+    assert row["poc_distance"] == pytest.approx((100.0 - 101.0) / 0.5)
+
+    high = BarClose(ts=bar.ts, open=101.0, high=101.0, low=101.0, close=101.0,
+                    volume=bar.volume, vap=bar.vap)
+    assert Profile().update(high, up(scale=0.5))["price_vs_value"] == INSIDE
+
+    over = BarClose(ts=bar.ts, open=200.0, high=200.0, low=200.0, close=200.0,
+                    volume=bar.volume, vap=bar.vap)
+    assert Profile().update(over, up(scale=0.5))["price_vs_value"] == ABOVE
+
+
+def test_delta_at_poc_says_who_built_the_fair_price():
+    """Volume at price AND aggressor side. Only the ticks carry both."""
+    bought = ((100.0, 100, 90),)                       # 90 lifted the offer
+    sold = ((100.0, 100, 10),)                         # 90 hit the bid
+    assert Profile().update(vbar(0, levels=bought), up())["delta_at_poc"] == \
+        pytest.approx(0.8)
+    assert Profile().update(vbar(0, levels=sold), up())["delta_at_poc"] == \
+        pytest.approx(-0.8)
+
+
+def test_the_readings_are_absent_when_the_profile_is():
+    p = Profile()
+    p.quiet = True
+    row = p.update(vbar(0), up())
+    for key in ("value_width", "poc_position", "poc_distance",
+                "price_vs_value", "delta_at_poc"):
+        assert row[key] is None, f"{key} must be absent, never a fabricated zero"

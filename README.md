@@ -91,6 +91,22 @@ the faint pair around it is the value area. Bins are sized in `range_scale`, nev
 points — otherwise the histogram would be drawing the clock, four times spikier overnight
 than at the New York open.
 
+**What the profile says**, as opposed to where its levels sit, is five readings, and the
+table shows those rather than the raw prices:
+
+| reading | what it means |
+|---|---|
+| `value_width` | `(VAH − VAL) / range_scale`. Narrow is balance; wide is a market trading away from itself. Median 4.25, p95 14.13 |
+| `poc_position` | where value sits inside the range price covered, 0 at the low to 1 at the high |
+| `poc_distance` | `(close − POC) / range_scale`. How far price is from the fair one |
+| `price_vs_value` | above / inside / below the value area — the market accepting the price it built, or not |
+| `delta_at_poc` | who crossed the spread to build the fair price |
+
+`delta_at_poc` is the one almost nothing else can compute: it needs volume at price **and**
+aggressor side, and both live only in the ticks. It sits near zero by construction — the
+point of control is where buyers and sellers *agree* — so the tail is the signal, not the
+centre. `|delta_at_poc| > 0.10` on 1.0% of bars.
+
 Volume at price lives only in the ticks: a bar records its total volume, its high and its
 low, never where between them the contracts changed hands. So it is folded once into a
 packed store (`python -m src.cli.vap`, ~80s, git-ignored), and the control is **disabled on

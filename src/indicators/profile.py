@@ -39,9 +39,13 @@ from src.profile.value_area import EmptyProfile, value_area
 
 logger = logging.getLogger(__name__)
 
+ABOVE, INSIDE, BELOW = "above", "inside", "below"
+
 _NOTHING = {"profile_poc": None, "profile_val": None, "profile_vah": None,
             "profile_from_time": None, "profile_to_time": None,
-            "profile_volume": None, "profile_bins": None, "profile_closed": None}
+            "profile_volume": None, "profile_bins": None, "profile_closed": None,
+            "value_width": None, "poc_position": None, "poc_distance": None,
+            "price_vs_value": None, "delta_at_poc": None}
 
 
 class Ladder:
@@ -103,7 +107,12 @@ class Profile(Indicator):
     id = "profile"
     fields = ("profile_poc", "profile_val", "profile_vah",
               "profile_from_time", "profile_to_time", "profile_volume",
-              "profile_bins", "profile_closed")
+              "profile_bins", "profile_closed",
+              # The readings. Dimensionless where they can be, so they mean the
+              # same thing in a quiet hour and a loud one - the raw levels move
+              # with price and with volatility, and these do not.
+              "value_width", "poc_position", "poc_distance",
+              "price_vs_value", "delta_at_poc")
     depends = ("range_scale", "swing")
 
     def __init__(self) -> None:
@@ -145,7 +154,7 @@ class Profile(Indicator):
             # this one, open the next.
             self._close(int(up["swing_time"]), scale)
 
-        return self._publish(scale, ts)
+        return self._publish(scale, ts, event.close)
 
     # --- state ---------------------------------------------------------------
 
@@ -177,18 +186,15 @@ class Profile(Indicator):
 
     # --- publishing ----------------------------------------------------------
 
-    def _publish(self, scale: float, now: int) -> dict:
-        closed = [dict(c) for c in self._closed] if self._closed else None
+    def _publish(self, scale: float, now: int, close: float) -> dict:
         if self.quiet or not self._acc or self._first is None:
-            row = dict(_NOTHING)
-            row["profile_closed"] = closed if not self.quiet else None
-            return row
+            return dict(_NOTHING)
 
-        row = self._summarise(*self._acc.arrays(), (self._first, now), scale)
-        row["profile_closed"] = closed
+        row = self._summarise(*self._acc.arrays(), (self._first, now), scale, close)
+        row["profile_closed"] = [dict(c) for c in self._closed] if self._closed else None
         return row
 
-    def _summarise(self, prices, volume, buy, span, scale) -> dict:
+    def _summarise(self, prices, volume, buy, span, scale, close=None) -> dict:
         bin_size = scale / cfg.BINS_PER_SCALE
         prices, volume, buy = store.rebin(prices, volume, buy, bin_size)
         try:
@@ -196,7 +202,7 @@ class Profile(Indicator):
         except EmptyProfile:
             return dict(_NOTHING)
 
-        return {
+        row = {
             "profile_poc": poc,
             "profile_val": val,
             "profile_vah": vah,
@@ -209,6 +215,51 @@ class Profile(Indicator):
                              for p, v, b in zip(prices, volume, buy)],
             "profile_closed": None,
         }
+        row.update(_readings(prices, volume, buy, poc, val, vah, scale, close))
+        return row
+
+
+def _readings(prices, volume, buy, poc, val, vah, scale, close) -> dict:
+    """What a profile SAYS, as opposed to where its levels sit.
+
+    Dimensionless wherever it can be. A width in points means one thing at the
+    New York open and another at 04:00; the same width in units of a typical bar
+    means the same thing at both.
+    """
+    lo, hi = float(prices[0]), float(prices[-1])
+
+    # How tightly the market agreed on a price. Narrow is balance; wide is a
+    # market that kept trading away from itself.
+    width = (vah - val) / scale
+
+    # Where value sits inside the range price actually covered, 0 (at the low) to
+    # 1 (at the high). Value high while price is low is a different structure
+    # from the reverse, and this is the number that says which.
+    position = None if hi == lo else (poc - lo) / (hi - lo)
+
+    # Who built the fair price. Every bin carries the volume that crossed the
+    # spread to BUY, so the point of control has a sign: a POC made by sellers
+    # that price then held is resting demand, at one exact price. Volume at price
+    # and aggressor side both live only in the ticks, which is why almost nothing
+    # else can compute this.
+    at_poc = int(np.flatnonzero(prices == poc)[0])
+    poc_volume = int(volume[at_poc])
+    delta_at_poc = (2 * int(buy[at_poc]) - poc_volume) / poc_volume if poc_volume else None
+
+    reading = {
+        "value_width": width,
+        "poc_position": position,
+        "delta_at_poc": delta_at_poc,
+        "poc_distance": None,
+        "price_vs_value": None,
+    }
+    if close is not None:
+        # Price outside the value area is the market declining to accept the
+        # price it just built. Inside is acceptance.
+        reading["poc_distance"] = (close - poc) / scale
+        reading["price_vs_value"] = (ABOVE if close > vah else
+                                     BELOW if close < val else INSIDE)
+    return reading
 
 
 def _as_closed(summary: dict) -> dict:

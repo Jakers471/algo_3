@@ -84,10 +84,16 @@ def is_price_field(name: str) -> bool:
     return name in _PRICE_FIELDS or name.endswith(("_price", "_level"))
 
 
+# Dimensionless readings: a ratio, or a count of typical bars. They are numbers,
+# so they line up on the right, and they never carry a currency or a point value.
+_RATIO_FIELDS = {"retrace", "value_width", "poc_position", "poc_distance",
+                 "delta_at_poc"}
+
+
 def _right_aligned(name: str) -> bool:
     """Digits line up on the right; words and timestamps read from the left."""
     return (name in _SIGNED_FIELDS or name in _VOLUME_FIELDS
-            or is_price_field(name) or name == "retrace")
+            or is_price_field(name) or name in _RATIO_FIELDS)
 
 
 # An event and the price it happened at, shown in one cell instead of three.
@@ -100,6 +106,12 @@ COMPOSITES = {
 # Values a drawing needs and a reader does not.
 _DERIVED = {"trigger"}          # = extreme -/+ RETRACE * range_scale
 
+# The profile's raw levels. They move with price and with volatility, so a column
+# of them tells you nothing you can compare across two hours. What the profile
+# SAYS is `value_width`, `poc_position`, `poc_distance`, `price_vs_value` and
+# `delta_at_poc` - dimensionless, and shown. The levels are drawn on the chart.
+_CHART_LEVELS = {"profile_val", "profile_vah"}
+
 
 def is_detail(name: str) -> bool:
     """Hidden unless asked for: scaffolding, not a fact about the market."""
@@ -109,6 +121,8 @@ def is_detail(name: str) -> bool:
         return True                      # folded into its event's cell
     if name in _DERIVED:
         return True                      # arithmetic on columns already shown
+    if name in _CHART_LEVELS:
+        return True                      # a level to draw, not a reading to read
     if name == "leg" or name.startswith("leg_"):
         # `legs` joins two swings with a line. It knows nothing the swings do
         # not; it is a drawing, and five columns of one.
@@ -222,6 +236,26 @@ def cell_color(key: str, snapshot: dict) -> str | None:
         if value == 0:
             return cfg.MUTED
         return cfg.UP if value > 0 else cfg.DOWN
+
+    if key == "delta_at_poc":
+        # Who crossed the spread to build the fair price. Same green and red as
+        # delta, because it is the same measurement at one exact price.
+        value = fields.get(key)
+        if value is None:
+            return cfg.MUTED
+        if value == 0:
+            return cfg.MUTED
+        return cfg.UP if value > 0 else cfg.DOWN
+
+    if key == "price_vs_value":
+        # Outside the value area, the market is declining to accept the price it
+        # just built. Inside is acceptance, and needs no colour.
+        where = fields.get(key)
+        if where == "above":
+            return cfg.UP
+        if where == "below":
+            return cfg.DOWN
+        return None
 
     if key == "session":
         name = fields.get(key)
