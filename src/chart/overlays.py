@@ -110,11 +110,17 @@ def _vap_for(symbol: str, timeframe: str, times) -> list:
         return [None] * len(times)
 
 
-def bar_events(bars, symbol: str = None, timeframe: str = None) -> list[BarClose]:
+def bar_events(bars, symbol: str = None, timeframe: str = None,
+               with_vap: bool = False) -> list[BarClose]:
     """Structured bar records -> BarClose events, in order.
 
     Columns are pulled to Python lists once. Reading fields off numpy scalars
     per bar costs several times more than the indicator pass itself.
+
+    ``with_vap`` is off by default because volume at price costs one store lookup
+    per bar, and only the profile indicator reads it. Fetching it for every
+    request made a 5,000-bar browse window take minutes, and the chart drew
+    nothing at all while it waited.
     """
     epochs = bars["time"].astype("int64")
     times = pd.to_datetime(epochs, unit="s", utc=True)
@@ -124,8 +130,8 @@ def bar_events(bars, symbol: str = None, timeframe: str = None) -> list[BarClose
     bv, sv = bars["buy_volume"].tolist(), bars["sell_volume"].tolist()
     tr = bars["trades"].tolist()
 
-    wants_vap = symbol and timeframe and profile_cfg.ENABLED
-    vaps = _vap_for(symbol, timeframe, epochs.tolist()) if wants_vap else [None] * len(times)
+    wants = with_vap and symbol and timeframe and profile_cfg.ENABLED
+    vaps = _vap_for(symbol, timeframe, epochs.tolist()) if wants else [None] * len(times)
 
     return [BarClose(ts=t, open=o[i], high=h[i], low=lo[i], close=c[i], volume=v[i],
                      delta=_optional(d[i]), buy_volume=_optional(bv[i]),
@@ -136,7 +142,7 @@ def bar_events(bars, symbol: str = None, timeframe: str = None) -> list[BarClose
 
 def _segment(source: str, points: list[tuple], color: str, width: int,
              mark_id: str | None = None, layer: str | None = None,
-             at: int | None = None) -> dict:
+             at: int | None = None, offsets: tuple | None = None) -> dict:
     """A polyline in (time, price) space, for the chart to stroke.
 
     ``time`` is the EARLIEST point, because that is what the replay trim filter
@@ -149,11 +155,15 @@ def _segment(source: str, points: list[tuple], color: str, width: int,
     a replay would stack one rail per bar forever. With one, the newest replaces
     the last, in the browser and in ``group_marks`` alike.
     """
+    # ``offsets`` shifts a point sideways by pixels from the bar it names. Style
+    # belongs in Python, and so does a length that only means anything on screen.
+    shifts = offsets or (0.0,) * len(points)
     mark = {
         "kind": "segment",
         "source": source,
         "time": int(min(t for t, _ in points)),
-        "points": [{"time": int(t), "price": float(p)} for t, p in points],
+        "points": [{"time": int(t), "price": float(p), "dx": float(dx)}
+                   for (t, p), dx in zip(points, shifts)],
         "color": color,
         "width": width,
     }
@@ -317,22 +327,27 @@ def _profile_marks(time: int, row: dict) -> list[dict]:
     """
     bins = row["profile_bins"]
     start, end = int(row["profile_from_time"]), int(row["profile_to_time"])
-    span = max(end - start, 1)
     heaviest = max(v for _, v, _ in bins) or 1
 
     marks: list[dict] = []
     for price, volume, buy in bins:
-        length = span * profile_cfg.MAX_WIDTH * volume / heaviest
-        if length < 1:
+        pixels = profile_cfg.MAX_WIDTH_PX * volume / heaviest
+        if pixels < 1:
             continue
+        # Both ends anchor to the SAME bar, and the left one is pushed back a
+        # number of pixels. An interpolated timestamp has no x coordinate - the
+        # chart looks a time up in the series and finds no bar there - so a bin
+        # drawn between two moments would never appear at all.
+        #
         # A bin is coloured by who crossed the spread inside it, the same green
-        # and red as the delta strip - the same measurement, against price
+        # and red as the delta strip: the same measurement, against price
         # instead of against time.
         bought_it = buy * 2 >= volume
         marks.append(_segment(
-            "profile", [(end - length, price), (end, price)],
+            "profile", [(end, price), (end, price)],
             profile_cfg.BUY_COLOR if bought_it else profile_cfg.SELL_COLOR,
             profile_cfg.BIN_HEIGHT, layer="profile", at=time,
+            offsets=(-pixels, 0.0),
         ))
 
     for key, color, width in (("profile_val", profile_cfg.VALUE_AREA_COLOR, 1),
@@ -420,8 +435,14 @@ def for_range(symbol: str, timeframe: str, start: int, count: int,
     registry.reset()
 
     marks: list[dict] = []
-    events = bar_events(bars, symbol, timeframe)
+    events = bar_events(bars, symbol, timeframe, with_vap=registry.has("profile"))
+    profile = registry.get("profile")
+    last = len(bars) - 1
+
     for i, (bar, event) in enumerate(zip(bars, events)):
+        # Only the newest profile is drawn; the rest of the walk is warmup for it.
+        if profile is not None:
+            profile.quiet = i < last
         row = registry.update(event)
         marks.extend(marks_for(int(bar["time"]), row, is_first=(i == 0),
                                close=float(bar["close"])))

@@ -99,7 +99,11 @@ class SegmentsPaneView {
           const x = timeScale.timeToCoordinate(point.time);
           const y = series.priceToCoordinate(point.price);
           if (x === null || y === null) { missing = true; break; }
-          pts.push([x * hr, y * vr]);
+          // `dx` shifts a point sideways from the bar it names, in CSS pixels.
+          // A volume-profile bin is a length on screen, not a span of market
+          // time; anchoring its far end to an interpolated timestamp would give
+          // a coordinate of null, because no bar occupies that moment.
+          pts.push([(x + (point.dx || 0)) * hr, y * vr]);
         }
         // A corner we cannot place is a line we must not draw.
         if (missing || pts.length < 2) continue;

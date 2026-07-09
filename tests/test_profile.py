@@ -267,12 +267,23 @@ def test_a_bin_is_coloured_by_who_crossed_the_spread():
     assert marks[1]["color"] == pcfg.SELL_COLOR
 
 
-def test_the_heaviest_bin_is_the_longest_and_none_escapes_its_range():
+def test_a_bin_anchors_both_ends_to_a_real_bar_and_offsets_in_pixels():
+    """An interpolated timestamp has no x coordinate, so the bin would vanish.
+
+    lightweight-charts maps a time to a coordinate by finding it in the series.
+    A moment no bar occupies returns null, and segments.js skips any polyline
+    with a corner it cannot place - so every bin was silently invisible.
+    """
     from src.chart import overlays
     marks = overlays.marks_for(2000, profile_row([[100.0, 10, 5], [101.0, 5, 2]]))
-    lengths = [m["points"][1]["time"] - m["points"][0]["time"] for m in marks[:2]]
-    assert lengths[0] > lengths[1]
-    assert lengths[0] <= (2000 - 1000) * pcfg.MAX_WIDTH + 1
+    for m in marks[:2]:
+        a, b = m["points"]
+        assert a["time"] == b["time"] == 2000, "both ends name the same real bar"
+        assert b["dx"] == 0 and a["dx"] < 0, "the left end is pushed back in pixels"
+
+    lengths = [-m["points"][0]["dx"] for m in marks[:2]]
+    assert lengths[0] > lengths[1], "the heaviest bin is the longest"
+    assert lengths[0] == pytest.approx(pcfg.MAX_WIDTH_PX)
 
 
 def test_a_layer_is_replaced_wholesale_so_a_shrinking_profile_leaves_no_ghosts():

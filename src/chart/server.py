@@ -135,8 +135,10 @@ class ChartHandler(SimpleHTTPRequestHandler):
             for frame in frames:
                 self.wfile.write(frame)
                 self.wfile.flush()
-        except (BrokenPipeError, ConnectionResetError):
+        except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             # The tab closed. Normal; the generator's finally unsubscribes.
+            # ConnectionAbortedError is the one Windows raises, and it was the
+            # one missing here - so closing a tab printed a stack trace.
             logger.debug("Replay stream closed by client")
         except KeyError:
             # The session was retired between the check above and the first
@@ -149,13 +151,20 @@ class ChartHandler(SimpleHTTPRequestHandler):
         self._write(*api.handle(path, query))
 
     def _write(self, status: int, content_type: str, body: bytes, extra: dict) -> None:
-        self.send_response(status)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(len(body)))
-        for key, value in extra.items():
-            self.send_header(key, value)
-        self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.send_response(status)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(body)))
+            for key, value in extra.items():
+                self.send_header(key, value)
+            self.end_headers()
+            self.wfile.write(body)
+        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+            # The client hung up mid-response. That is a browser navigating away,
+            # a cancelled prefetch, or a health probe reading only the headers -
+            # all of them normal. socketserver would otherwise print a stack
+            # trace that reads like a server fault, and is not one.
+            logger.debug("client closed the connection before %s was written", self.path)
 
     def end_headers(self) -> None:
         # Lets a relaunch recognize this port as ours before reclaiming it.

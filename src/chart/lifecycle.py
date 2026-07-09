@@ -64,11 +64,31 @@ def port_in_use(host: str, port: int, timeout: float = 0.3) -> bool:
 
 
 def is_our_server(host: str, port: int, timeout: float = 0.6) -> bool:
-    """True if the listener on this port identifies itself as our chart server."""
+    """True if the listener on this port identifies itself as our chart server.
+
+    Two subtleties, both learned by watching a healthy server get called a
+    stranger and refuse to give up its port.
+
+    **An HTTP error still carries our headers.** ``urlopen`` raises ``HTTPError``
+    on any 4xx or 5xx, and ``HTTPError`` is a ``URLError`` - so a bare except
+    would rule that a server answering 500 is not ours, and we would refuse to
+    reclaim the port from precisely the server most in need of restarting. The
+    signature is in the response either way; read it off the exception.
+
+    **Read the body before hanging up.** Closing a socket with an unread body
+    makes the server's ``wfile.write`` fail, and on Windows that surfaces as
+    ConnectionAbortedError and a stack trace in the user's terminal. The probe
+    was the thing printing it.
+    """
     url = f"http://{host}:{port}/api/config"
     try:
         with urllib.request.urlopen(url, timeout=timeout) as response:
+            response.read()
             return response.headers.get(SIGNATURE_HEADER) == SIGNATURE
+    except urllib.error.HTTPError as exc:
+        with contextlib.suppress(OSError):
+            exc.read()
+        return exc.headers.get(SIGNATURE_HEADER) == SIGNATURE
     except (urllib.error.URLError, OSError, TimeoutError):
         return False
 
@@ -199,7 +219,9 @@ def stop_running(host: str, port: int) -> bool:
     if not is_our_server(host, port):
         raise PortBusy(
             f"Port {port} is held by a process that is not a chart server. "
-            f"Stop it, or start the chart on another port: --port <n>"
+            f"If you just stopped one, give it a moment to release the socket, "
+            f"or run: python -m src.cli.chart --stop. "
+            f"Otherwise stop that process, or use another port: --port <n>"
         )
 
     record = read_pidfile(port)

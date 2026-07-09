@@ -42,10 +42,15 @@ BINS_PER_SCALE = 8
 # --- drawing ----------------------------------------------------------------
 DRAW = True
 
-# Each bin is a horizontal bar drawn INSIDE its own range, anchored at the right
-# edge and growing left. Its length is this share of the range's width at the
-# heaviest bin, so a profile never escapes the structure it describes.
-MAX_WIDTH = 0.45
+# Each bin is a horizontal bar anchored at the range's right edge and growing
+# left, the heaviest reaching this many PIXELS.
+#
+# Pixels, not seconds. A bin's left end at an interpolated timestamp has no x
+# coordinate: lightweight-charts maps a time to a coordinate by looking it up in
+# the series, and returns null for a moment no bar occupies. The primitive then
+# skips the whole polyline - so every bin was silently invisible. The anchor is a
+# real bar; the length is an offset from it.
+MAX_WIDTH_PX = 170
 
 # Bought at the ask, and sold at the bid. The same green and red as the delta
 # strip, because it is the same measurement seen against price instead of time.

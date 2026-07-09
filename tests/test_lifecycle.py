@@ -74,3 +74,64 @@ def test_process_alive_does_not_kill_the_process_it_asks_about():
 
 def test_nothing_listening_means_the_port_is_free():
     assert lifecycle.port_in_use("127.0.0.1", 9) is False   # discard port, closed
+
+
+# --- the probe must recognise our own server, even when it is broken ---------
+
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+
+def _serve(status: int, signed: bool, body: bytes = b"{}"):
+    """A one-shot HTTP server answering with (or without) our signature."""
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            if signed:
+                self.send_header(lifecycle.SIGNATURE_HEADER, lifecycle.SIGNATURE)
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    return server
+
+
+def test_a_server_answering_200_is_recognised():
+    server = _serve(200, signed=True)
+    try:
+        assert lifecycle.is_our_server("127.0.0.1", server.server_port)
+    finally:
+        server.shutdown()
+
+
+def test_a_server_answering_500_is_still_ours():
+    """urlopen raises HTTPError on 5xx, and HTTPError is a URLError.
+
+    Swallowing it would rule that a server returning 500 is a stranger, and we
+    would refuse to reclaim the port from the very server most in need of a
+    restart. The signature is on the response either way.
+    """
+    server = _serve(500, signed=True, body=b'{"error":"internal"}')
+    try:
+        assert lifecycle.is_our_server("127.0.0.1", server.server_port)
+    finally:
+        server.shutdown()
+
+
+def test_a_stranger_on_the_port_is_not_ours():
+    server = _serve(200, signed=False)
+    try:
+        assert not lifecycle.is_our_server("127.0.0.1", server.server_port)
+    finally:
+        server.shutdown()
+
+
+def test_nothing_listening_is_not_ours():
+    assert not lifecycle.is_our_server("127.0.0.1", 1)

@@ -89,11 +89,19 @@ class ReplaySession:
             bars = store.slice_bars(self.symbol, self.timeframe, self.first_index,
                                     index - self.first_index)
             marks: list[dict] = []
-            events = overlays.bar_events(bars, self.symbol, self.timeframe)
+            events = overlays.bar_events(bars, self.symbol, self.timeframe,
+                                         with_vap=self.registry.has("profile"))
+            profile = self.registry.get("profile")
+            last = len(bars) - 1
             for i, (bar, event) in enumerate(zip(bars, events)):
+                # The warmup only needs the profile's STATE, never its summary.
+                if profile is not None:
+                    profile.quiet = i < last
                 row = self.registry.update(event)
                 marks.extend(overlays.marks_for(int(bar["time"]), row, is_first=(i == 0),
                                                 close=float(bar["close"])))
+            if profile is not None:
+                profile.quiet = False
 
             self.cursor = index - 1
             logger.info("Replay %s: seeded at %d (warmed %d bars)", self.id, index, len(bars))
@@ -127,7 +135,8 @@ class ReplaySession:
                 return None
 
             bar = bars[0]
-            event = overlays.bar_events(bars, self.symbol, self.timeframe)[0]
+            event = overlays.bar_events(bars, self.symbol, self.timeframe,
+                                        with_vap=self.registry.has("profile"))[0]
             row = self.registry.update(event)
 
             self.cursor = index

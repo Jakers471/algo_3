@@ -41,12 +41,24 @@ def _open(symbol: str, timeframe: str) -> tuple:
                 f"run: python -m src.cli.vap")
         levels = np.memmap(vap_path, dtype=VAP_DTYPE, mode="r")
         index = np.memmap(idx_path, dtype=IDX_DTYPE, mode="r")
-        _CACHE[key] = (levels, index)
+        # Two traps, both of which turn a binary search into a full scan of 1.6M
+        # rows - 10 ms per lookup, one lookup per bar, and a 5,000-bar overlay
+        # request that never finishes.
+        #
+        # `index["time"]` is a strided view into 16-byte records, so numpy copies
+        # it out of the memmap every time. And it is uint32: searching it with a
+        # Python int promotes the WHOLE ARRAY to int64 first. Materialise the
+        # columns once, contiguous and already int64, and the search costs
+        # microseconds again.
+        columns = (np.ascontiguousarray(index["time"], dtype=np.int64),
+                   np.ascontiguousarray(index["offset"], dtype=np.int64),
+                   np.ascontiguousarray(index["count"], dtype=np.int64))
+        _CACHE[key] = (levels, columns)
     return _CACHE[key]
 
 
 def bar_count(symbol: str, timeframe: str) -> int:
-    return len(_open(symbol, timeframe)[1])
+    return len(_open(symbol, timeframe)[1][0])
 
 
 def histogram(symbol: str, timeframe: str, start: int, end: int) -> tuple:
@@ -56,27 +68,25 @@ def histogram(symbol: str, timeframe: str, start: int, end: int) -> tuple:
     close-stamped, so a bar labelled exactly ``start`` belongs to the range
     before it and is excluded; one labelled ``end`` is included.
     """
-    levels, index = _open(symbol, timeframe)
-    times = index["time"]
+    levels, (times, offsets, counts) = _open(symbol, timeframe)
 
     first = int(np.searchsorted(times, start, side="right"))
     last = int(np.searchsorted(times, end, side="right"))
     if last <= first:
         return np.empty(0), np.empty(0, dtype=np.int64), np.empty(0, dtype=np.int64)
 
-    lo = int(index["offset"][first])
-    hi = int(index["offset"][last - 1] + index["count"][last - 1])
+    lo = int(offsets[first])
+    hi = int(offsets[last - 1] + counts[last - 1])
     span = levels[lo:hi]
 
     # One bar's levels are unique, but a range spans many bars and a price
-    # trades in several of them. Fold the duplicates.
+    # trades in several of them. Fold the duplicates. bincount, not add.at -
+    # the unbuffered ufunc is an order of magnitude slower for no benefit here.
     ticks, inverse = np.unique(span["tick"], return_inverse=True)
-    volume = np.zeros(len(ticks), dtype=np.int64)
-    buy = np.zeros(len(ticks), dtype=np.int64)
-    np.add.at(volume, inverse, span["volume"])
-    np.add.at(buy, inverse, span["buy"])
+    volume = np.bincount(inverse, weights=span["volume"], minlength=len(ticks))
+    buy = np.bincount(inverse, weights=span["buy"], minlength=len(ticks))
 
-    return ticks * cfg.TICK_SIZE, volume, buy
+    return ticks * cfg.TICK_SIZE, volume.astype(np.int64), buy.astype(np.int64)
 
 
 def rebin(prices: np.ndarray, volume: np.ndarray, buy: np.ndarray,
@@ -91,12 +101,17 @@ def rebin(prices: np.ndarray, volume: np.ndarray, buy: np.ndarray,
     if len(prices) == 0 or bin_size <= cfg.TICK_SIZE:
         return prices, volume, buy
 
+    # Bin indices are a contiguous integer range, so bincount folds them in one
+    # pass. np.unique sorts, which over a 5,000-bar walk cost seconds per
+    # request for an answer the ordering was already going to give.
     edges = np.floor(prices / bin_size).astype(np.int64)
-    keys, inverse = np.unique(edges, return_inverse=True)
-    v = np.zeros(len(keys), dtype=np.int64)
-    b = np.zeros(len(keys), dtype=np.int64)
-    np.add.at(v, inverse, volume)
-    np.add.at(b, inverse, buy)
+    base = edges[0]
+    inverse = edges - base
+    size = int(inverse[-1]) + 1
+    v = np.bincount(inverse, weights=volume, minlength=size).astype(np.int64)
+    b = np.bincount(inverse, weights=buy, minlength=size).astype(np.int64)
+
+    filled = np.flatnonzero(v)
     # Name a bin by its lower edge; the price you can trade is the level, not
     # the middle of an interval nobody quotes.
-    return keys * bin_size, v, b
+    return (base + filled) * bin_size, v[filled], b[filled]

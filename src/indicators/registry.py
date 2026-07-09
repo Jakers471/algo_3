@@ -38,6 +38,14 @@ class Registry:
     def order(self) -> list[Indicator]:
         return list(self._order)
 
+    def has(self, indicator_id: str) -> bool:
+        """Is this indicator running? Lets a caller skip work nothing will read."""
+        return indicator_id in self._by_id
+
+    def get(self, indicator_id: str):
+        """The live indicator, or None. For a caller that must tune it, not read it."""
+        return self._by_id.get(indicator_id)
+
     def field_names(self) -> list[str]:
         """Every field the row will carry, in run order. The TUI's columns."""
         return [name for ind in self._order for name in ind.fields]
