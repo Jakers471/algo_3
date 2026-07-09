@@ -17,6 +17,9 @@ import { getBars } from '../api.js';
 import { BarBuffer } from './window.js';
 import { ReplayStream } from './stream.js';
 
+// A server that cannot seed will not seed on the next attempt either.
+const MAX_RECOVERY_ATTEMPTS = 3;
+
 export class ReplayEngine {
   constructor(cfg, surface) {
     this.cfg = cfg;
@@ -33,6 +36,7 @@ export class ReplayEngine {
     this.symbol = null;
     this.timeframe = null;
     this._recovering = false;
+    this._recoveryFailures = 0;
     this._generation = 0;   // guards a slow start against a newer one
 
     this._listeners = { bar: [], state: [] };
@@ -57,12 +61,22 @@ export class ReplayEngine {
    */
   async _recover() {
     if (this._recovering || !this.symbol) return;
+    if (this._recoveryFailures >= MAX_RECOVERY_ATTEMPTS) return;
+
     this._recovering = true;
     try {
       await this.start(this.symbol, this.timeframe, this.cursor + 1);
+      this._recoveryFailures = 0;
       console.warn('replay session was retired; re-seeded at the same bar');
     } catch (err) {
-      console.error('could not re-seed the replay', err);
+      // A server that cannot seed will not seed on the next try either. Retrying
+      // it forever is the storm this whole mechanism exists to prevent, only now
+      // it is us making the requests.
+      this._recoveryFailures++;
+      this.stream.close();
+      console.error(
+        `could not re-seed the replay (${this._recoveryFailures}/${MAX_RECOVERY_ATTEMPTS})`,
+        err);
     } finally {
       this._recovering = false;
     }
@@ -127,7 +141,16 @@ export class ReplayEngine {
 
     const trimmed = this.buffer.push(bar);
 
-    if (snap.marks.length) this.marks = this.marks.concat(snap.marks);
+    if (snap.marks.length) {
+      // A mark carrying an `id` is a redraw, not an event: the provisional rails
+      // arrive again on every bar, one bar longer. The newest replaces the last.
+      // Everything else - a swing, a leg, a break - is an event and accumulates.
+      const redrawn = new Set(snap.marks.map((m) => m.id).filter(Boolean));
+      const kept = redrawn.size
+        ? this.marks.filter((m) => !redrawn.has(m.id))
+        : this.marks;
+      this.marks = kept.concat(snap.marks);
+    }
     if (trimmed) {
       // Marks scrolled off the front can never be drawn again; dropping them
       // keeps this list bounded over a long replay.
@@ -162,6 +185,7 @@ export class ReplayEngine {
     this.surface.setVerticalLines(this.marks.filter((m) => m.kind === 'vline'));
     this.surface.setMarkers(this.marks.filter((m) => m.kind === 'marker'));
     this.surface.setSegments(this.marks.filter((m) => m.kind === 'segment'));
+    this.surface.setPriceLines(this.marks.filter((m) => m.kind === 'level'));
   }
 
   stop() {
@@ -169,6 +193,7 @@ export class ReplayEngine {
     this.surface.setVerticalLines([]);
     this.surface.setMarkers([]);
     this.surface.setSegments([]);
+    this.surface.setPriceLines([]);
     return this.stream.stop();
   }
 }

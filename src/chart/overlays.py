@@ -92,20 +92,54 @@ def bar_events(bars) -> list[BarClose]:
             for i, t in enumerate(times)]
 
 
-def _segment(source: str, points: list[tuple], color: str, width: int) -> dict:
+def _segment(source: str, points: list[tuple], color: str, width: int,
+             mark_id: str | None = None) -> dict:
     """A polyline in (time, price) space, for the chart to stroke.
 
     ``time`` is the EARLIEST point, because that is what the replay trim filter
     compares against: a segment whose left end has scrolled out of the buffer
     cannot be drawn, so it should be dropped rather than half-drawn.
+
+    ``id`` marks a shape that is REDRAWN rather than added. Most marks are events
+    - a swing happened, a level broke - and accumulate. The provisional rails are
+    not events; they are a running state, re-emitted on every bar. Without an id
+    a replay would stack one rail per bar forever. With one, the newest replaces
+    the last, in the browser and in ``group_marks`` alike.
     """
-    return {
+    mark = {
         "kind": "segment",
         "source": source,
         "time": int(min(t for t, _ in points)),
         "points": [{"time": int(t), "price": float(p)} for t, p in points],
         "color": color,
         "width": width,
+    }
+    if mark_id is not None:
+        mark["id"] = mark_id
+    return mark
+
+
+def _level(source: str, price: float, color: str, width: int, *,
+           title: str, mark_id: str, dashed: bool = False) -> dict:
+    """A horizontal price line across the whole pane, labelled on the axis.
+
+    The shape for a reading that is true *now* and has no beginning: the standing
+    high, the standing low, the price at which the next swing confirms. Always
+    carries an id - a level is state, so a new one replaces the last rather than
+    joining it.
+    """
+    return {
+        "kind": "level",
+        "source": source,
+        "id": mark_id,
+        # Levels are timeless, but the replay trim compares `time` on every mark.
+        # Zero is older than any bar, so a level is never trimmed away.
+        "time": 0,
+        "price": float(price),
+        "color": color,
+        "width": width,
+        "title": title,
+        "dashed": dashed,
     }
 
 
@@ -168,6 +202,28 @@ def marks_for(time: int, row: dict, *, is_first: bool = False,
             "text": "",
         })
 
+    if swing_cfg.ENABLED and swing_cfg.DRAW_RAILS and row.get("hunting"):
+        # State, not events: a level standing right now has no start, so these
+        # are price lines across the pane rather than segments anchored to a bar.
+        for side in ("high", "low"):
+            price = row.get(f"extreme_{side}")
+            if price is None:
+                continue
+            live = row["hunting"] == side
+            marks.append(_level(
+                "extremes", price,
+                swing_cfg.LIVE_RAIL_COLOR if live else swing_cfg.FROZEN_RAIL_COLOR,
+                swing_cfg.RAIL_WIDTH,
+                title=side, mark_id=f"rail_{side}",
+            ))
+
+        if swing_cfg.DRAW_TRIGGER and row.get("trigger") is not None:
+            marks.append(_level(
+                "extremes", row["trigger"], swing_cfg.TRIGGER_COLOR,
+                swing_cfg.RAIL_WIDTH, title="trigger", mark_id="trigger",
+                dashed=True,
+            ))
+
     if legs_cfg.ENABLED and legs_cfg.DRAW and row.get("leg"):
         up = row["leg"] == "up"
         # Square corners: run along the price we left, then turn into the price
@@ -198,6 +254,25 @@ def marks_for(time: int, row: dict, *, is_first: bool = False,
     return marks
 
 
+def collapse_redrawn(marks: list[dict]) -> list[dict]:
+    """Keep only the newest of each ``id``. Marks without one are events; keep all.
+
+    Walking a bar range re-emits the provisional rails once per bar. Only the
+    last pair describes the range's final state - the rest are the same rail at
+    earlier lengths, and drawing them all would fur the chart with hundreds of
+    stacked lines.
+    """
+    kept: list[dict] = []
+    newest: dict[str, dict] = {}
+    for mark in marks:
+        mark_id = mark.get("id")
+        if mark_id is None:
+            kept.append(mark)
+        else:
+            newest[mark_id] = mark
+    return kept + list(newest.values())
+
+
 def group_marks(marks: list[dict]) -> list[dict]:
     """Group flat marks into the overlay specs the frontend renders.
 
@@ -206,6 +281,7 @@ def group_marks(marks: list[dict]) -> list[dict]:
     shapes, not meanings - but a spec called "absorption" that also carried swing
     points would be a lie to the next reader.
     """
+    marks = collapse_redrawn(marks)
     specs = []
     lines = [m for m in marks if m["kind"] == "vline"]
     if lines:
@@ -220,6 +296,10 @@ def group_marks(marks: list[dict]) -> list[dict]:
     for source in dict.fromkeys(m["source"] for m in segments):
         group = [m for m in segments if m["source"] == source]
         specs.append({"id": source, "kind": "segments", "segments": group})
+
+    levels = [m for m in marks if m["kind"] == "level"]
+    if levels:
+        specs.append({"id": "levels", "kind": "levels", "levels": levels})
     return specs
 
 

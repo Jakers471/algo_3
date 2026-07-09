@@ -1,30 +1,48 @@
-"""The structure points: where price turned, confirmed only once it had.
-
-One job: emit a swing high or a swing low when price has retraced far enough
-from the running extreme to prove the extreme was one.
+"""The structure points: where price turned, confirmed only once it had -
+plus the high and low that are true right now, before anything is confirmed.
 
 **A swing is known late, by construction.** The bar that makes a high does not
 announce itself; you learn it was a high only after price falls away from it by
 ``RETRACE x range_scale``. So this indicator publishes on the *confirming* bar
 and names the *earlier* bar that made the extreme. That lag is not a defect to
-be engineered away - it is the price of not looking ahead. It is also exactly
-why a ladder of timeframes exists: the 15m rung confirms about six swings in a
-session and always after the fact, while the 30s rung confirms 178 and sees the
-turn while it is still worth something. Permission from above, timing from below.
+be engineered away - it is the price of not looking ahead.
 
-**The threshold adapts; the shape does not.** The retrace is measured in
-multiples of ``range_scale``, never in points, so the same code finds the same
-structure in a quiet market and a violent one. Double every price in the data and
-this indicator emits the identical swings, because both the threshold and the
-retrace double with it. That invariance is pinned by a test.
+**But the extremes exist on every bar.** While price runs, nothing confirms and
+``swing`` stays silent - yet a highest-high-so-far is sitting right there in this
+object, ratcheting up with each new high. Publishing only on confirmation made
+the screen go blank during exactly the move you most want to watch. So the two
+rails are published too:
 
-Depends on ``range_scale`` and refuses while it is warming up: a swing threshold
-computed from a scale that does not exist yet would just be a threshold in points.
+    extreme_high / extreme_low   the standing high and low, on every bar
+    hunting                      which of them is still provisional
+    retrace                      how far price has pulled back from it
+    trigger                      the price at which the provisional one confirms
 
-Levels, trend, higher-highs and lower-lows are **not** here. A swing point is a
-fact about where price turned; what a sequence of them *means* is a different job
-with a different lifetime, and it will read this indicator rather than re-derive
-it - which is what the registry's dependency ordering is for.
+One rail is **live**: the one in the hunting direction, extending as new extremes
+print. The other is **frozen** at the last confirmed swing. When the retrace
+finally arrives, the live rail freezes into a swing point and the roles swap.
+
+``retrace`` is that distance measured from the live rail to this bar's close, in
+``range_scale`` units, so it is dimensionless: double every price in the data and
+it does not move. It is a *conservative* view of the trigger, which tests this
+bar's low (or high), not its close - so a swing can confirm on a bar whose
+``retrace`` reads a little under ``RETRACE``. And on a bar that makes a new
+extreme it can read high without confirming anything, because a bar that extends
+the extreme is never tested against it.
+
+**The rails are not swings, and must never be traded as though they were.** A
+provisional extreme is "the highest price so far". A swing is "a high that price
+turned away from". Both are built only from bars at or before now - neither can
+look ahead - but they are different objects, and a rule that confuses them is
+honest about time and wrong about meaning.
+
+They live here rather than in an indicator of their own because they *are* this
+state machine's state. A separate indicator would have to run the same machine a
+second time to see them, which is the duplication the registry exists to prevent.
+
+Levels, trend, higher-highs and lower-lows are still elsewhere: what a *sequence*
+of swings means is a different job (see ``legs`` and ``breaks``), and those read
+this indicator rather than re-deriving it.
 """
 
 from __future__ import annotations
@@ -38,23 +56,28 @@ logger = logging.getLogger(__name__)
 
 HIGH, LOW = "high", "low"
 
-_NOTHING = {"swing": None, "swing_price": None, "swing_time": None}
+_NO_SWING = {"swing": None, "swing_price": None, "swing_time": None}
 
 
 class Swing(Indicator):
-    """Publishes a confirmed swing point, or nothing at all on most bars."""
+    """Confirmed swing points, and the provisional extremes they come from."""
 
     id = "swing"
-    fields = ("swing", "swing_price", "swing_time")
+    fields = ("swing", "swing_price", "swing_time",
+              "extreme_high", "extreme_high_time",
+              "extreme_low", "extreme_low_time",
+              "hunting", "retrace", "trigger")
     depends = ("range_scale",)
 
     def __init__(self) -> None:
         self.reset()
 
     def reset(self) -> None:
-        self._dir = 0             # +1 tracking a high, -1 tracking a low
-        self._extreme: float | None = None
-        self._extreme_time: int | None = None
+        self._dir = 0                          # +1 hunting a high, -1 hunting a low
+        self._high: float | None = None        # live while hunting a high
+        self._high_time: int | None = None
+        self._low: float | None = None         # live while hunting a low
+        self._low_time: int | None = None
 
     def update(self, event, upstream=None) -> dict:
         scale = (upstream or {}).get("range_scale")
@@ -65,41 +88,58 @@ class Swing(Indicator):
 
         threshold = cfg.RETRACE * scale
         ts = int(event.ts.timestamp())
+        row = dict(_NO_SWING)
 
-        if self._extreme is None:
-            # The first bar has nothing to retrace from. Anchor on its high and
-            # start looking for a swing high; the choice is arbitrary and affects
-            # only whether the very first swing found is a high or a low.
-            self._dir, self._extreme, self._extreme_time = 1, event.high, ts
-            return dict(_NOTHING)
+        if self._high is None:
+            # The first bar has nothing to retrace from. Anchor both rails on it
+            # and start looking for a swing high; the choice is arbitrary and
+            # affects only whether the very first swing found is a high or a low.
+            self._dir = 1
+            self._high, self._high_time = event.high, ts
+            self._low, self._low_time = event.low, ts
 
-        if self._dir > 0:
-            if event.high > self._extreme:
+        elif self._dir > 0:
+            if event.high > self._high:
                 # Still making highs. A bar that extends the extreme cannot also
                 # confirm it - hence the elif, not a second if.
-                self._extreme, self._extreme_time = event.high, ts
-            elif self._extreme - event.low >= threshold:
-                confirmed = self._turn(HIGH, low=event.low, ts=ts)
-                return confirmed
+                self._high, self._high_time = event.high, ts
+            elif self._high - event.low >= threshold:
+                row = {"swing": HIGH, "swing_price": self._high,
+                       "swing_time": self._high_time}
+                # The high freezes where it stands; the low rail goes live here.
+                self._dir = -1
+                self._low, self._low_time = event.low, ts
+
         else:
-            if event.low < self._extreme:
-                self._extreme, self._extreme_time = event.low, ts
-            elif event.high - self._extreme >= threshold:
-                confirmed = self._turn(LOW, high=event.high, ts=ts)
-                return confirmed
+            if event.low < self._low:
+                self._low, self._low_time = event.low, ts
+            elif event.high - self._low >= threshold:
+                row = {"swing": LOW, "swing_price": self._low,
+                       "swing_time": self._low_time}
+                self._dir = 1
+                self._high, self._high_time = event.high, ts
 
-        return dict(_NOTHING)
+        row.update(self._rails(event, scale, threshold))
+        return row
 
-    def _turn(self, kind: str, *, ts: int, high: float | None = None,
-              low: float | None = None) -> dict:
-        """Confirm the extreme we were tracking, then start tracking the other way."""
-        price, time = self._extreme, self._extreme_time
+    def _rails(self, event, scale: float, threshold: float) -> dict:
+        """Both extremes as they stand at the end of this bar, and the retrace."""
+        hunting_high = self._dir > 0
+        live = self._high if hunting_high else self._low
+        # Distance from the live rail to where the bar actually closed. Never
+        # negative: the close cannot exceed the extreme, which includes this
+        # bar's own high and low.
+        retrace = (live - event.close) if hunting_high else (event.close - live)
 
-        if kind == HIGH:
-            self._dir, self._extreme, self._extreme_time = -1, low, ts
-        else:
-            self._dir, self._extreme, self._extreme_time = 1, high, ts
-
-        # The swing is stamped with the bar that MADE it, which is at or before
-        # the bar being processed. It is never in the future.
-        return {"swing": kind, "swing_price": price, "swing_time": time}
+        return {
+            "extreme_high": self._high,
+            "extreme_high_time": self._high_time,
+            "extreme_low": self._low,
+            "extreme_low_time": self._low_time,
+            "hunting": HIGH if hunting_high else LOW,
+            "retrace": retrace / scale,
+            # Where the provisional extreme becomes a swing. A bar whose LOW
+            # reaches this (or whose HIGH does, hunting a low) confirms it. It
+            # rides up under a rising high, so it says what has to happen next.
+            "trigger": (live - threshold) if hunting_high else (live + threshold),
+        }

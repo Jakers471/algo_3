@@ -117,6 +117,7 @@ class ChartSurface {
     this.vlines = vlines;
     this.segments = segments;
     this.flow = flow;
+    this._priceLines = [];
   }
 
   /** A delta bar, or null when this dataset has no order flow (never a zero). */
@@ -137,6 +138,27 @@ class ChartSurface {
   /** Stroke polylines. `segments` are {points: [{time, price}], color, width}. */
   setSegments(segments) {
     this.segments.setSegments(segments);
+  }
+
+  /**
+   * Horizontal price lines across the pane, labelled on the axis.
+   *
+   * `levels` are {price, color, width, title, dashed}. Replaced wholesale: a
+   * level is a reading of the present, so there is no such thing as an old one
+   * worth keeping. lightweight-charts has no setter, only create/remove, so we
+   * hold the handles ourselves.
+   */
+  setPriceLines(levels) {
+    for (const line of this._priceLines) this.candles.removePriceLine(line);
+    this._priceLines = (levels || []).map((level) => this.candles.createPriceLine({
+      price: level.price,
+      color: level.color,
+      lineWidth: level.width || 1,
+      lineStyle: level.dashed ? LightweightCharts.LineStyle.Dashed
+                              : LightweightCharts.LineStyle.Solid,
+      axisLabelVisible: true,
+      title: level.title || '',
+    }));
   }
 
   /**

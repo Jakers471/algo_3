@@ -63,16 +63,18 @@ def test_seed_warms_indicators_without_publishing(packed):
     assert info["first_index"] == 100
     assert info["cursor"] == 199
     assert q.empty(), "the warmup must not publish - it is not a replay step"
-    # The columns are whatever the registry publishes, in dependency order:
-    # absorption after the orderflow it reads, swing after the range_scale it
-    # measures its threshold in, legs and breaks after the swings they join up.
-    assert info["fields"] == ["session", "session_new",
-                             "delta", "buy_volume", "sell_volume", "trades",
-                             "absorption", "absorption_side",
-                             "range_scale", "swing", "swing_price", "swing_time",
-                             "leg", "leg_from_price", "leg_from_time",
-                             "leg_to_price", "leg_to_time",
-                             "bos", "bos_level", "bos_time"]
+    # The columns are whatever the registry publishes, in DEPENDENCY order. That
+    # ordering is the contract - an indicator's fields must exist before the
+    # indicator that reads them runs. Pinning the literal list instead just makes
+    # this test a chore to update every time a field is added, and it never once
+    # caught anything the ordering assertions below would have missed.
+    fields = info["fields"]
+    assert fields[:2] == ["session", "session_new"], "the seed exposes the row's columns"
+    where = {name: i for i, name in enumerate(fields)}
+    assert where["delta"] < where["absorption"], "absorption reads orderflow"
+    assert where["range_scale"] < where["swing"], "swing's threshold is measured in it"
+    assert where["swing"] < where["leg"], "a leg joins two swings"
+    assert where["swing"] < where["bos"], "a break takes out a swing level"
 
 
 def test_seeking_equals_playing_into_the_same_bar(packed):

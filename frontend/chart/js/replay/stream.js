@@ -104,6 +104,10 @@ export class ReplayStream {
     this._source = new EventSource(`/api/replay/stream?session=${this.sessionId}`);
     this._source.onmessage = (event) => {
       const payload = JSON.parse(event.data);
+      // A retired session's last frames can still be in flight after we have cut
+      // back and seeded a new one. Every frame names its session; a stranger's
+      // row would draw a bar the current cursor has not revealed.
+      if (payload.session && payload.session !== this.sessionId) return;
       if (payload.state) this._emit('state', payload.state);
       else this._emit('snapshot', payload);
     };

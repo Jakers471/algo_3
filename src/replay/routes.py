@@ -136,7 +136,8 @@ def stream(session_id: str):
         return          # retired between the server's check and here
     q = session.subscribe()
     try:
-        yield _frame({"state": {"playing": session.playing, "speed": session.speed,
+        yield _frame(session_id,
+                     {"state": {"playing": session.playing, "speed": session.speed,
                                 "at_end": session.at_end, "cursor": session.cursor}})
         while True:
             try:
@@ -147,10 +148,17 @@ def stream(session_id: str):
             if item is None:      # sentinel from session.stop()
                 break
             payload = item.to_dict() if isinstance(item, Snapshot) else item
-            yield _frame(payload)
+            yield _frame(session_id, payload)
     finally:
         session.unsubscribe(q)
 
 
-def _frame(payload: dict) -> bytes:
-    return f"data: {json.dumps(payload)}\n\n".encode()
+def _frame(session_id: str, payload: dict) -> bytes:
+    """Every frame names its session, so a client can reject a stranger's.
+
+    A retired session's last snapshots can still be in flight when the chart has
+    already cut back and seeded a new one. Drawn, they hand the chart a bar older
+    than its newest - and, worse, a bar the current cursor has not revealed.
+    Unlabelled, the client cannot tell whose row it is holding.
+    """
+    return f"data: {json.dumps({**payload, 'session': session_id})}\n\n".encode()

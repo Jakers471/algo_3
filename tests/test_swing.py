@@ -193,6 +193,140 @@ def test_the_threshold_follows_the_scale_up():
     assert run(loud + move) == [], "4 does not clear a 15.0 threshold"
 
 
+# --- the provisional rails ---------------------------------------------------
+
+def all_rows(bars) -> list[dict]:
+    reg = registry()
+    return [reg.update(b) for b in bars]
+
+
+def test_both_rails_exist_on_every_bar_once_warm():
+    """The complaint that started this: a running market must never draw a blank."""
+    rows = [r for r in all_rows(rising_then_falling()) if r["range_scale"] is not None]
+    assert rows, "the fixture must get past the warmup"
+    for r in rows:
+        assert r["extreme_high"] is not None and r["extreme_low"] is not None
+        assert r["hunting"] in ("high", "low")
+        assert r["extreme_high"] >= r["extreme_low"]
+
+
+def test_the_live_rail_ratchets_while_price_runs_and_confirms_nothing():
+    bars = [bar(i, 12, 10) for i in range(4)]                  # scale 2.0, threshold 3.0
+    bars += [bar(4, 14, 12), bar(5, 16, 14), bar(6, 18, 16)]   # a run of higher highs
+    rows = all_rows(bars)[-3:]
+    assert [r["swing"] for r in rows] == [None, None, None], "a run confirms nothing"
+    assert [r["extreme_high"] for r in rows] == [14, 16, 18], "yet the high keeps ratcheting"
+    assert all(r["hunting"] == "high" for r in rows)
+
+
+def test_the_frozen_rail_does_not_move_while_the_other_is_hunted():
+    rows = all_rows(rising_then_falling())
+    confirmed = next(i for i, r in enumerate(rows) if r["swing"] == "high")
+    after = rows[confirmed]
+    assert after["extreme_high"] == after["swing_price"] == 20, "the high froze where it turned"
+    assert after["hunting"] == "low", "and the roles swapped"
+
+
+def test_a_confirmation_freezes_the_live_rail_at_the_swing_it_names():
+    found = [r for r in all_rows(rising_then_falling()) if r["swing"]]
+    assert found[0]["extreme_high"] == found[0]["swing_price"]
+    assert found[0]["extreme_high_time"] == found[0]["swing_time"]
+
+
+def test_retrace_is_never_negative():
+    for r in all_rows(rising_then_falling()):
+        if r["retrace"] is not None:
+            assert r["retrace"] >= 0
+
+
+def test_retrace_is_dimensionless():
+    """Measured in range_scale, so 10x the prices must not move it at all."""
+    shape = rising_then_falling()
+    scaled = [BarClose(ts=b.ts, open=b.open * 10, high=b.high * 10, low=b.low * 10,
+                       close=b.close * 10, volume=b.volume) for b in shape]
+    plain = [r["retrace"] for r in all_rows(shape) if r["retrace"] is not None]
+    big = [r["retrace"] for r in all_rows(scaled) if r["retrace"] is not None]
+    assert plain == big and len(plain) > 2
+
+    # The rails themselves are prices, so they DO scale.
+    hi = [r["extreme_high"] for r in all_rows(shape) if r["extreme_high"] is not None]
+    hi10 = [r["extreme_high"] for r in all_rows(scaled) if r["extreme_high"] is not None]
+    assert [h * 10 for h in hi] == hi10
+
+
+def rail_row(**extra) -> dict:
+    row = {"hunting": "high", "extreme_high": 20.0, "extreme_high_time": 100,
+           "extreme_low": 10.0, "extreme_low_time": 50, "trigger": 17.0}
+    row.update(extra)
+    return row
+
+
+def test_a_rail_is_a_level_not_a_segment():
+    """A level standing right now has no beginning, so it cannot be a segment.
+
+    As a segment it ran from the bar that made the extreme to the current bar.
+    While price runs it makes a new high on the current bar, so that segment had
+    zero length on 25% of real 15m bars - invisible, in the one case it existed
+    for. A price line has no start to degenerate.
+    """
+    from src.chart import overlays
+
+    marks = overlays.marks_for(200, rail_row())
+    assert {m["id"] for m in marks} == {"rail_high", "rail_low", "trigger"}
+    assert all(m["kind"] == "level" for m in marks)
+    assert all("points" not in m for m in marks)
+
+
+def test_the_rails_are_redrawn_not_accumulated():
+    """A rail is a running state, re-emitted each bar. Ids collapse to the newest."""
+    from src.chart import overlays
+
+    first = overlays.marks_for(200, rail_row())
+    later = overlays.marks_for(300, rail_row(extreme_high=25.0, trigger=22.0))
+
+    collapsed = {m["id"]: m for m in overlays.collapse_redrawn(first + later)}
+    assert len(collapsed) == 3, "three levels, not six"
+    assert collapsed["rail_high"]["price"] == 25.0, "the newest reading survives"
+
+
+def test_a_level_is_never_trimmed_away():
+    """The replay trim compares `time`; a timeless level must outlive every bar."""
+    from src.chart import overlays
+    assert all(m["time"] == 0 for m in overlays.marks_for(200, rail_row()))
+
+
+def test_the_hunted_rail_is_drawn_brighter_than_the_frozen_one():
+    from src.chart import overlays
+
+    marks = {m["id"]: m for m in overlays.marks_for(200, rail_row())}
+    assert marks["rail_high"]["color"] == swing_cfg.LIVE_RAIL_COLOR
+    assert marks["rail_low"]["color"] == swing_cfg.FROZEN_RAIL_COLOR
+    assert marks["trigger"]["dashed"] is True, "nothing has happened there yet"
+
+
+def test_the_trigger_sits_a_full_retrace_under_a_provisional_high():
+    rows = [r for r in all_rows(rising_then_falling()) if r["trigger"] is not None]
+    for r in rows:
+        gap = abs(r["retrace"])  # unused, but the relationship below is the point
+        live = r["extreme_high"] if r["hunting"] == "high" else r["extreme_low"]
+        expected = (live - swing_cfg.RETRACE * r["range_scale"]) if r["hunting"] == "high" \
+            else (live + swing_cfg.RETRACE * r["range_scale"])
+        assert r["trigger"] == pytest.approx(expected)
+
+
+def test_no_rails_before_a_scale_exists():
+    from src.chart import overlays
+    assert overlays.marks_for(200, {"hunting": None}) == []
+
+
+def test_levels_group_into_their_own_spec():
+    from src.chart import overlays
+
+    specs = overlays.group_marks(overlays.marks_for(200, rail_row()))
+    levels = [s for s in specs if s["kind"] == "levels"]
+    assert len(levels) == 1 and len(levels[0]["levels"]) == 3
+
+
 def test_scale_invariance_the_same_shape_yields_the_same_swings():
     """Multiply every price by 10: identical swings, at identical times.
 

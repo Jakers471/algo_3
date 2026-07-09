@@ -54,3 +54,32 @@ MARKER_COLOR = "#58a6ff"
 
 HIGH_SHAPE = "arrowDown"   # drawn above the bar
 LOW_SHAPE = "arrowUp"      # drawn below it
+
+# --- the provisional rails ---------------------------------------------------
+# The standing high, the standing low, and the price at which the provisional one
+# confirms. Drawn as full-width price lines with a label on the axis, NOT as
+# segments.
+#
+# They were segments once, running from the bar that made the extreme to the
+# current bar, and it was wrong. Measured on 54,564 15m bars: while price runs it
+# makes a new high on the current bar, so that segment had ZERO length 25% of the
+# time and two bars or fewer 43% of the time - invisible, in exactly the case the
+# rails were added for. A level standing right now has no start. Only `legs` and
+# `breaks`, which are historical facts, have a beginning and an end.
+DRAW_RAILS = True
+
+# The rail in the hunting direction is still moving - a claim about where price
+# has been, not yet about where it turned. Pale, so it reads as unfinished.
+LIVE_RAIL_COLOR = "rgba(201, 209, 217, 0.75)"
+
+# The other rail froze at the last confirmed swing. Dimmer: it is history, and
+# `breaks` will light it green or red if price ever closes through it.
+FROZEN_RAIL_COLOR = "rgba(125, 133, 144, 0.45)"
+
+# Where the provisional extreme becomes a swing. Dashed, because nothing has
+# happened there yet - it is a condition, not a level the market has respected.
+TRIGGER_COLOR = "rgba(210, 153, 34, 0.65)"
+
+DRAW_TRIGGER = True
+
+RAIL_WIDTH = 1

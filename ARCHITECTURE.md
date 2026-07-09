@@ -54,7 +54,7 @@ algo_3/
 │   │   ├── orderflow.py   delta/buy/sell/trades, or Unavailable on bar files
 │   │   ├── absorption.py  closed against its own flow; depends on orderflow
 │   │   ├── range_scale.py rolling median bar range - the adaptive unit
-│   │   ├── swing.py       confirmed structure points; threshold in range_scale
+│   │   ├── swing.py       confirmed structure points + the live high/low rails
 │   │   ├── legs.py        the staircase from one swing to the next
 │   │   └── breaks.py      a swing level closed through: break of structure
 │   ├── data/           load the NT8 Parquet store into clean bars — engine
@@ -314,6 +314,13 @@ stays named after one job: "breaks" never carries someone else's lines. A segmen
 is stamped with its EARLIEST point, because that is what the replay trim compares
 against - a polyline whose left end has scrolled out of the buffer must be dropped
 rather than half-drawn, and the primitive likewise skips any corner it cannot place.
+
+A mark may also carry an `id`, and that changes what it *is*. Without one it is an
+EVENT - a swing, a leg, a break - and it accumulates. With one it is a REDRAW of a
+running state: `swing`'s provisional rails are re-emitted on every bar, one bar
+longer, and the newest pair replaces the last. `overlays.collapse_redrawn` does it
+server-side (walking 3,000 bars yields two rails, not six thousand) and
+`engine.js` does it in the browser as snapshots arrive.
 
 The overlay request carries the REVEALED bar range, so indicators are fed only
 bars at or before the replay cursor and a drawing cannot leak the future.
