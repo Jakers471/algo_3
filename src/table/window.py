@@ -83,10 +83,15 @@ class SnapshotModel(QAbstractTableModel):
                 return QColor(cfg.HALT_COLOR)
             colour = cols.cell_color(key, snapshot)
             return QColor(colour) if colour else None
-        if role == Qt.ItemDataRole.BackgroundRole and cols.row_is_session_open(snapshot):
-            # A session opening is structure, not decoration - the chart draws a
-            # rule at the same bar.
-            return QColor(cfg.PANEL)
+        if role == Qt.ItemDataRole.BackgroundRole:
+            if cols.row_is_absorption(snapshot):
+                # Findable while scrolling. This is the row a trader is hunting:
+                # a green close beside a red delta, or the reverse.
+                return QColor(cfg.ABSORPTION_ROW)
+            if cols.row_is_session_open(snapshot):
+                # A session opening is structure, not decoration - the chart
+                # draws a rule at the same bar.
+                return QColor(cfg.PANEL)
         return None
 
     # --- feeding ------------------------------------------------------------

@@ -116,6 +116,17 @@ def cell_color(key: str, snapshot: dict) -> str | None:
     if key == "session_new":
         return cfg.ACCENT if fields.get(key) else None
 
+    if key == "absorption":
+        return cfg.ABSORPTION if fields.get(key) else None
+
+    if key == "absorption_side":
+        side = fields.get(key)
+        if side == "buy":
+            return cfg.UP        # buyers absorbed the sellers
+        if side == "sell":
+            return cfg.DOWN      # sellers absorbed the buyers
+        return None
+
     if fields.get(key) is None and key in fields:
         return cfg.MUTED
 
@@ -131,3 +142,8 @@ def row_is_halt(snapshot: dict) -> bool:
     """No session: the daily CME maintenance halt. Dim the whole row."""
     fields = snapshot.get("fields", {})
     return "session" in fields and fields["session"] is None
+
+
+def row_is_absorption(snapshot: dict) -> bool:
+    """Price closed against its own order flow. The row worth finding."""
+    return bool(snapshot.get("fields", {}).get("absorption"))

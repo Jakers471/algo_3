@@ -2,8 +2,8 @@
  * Draw what Python computed. Nothing here knows what an indicator means.
  *
  * One job: fetch the overlay specs for a bar range and render them. This module
- * understands *shapes* - today a dashed vertical rule with a label - and never a
- * session, a regime, or a value area. When a new indicator earns a drawing, it
+ * understands *shapes* - a dashed vertical rule, a dot on a bar - and never a
+ * session, an absorption, or a regime. When a new indicator earns a drawing, it
  * reuses a shape that already exists here, and this file does not change.
  *
  * That asymmetry is deliberate. Indicator logic lives in Python, once. If it
@@ -40,14 +40,18 @@ export class OverlayLayer {
   /** Render each overlay by its shape. Unknown shapes are ignored, not fatal. */
   draw(overlays) {
     let lines = [];
+    let markers = [];
     for (const overlay of overlays) {
       if (overlay.kind === 'vlines') lines = lines.concat(overlay.lines);
+      else if (overlay.kind === 'markers') markers = markers.concat(overlay.markers);
     }
     this.surface.setVerticalLines(lines);
+    this.surface.setMarkers(markers);
   }
 
   clear() {
     this._seq++;
     this.surface.setVerticalLines([]);
+    this.surface.setMarkers([]);
   }
 }

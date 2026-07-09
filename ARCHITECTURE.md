@@ -22,7 +22,8 @@ algo_3/
 │   │   ├── live.py        contract id, which market streams, capture dir
 │   │   └── indicators/    one module per indicator, named for its id
 │   │       ├── sessions.py  enable + line colors for the sessions indicator
-│   │       └── orderflow.py enable + delta strip colors and placement
+│   │       ├── orderflow.py enable + delta strip colors and placement
+│   │       └── absorption.py thresholds + marker colors
 │   ├── audit/           read the data-truth facts from DATA_AUDIT.json
 │   │   └── reader.py       front door: specs, handling flags, data end
 │   ├── logging/         the logging job: dials + the setup that applies them
@@ -46,7 +47,8 @@ algo_3/
 │   │   ├── base.py        what an indicator is; Unavailable (no proxy values)
 │   │   ├── registry.py    topological order by dependency; merged field row
 │   │   ├── sessions.py    Asia/London/NY + running session extremes
-│   │   └── orderflow.py   delta/buy/sell/trades, or Unavailable on bar files
+│   │   ├── orderflow.py   delta/buy/sell/trades, or Unavailable on bar files
+│   │   └── absorption.py  closed against its own flow; depends on orderflow
 │   ├── data/           load the NT8 Parquet store into clean bars — engine
 │   │   ├── loader.py      read a symbol/TF Parquet -> raw UTC OHLCV (I/O)
 │   │   ├── prepare.py     window + gap-mark + zero-vol policy (logic)
@@ -123,6 +125,7 @@ algo_3/
 │   ├── test_replay_session.py  pins seek == play-into, fan-out, no lookahead
 │   ├── test_resample.py    pins the tick->bar rebuild: ties, chunk seams, roll
 │   ├── test_orderflow.py   pins the rule that absent is never zero
+│   ├── test_absorption.py  pins the definition + the dependency ordering
 │   ├── test_table_columns.py  pins row rendering: absent != zero, colour rules
 │   ├── test_table_client.py   pins the reconnect storm: backoff, adoption
 │   └── test_lifecycle.py   pins per-port pidfiles; the Windows os.kill trap
@@ -199,6 +202,8 @@ indicators.base      ─► (the Indicator interface + Unavailable)
 indicators.registry  ─► indicators.base         (toposort deps; merged field row)
 indicators.sessions  ─► config.session, indicators.base   (Asia/London/NY)
 indicators.orderflow ─► indicators.base   (lifts delta off the bar; refuses if absent)
+indicators.absorption ─► indicators.base, config.indicators.absorption
+                         (depends on `orderflow`; reads delta, never recomputes it)
 events.types         ─► (BarClose; Trade/Quote arrive with their sources)
 
 chart.packer     ─► data.loader, numpy  (Parquet -> flat bar records)
@@ -245,11 +250,12 @@ frontend/chart/js/api.js decodes that layout; tests/test_chart_store.py pins it.
 
 The chart DRAWS; it never computes. There are no indicators in the frontend and
 none may be added: indicators are computed once, in Python, and arrive over
-/api/overlays as drawing instructions. One shape exists today: "vlines", a
-dashed rule with a label, drawn by a lightweight-charts primitive onto the
-chart's own canvas. overlays.js understands *shapes*, never meaning - it drops a
-labelled rule without knowing what a trading session is, so the next indicator to
-reuse that shape needs no frontend change at all.
+/api/overlays as drawing instructions. Two shapes exist: "vlines" (a dashed rule
+with a label, drawn by a lightweight-charts primitive onto the chart's own
+canvas) and "markers" (a dot on a bar). overlays.js understands *shapes*, never
+meaning - it drops a labelled rule without knowing what a trading session is and
+a dot without knowing what absorption is, so the next indicator to reuse either
+shape needs no frontend change at all.
 
 The overlay request carries the REVEALED bar range, so indicators are fed only
 bars at or before the replay cursor and a drawing cannot leak the future.

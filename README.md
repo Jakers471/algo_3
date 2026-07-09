@@ -49,7 +49,9 @@ back replays the warmup silently, so the indicators at a cut point hold exactly 
 would have held had you played into it — nothing can see past the cursor, by construction.
 
 `NQT` bars carry **order flow**: delta (aggressive buys minus aggressive sells) is drawn as
-a signed strip beneath the price, green above the zero line and red below. The NT8 `NQ`/`ES`
+a signed strip beneath the price, green above the zero line and red below. Bars that closed
+*against* their own flow — **absorption**, 21.1% of them — get a dot: below the bar when
+buyers absorbed the selling, above when sellers absorbed the buying. The NT8 `NQ`/`ES`
 bars have no aggressor recorded, so the strip is simply empty for them — never a flat zero,
 which would claim the buying and selling were balanced.
 

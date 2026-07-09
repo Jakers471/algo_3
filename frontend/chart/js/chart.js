@@ -127,6 +127,16 @@ class ChartSurface {
   }
 
   /**
+   * Dots on bars. `markers` are {time, position, color, shape, text}.
+   *
+   * lightweight-charts requires them in ascending time order and silently
+   * misplaces them otherwise, so sort rather than trust the caller.
+   */
+  setMarkers(markers) {
+    this.candles.setMarkers([...markers].sort((a, b) => a.time - b.time));
+  }
+
+  /**
    * Replace all bars, preserving the user's zoom.
    *
    * setData renumbers logical indices from zero, so any bar added to or removed

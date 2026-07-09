@@ -10,7 +10,8 @@ live indicator state just produced. Both paths therefore draw identically -
 which is the whole point of computing indicators once, in Python.
 
 Overlay kinds (only what has a producer; more arrive with their indicators):
-    vlines  - dashed rules with labels: [{time, label, color, labelColor}]
+    vlines   - dashed rules with labels:  [{time, label, color, labelColor}]
+    markers  - a dot on a bar:            [{time, position, color, shape, text}]
 """
 
 from __future__ import annotations
@@ -21,9 +22,11 @@ import math
 import pandas as pd
 
 from src.chart import store
+from src.config.indicators import absorption as absorption_cfg
 from src.config.indicators import orderflow as orderflow_cfg
 from src.config.indicators import sessions as sessions_cfg
 from src.events.types import BarClose
+from src.indicators.absorption import Absorption
 from src.indicators.orderflow import OrderFlow
 from src.indicators.registry import Registry
 from src.indicators.sessions import Sessions
@@ -38,6 +41,10 @@ def build_registry() -> Registry:
         indicators.append(Sessions())
     if orderflow_cfg.ENABLED:
         indicators.append(OrderFlow())
+    if absorption_cfg.ENABLED:
+        indicators.append(Absorption())
+    # The registry topologically sorts by declared dependencies, so the order
+    # they are appended in here does not matter.
     return Registry(indicators)
 
 
@@ -87,13 +94,33 @@ def marks_for(time: int, row: dict, *, is_first: bool = False) -> list[dict]:
                 "color": sessions_cfg.LINE_COLORS.get(name, "rgba(125,133,144,0.6)"),
                 "labelColor": sessions_cfg.LABEL_COLORS.get(name, "rgba(201,209,217,0.9)"),
             })
+
+    if absorption_cfg.ENABLED and absorption_cfg.DRAW_MARKERS and row.get("absorption"):
+        side = row.get("absorption_side")
+        buying = side == "buy"
+        marks.append({
+            "kind": "marker",
+            "time": int(time),
+            # Buyers absorbed: the resting interest is UNDER the bar. Mark it there.
+            "position": "belowBar" if buying else "aboveBar",
+            "color": (absorption_cfg.BUY_ABSORPTION_COLOR if buying
+                      else absorption_cfg.SELL_ABSORPTION_COLOR),
+            "shape": absorption_cfg.MARKER_SHAPE,
+            "text": "",
+        })
     return marks
 
 
 def group_marks(marks: list[dict]) -> list[dict]:
     """Group flat marks into the overlay specs the frontend renders."""
+    specs = []
     lines = [m for m in marks if m["kind"] == "vline"]
-    return [{"id": "sessions", "kind": "vlines", "lines": lines}] if lines else []
+    if lines:
+        specs.append({"id": "sessions", "kind": "vlines", "lines": lines})
+    markers = [m for m in marks if m["kind"] == "marker"]
+    if markers:
+        specs.append({"id": "absorption", "kind": "markers", "markers": markers})
+    return specs
 
 
 def for_range(symbol: str, timeframe: str, start: int, count: int) -> list[dict]:

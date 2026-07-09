@@ -63,8 +63,10 @@ def test_seed_warms_indicators_without_publishing(packed):
     assert info["first_index"] == 100
     assert info["cursor"] == 199
     assert q.empty(), "the warmup must not publish - it is not a replay step"
+    # The columns are whatever the registry publishes, in dependency order.
     assert info["fields"] == ["session", "session_new",
-                             "delta", "buy_volume", "sell_volume", "trades"]
+                             "delta", "buy_volume", "sell_volume", "trades",
+                             "absorption", "absorption_side"]
 
 
 def test_seeking_equals_playing_into_the_same_bar(packed):
@@ -98,6 +100,9 @@ def test_a_bar_without_order_flow_publishes_None_never_zero(packed):
     assert row["delta"] is None
     assert row["buy_volume"] is None and row["sell_volume"] is None
     assert row["trades"] is None
+    # And absorption, which depends on delta, refuses in turn rather than
+    # deciding that a bar with no recorded aggressor absorbed nothing.
+    assert row["absorption"] is None and row["absorption_side"] is None
 
 
 def test_the_snapshot_bar_carries_delta_as_null_when_absent(packed):

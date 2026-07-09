@@ -209,8 +209,17 @@ refuse to produce values when fed bars.
 
 - **orderflow** *(done)* — `delta` / `buy_volume` / `sell_volume` / `trades`, drawn as a signed
   strip and shown as four table columns. `Unavailable` on NQ/ES, which is the whole point.
-- Next candidates: **absorption** (a green close on net selling — 17.9% of bars, measured),
-  **structure** (swing highs/lows, break of structure), **regime**.
+- **absorption** *(done)* — the bar closed against its own order flow: green on net selling
+  (buyers absorbed), or red on net buying (sellers absorbed). Marked with a dot below or
+  above the bar, and it washes the table row. The **first indicator that depends on another**
+  — it reads `delta` from `orderflow` rather than recomputing it, exercising the registry's
+  topological sort. On NQ/ES it publishes `None`, not `False`: a bar with no recorded
+  aggressor did not "absorb nothing".
+  Rate over the whole `NQT` dataset: **21.1%** of 5m bars (20.9% at 15s, 22.0% at 60m).
+  This names a fact, not an edge — whether it predicts anything is for a backtest that does
+  not exist yet.
+- Next candidates: **structure** (swing highs/lows, break of structure — bar-computable, so
+  it works on all twenty years), **regime**.
 
 ### Phase 5 — the clock-driven replay engine
 The session now exists (phase 3); what remains is to replace its bar-index cursor with a

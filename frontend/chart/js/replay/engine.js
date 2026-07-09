@@ -67,10 +67,10 @@ export class ReplayEngine {
     const { bars } = await getBars(symbol, timeframe, seed.first_index, count);
 
     this.buffer.seed(bars, seed.first_index, seed.total);
-    this.marks = collectLines(seed.overlays);
+    this.marks = flattenOverlays(seed.overlays);
 
     this.surface.rebuild(bars);
-    this.surface.setVerticalLines(this.marks);
+    this._drawMarks();
     this.surface.fit();
 
     this._emit('bar', { bar: null, bars, seeded: true });
@@ -91,7 +91,8 @@ export class ReplayEngine {
     } else {
       this.surface.push(bar);
     }
-    if (snap.marks.length || trimmed) this.surface.setVerticalLines(this.marks);
+    // setMarkers replaces the whole set, so it must be redrawn on a trim too.
+    if (snap.marks.length || trimmed) this._drawMarks();
 
     this.atEnd = snap.at_end;
     this._emit('bar', { bar, bars: this.buffer.bars, seeded: false, snapshot: snap });
@@ -110,18 +111,32 @@ export class ReplayEngine {
     return this.playing ? this.stream.play(speed) : Promise.resolve();
   }
 
+  /** Split the accumulated marks by shape and hand each to its renderer. */
+  _drawMarks() {
+    this.surface.setVerticalLines(this.marks.filter((m) => m.kind === 'vline'));
+    this.surface.setMarkers(this.marks.filter((m) => m.kind === 'marker'));
+  }
+
   stop() {
     this.marks = [];
     this.surface.setVerticalLines([]);
+    this.surface.setMarkers([]);
     return this.stream.stop();
   }
 }
 
-/** Flatten the seed's overlay specs into the mark list the surface draws. */
-function collectLines(overlays) {
-  let lines = [];
+/**
+ * Flatten the seed's grouped overlay specs back into flat marks.
+ *
+ * The seed arrives grouped by shape (browse mode wants it that way); a replay
+ * step delivers flat marks. Keeping one flat list means the trim filter and the
+ * redraw do not care which arrived how.
+ */
+function flattenOverlays(overlays) {
+  const marks = [];
   for (const overlay of overlays || []) {
-    if (overlay.kind === 'vlines') lines = lines.concat(overlay.lines);
+    if (overlay.kind === 'vlines') marks.push(...overlay.lines.map((l) => ({ ...l, kind: 'vline' })));
+    else if (overlay.kind === 'markers') marks.push(...overlay.markers);
   }
-  return lines;
+  return marks;
 }

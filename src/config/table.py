@@ -31,6 +31,10 @@ UP = "#26a69a"
 DOWN = "#ef5350"
 SELECTION = "#1f6feb40"
 
+# The row you are hunting: price closed against its own order flow.
+ABSORPTION = "#d29922"
+ABSORPTION_ROW = "#1d1a10"   # a dim wash behind the whole row, not a highlight
+
 # Per-session accents, matching the chart's session rules.
 SESSION_COLORS = {
     "Asia": "#58a6ff",
