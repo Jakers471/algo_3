@@ -186,6 +186,12 @@ def cell_text(key: str, snapshot: dict) -> str:
 
     if isinstance(value, bool):
         return "yes" if value else ""
+    if isinstance(value, (list, tuple)):
+        # A histogram is a payload the chart draws, not a cell. Printed, one
+        # profile is three thousand characters and six closed ones are thirteen
+        # thousand - in a single cell, on every row. Say what it is instead.
+        noun = "bins" if key.endswith("_bins") else "profiles"
+        return f"{len(value)} {noun}"
     if is_time_field(key):
         return fmt_time(value)
     if key in _SIGNED_FIELDS:

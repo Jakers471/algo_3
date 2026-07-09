@@ -200,3 +200,17 @@ def test_a_halt_row_is_detected_only_when_the_field_exists():
     assert cols.row_is_halt(snap({"session": None})) is True
     assert cols.row_is_halt(snap({"session": "NY"})) is False
     assert cols.row_is_halt(snap({})) is False, "no sessions indicator: not a halt"
+
+
+def test_a_payload_says_what_it_is_rather_than_printing_itself():
+    """One profile is 3,284 characters. Six closed ones are 12,805. In one cell."""
+    bins = [[100.0 + i, 10, 5] for i in range(45)]
+    assert cols.cell_text("profile_bins", snap({"profile_bins": bins})) == "45 bins"
+    closed = [{"poc": 1.0, "bins": bins} for _ in range(6)]
+    assert cols.cell_text("profile_closed", snap({"profile_closed": closed})) == "6 profiles"
+
+
+def test_a_payload_is_hidden_unless_details_are_asked_for():
+    groups = [{"id": "profile", "fields": ["profile_poc", "profile_bins", "profile_closed"]}]
+    assert keys_of(groups) == ["time", "open", "high", "low", "close", "volume", "profile_poc"]
+    assert "profile_bins" in keys_of(groups, show_all=True)
