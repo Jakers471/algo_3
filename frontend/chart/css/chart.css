@@ -1,0 +1,121 @@
+/* Dark, clean, gridless. The chart is the interface; the chrome stays quiet. */
+
+:root {
+  --bg: #0d1117;
+  --panel: #10151c;
+  --line: #1c2128;
+  --text: #c9d1d9;
+  --muted: #7d8590;
+  --accent: #58a6ff;
+  --up: #26a69a;
+  --down: #ef5350;
+  --radius: 5px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 12px/1.4 'JetBrains Mono', 'Consolas', ui-monospace, monospace;
+  overflow: hidden;
+}
+
+body { display: flex; flex-direction: column; }
+
+/* --- toolbar --------------------------------------------------------------- */
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 8px 12px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+
+.group { display: flex; align-items: center; gap: 6px; }
+.group.right { margin-left: auto; }
+
+.btn, .select, .input {
+  background: #161b22;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 5px 10px;
+  font: inherit;
+  cursor: pointer;
+  transition: background .12s ease, border-color .12s ease, color .12s ease;
+}
+
+.btn:hover:not(:disabled), .select:hover { background: #1c2430; border-color: #30363d; }
+.btn:disabled { opacity: .35; cursor: default; }
+
+.btn.primary { border-color: #30363d; }
+.btn.primary.armed { border-color: var(--accent); color: var(--accent); background: #12243c; }
+.btn.active { background: #1f6feb26; border-color: var(--accent); color: var(--accent); }
+.btn.ghost { background: transparent; }
+
+.input { cursor: text; color-scheme: dark; }
+.speeds { display: flex; gap: 2px; }
+.btn.speed { padding: 5px 8px; min-width: 34px; }
+
+.toggle {
+  display: flex; align-items: center; gap: 5px;
+  color: var(--muted); cursor: pointer; user-select: none;
+}
+.toggle:hover { color: var(--text); }
+.toggle input { accent-color: var(--accent); cursor: pointer; }
+
+/* --- stage ----------------------------------------------------------------- */
+
+.stage { position: relative; flex: 1 1 auto; min-height: 0; }
+#chart { position: absolute; inset: 0; }
+
+body.picking #chart { cursor: crosshair; }
+
+/* --- readout --------------------------------------------------------------- */
+
+.readout {
+  position: absolute;
+  top: 10px; left: 12px;
+  display: flex; align-items: center; gap: 14px;
+  padding: 6px 12px;
+  background: #0d1117cc;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.readout .time { color: var(--muted); }
+.readout .pair { display: flex; gap: 5px; align-items: baseline; }
+.readout .pair i { color: var(--muted); font-style: normal; }
+.readout .pair b { font-weight: 500; }
+.readout .pos { color: var(--muted); border-left: 1px solid var(--line); padding-left: 14px; }
+
+.readout.up  #r-close { color: var(--up); }
+.readout.down #r-close { color: var(--down); }
+
+/* --- hints ----------------------------------------------------------------- */
+
+.hint {
+  position: absolute;
+  left: 50%; bottom: 48px;
+  transform: translateX(-50%);
+  padding: 7px 14px;
+  background: #12243c;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity .15s ease;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.hint.visible { opacity: 1; }
+.hint.end { background: #2d1618; border-color: var(--down); color: var(--down); }

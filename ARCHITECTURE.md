@@ -14,7 +14,8 @@ algo_3/
 │   │   ├── broker.py      API endpoints; credentials from .env
 │   │   ├── instruments.py per-symbol tick/point value (read from audit)
 │   │   ├── session.py     UTC + RTH hours (09:30-16:00 ET)
-│   │   └── backtest.py    slippage, backtest window, gap/hold policy
+│   │   ├── backtest.py    slippage, backtest window, gap/hold policy
+│   │   └── chart.py       chart server host/port, bar cache, replay dials
 │   ├── audit/           read the data-truth facts from DATA_AUDIT.json
 │   │   └── reader.py       front door: specs, handling flags, data end
 │   ├── logging/         the logging job: dials + the setup that applies them
@@ -51,11 +52,38 @@ algo_3/
 │   │   ├── accounts.py    search accounts, pick a tradable one
 │   │   ├── contracts.py   search contracts, resolve a symbol to its id
 │   │   └── history.py     fetch OHLCV bars for a contract
+│   ├── chart/          serve bars to the browser chart (backend half)
+│   │   ├── packer.py      Parquet -> flat 24-byte bar records in cache/chart/
+│   │   ├── store.py       memmap the packed cache: slice bars, locate a time
+│   │   ├── api.py         route -> (status, content-type, bytes); no sockets
+│   │   ├── server.py      HTTP: static frontend + /api, one port, no stacking
+│   │   └── lifecycle.py   single-instance guard; confirmed-closed shutdown
 │   └── cli/            thin doors: parse input, call an engine, format out
-│       └── data.py        load & summarize prepared bars (python -m src.cli.data)
+│       ├── data.py        load & summarize prepared bars (python -m src.cli.data)
+│       └── chart.py       serve the replay chart (python -m src.cli.chart)
+├── frontend/           browser code — never inside the Python src/
+│   └── chart/          the replay chart (plain ES modules, no build step)
+│       ├── index.html    toolbar + chart stage + OHLC readout
+│       ├── css/chart.css dark, gridless theme
+│       ├── vendor/       TradingView Lightweight Charts (vendored, not CDN)
+│       └── js/
+│           ├── main.js       wire the pieces; register indicators here
+│           ├── api.js        fetch + decode the binary bar records
+│           ├── chart.js      the chart surface: rebuild (zoom-safe) / push
+│           ├── browse.js     non-replay view; backfills older bars on scroll
+│           ├── format.js     time/price/volume display strings
+│           ├── replay/
+│           │   ├── window.js   the sliding bar buffer (prefetch + trim)
+│           │   ├── engine.js   play/pause/step/speed; owns the clock
+│           │   └── controls.js toolbar -> engine wiring (the thin door)
+│           └── indicators/
+│               ├── registry.js the indicator seam: create/compute/last
+│               └── sma.js      the reference indicator; copy its shape
+├── cache/              packed bar cache + server pidfile (git-ignored)
 ├── runs/               labeled run outputs (git-ignored): trades, summary, equity.png
 ├── tests/              pytest suite (dev tooling, not product code)
-│   └── test_fills.py     pins the fill model's honest assumptions
+│   ├── test_fills.py       pins the fill model's honest assumptions
+│   └── test_chart_store.py pins the 24-byte wire format; slice/locate rules
 ├── conftest.py         puts repo root on sys.path so tests import `src`
 ├── (top level, not code): .env, logs/, data/, projectX_API/
 ```
@@ -100,6 +128,17 @@ Neither optimizer nor walk-forward engine knows any strategy: both take a
 the engines stay generic. A strategy is anything with ``entry_signals(bars)``
 returning ``backtest.bracket.Bracket`` intents.
 
+chart.packer     ─► data.loader, numpy  (Parquet -> flat bar records)
+chart.store      ─► chart.packer, numpy (memmap the cache; slice + binary-search)
+chart.api        ─► chart.store, config.chart   (routes -> bytes; no sockets)
+chart.server     ─► chart.{api,lifecycle,packer}, config.chart  (HTTP + static)
+chart.lifecycle  ─► config.chart        (pidfile, port probe, confirmed shutdown)
+cli.chart        ─► chart.{server,packer,lifecycle}, logging.setup, core.console
+
+The browser talks only to chart.api. Bars cross the wire as raw 24-byte records
+(uint32 time + 5 float32s), never JSON - at 1m there are ~6M of them per symbol.
+frontend/chart/js/api.js decodes that layout; tests/test_chart_store.py pins it.
+
 logging.setup    ─► logging.settings    (reads the dial value)
                  └► core.console         (color codes)
 
@@ -121,6 +160,17 @@ audit.reader       ─► DATA_AUDIT.json     (the data's own rules, read once)
 ## Entry points (the doors you can run)
 
 - **`python -m src.cli.data [SYMBOL] [TIMEFRAME]`** — load prepared bars (default `NQ 5m`) and print a summary (rows, range, session-gap count). Wired into `commands.bat` → Data.
+- **`python -m src.cli.chart`** — serve the replay chart at `http://127.0.0.1:8765`
+  (`--open` also launches the browser once the socket is listening). Browse NQ/ES on
+  any timeframe, or click a bar to cut back and replay forward bar by bar with
+  play/pause and 1x/2x/4x. Zoom and pan stay live throughout. First run packs the bar
+  cache (a few seconds); after that it is instant. `--repack` rebuilds it after new
+  data lands; `--stop` closes a running server and confirms the port is free.
+  Starting always reclaims the port, so servers never stack. Wired into
+  `commands.bat` → Chart. **The page must be served — opening `index.html` from the
+  filesystem cannot work** (`file://` has no origin, so the module and API fetches
+  are blocked).
+
 The backtest and walk-forward doors were removed with the strategy layer; they
 return when the new strategy layer lands (a door wires its catalogue into the
 engines' ``build`` callable).
@@ -143,4 +193,8 @@ strategy-agnostic. What returns: a strategy package emitting `Bracket` intents f
 `entry_signals(bars)`, whatever indicators it needs, its run configs, and the thin
 `cli/` doors that wire a catalogue into the engines' `build` callable.
 
-These get created — with their config section alongside — when the area is actually built: `broker/orders.py`, `broker/positions.py`, `risk/` (sizing/limits, reads `config/risk.py`), `execution/` (live loop, reads `config/live.py`), `config/live.py`, `config/risk.py`. (`data/`, `backtest/`, and `cli/` now exist.)
+These get created — with their config section alongside — when the area is actually built: `broker/orders.py`, `broker/positions.py`, `risk/` (sizing/limits, reads `config/risk.py`), `execution/` (live loop, reads `config/live.py`), `config/live.py`, `config/risk.py`. (`data/`, `backtest/`, `chart/`, and `cli/` now exist.)
+
+`frontend/chart/` is plain ES modules with no build step and no package.json — the
+browser loads them directly and the one dependency is vendored. If a real build
+pipeline is ever needed, it belongs to `frontend/`, never to the Python `src/`.

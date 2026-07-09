@@ -92,6 +92,19 @@ $root = @{
             }
         },
         @{
+            # The chart is a local web app: start the server, then open the URL.
+            Label = 'Chart'
+            Submenu = @{
+                Title = 'Chart  -  browse and replay bars in the browser'
+                Items = @(
+                    @{ Label = 'Open chart  (serves http://127.0.0.1:8765)'; Run = { python -m src.cli.chart --open } },
+                    @{ Label = 'Serve only  (no browser)'; Run = { python -m src.cli.chart } },
+                    @{ Label = 'Rebuild bar cache, then serve  (after new data)'; Run = { python -m src.cli.chart --repack } },
+                    @{ Label = 'Stop chart server  (confirm port closed)'; Run = { python -m src.cli.chart --stop } }
+                )
+            }
+        },
+        @{
             Label = 'Data'
             Submenu = @{
                 Title = 'Data'

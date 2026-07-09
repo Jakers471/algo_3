@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NQ — replay chart</title>
+  <link rel="stylesheet" href="/css/chart.css">
+  <!-- Vendored, not CDN: the chart must open with no network beyond this server. -->
+  <script src="/vendor/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+  <header class="toolbar">
+    <div class="group">
+      <select id="symbol" class="select" title="Symbol"></select>
+      <select id="timeframe" class="select" title="Timeframe"></select>
+    </div>
+
+    <div class="group">
+      <button id="replay" class="btn primary">Replay</button>
+      <input id="datetime" class="input" type="datetime-local" title="Replay start (UTC)">
+      <button id="jump" class="btn">Go</button>
+    </div>
+
+    <div class="group transport">
+      <button id="play" class="btn">Play</button>
+      <button id="step" class="btn" title="Step one bar (→)">Step ›</button>
+      <div class="speeds">
+        <button id="speed-1" class="btn speed active">1×</button>
+        <button id="speed-2" class="btn speed">2×</button>
+        <button id="speed-4" class="btn speed">4×</button>
+      </div>
+    </div>
+
+    <div class="group" id="indicators"></div>
+
+    <div class="group right">
+      <button id="fit" class="btn ghost" title="Frame all loaded bars">Fit</button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <div id="chart"></div>
+
+    <div id="readout" class="readout">
+      <span id="r-time" class="time">--</span>
+      <span class="pair"><i>O</i><b id="r-open">--</b></span>
+      <span class="pair"><i>H</i><b id="r-high">--</b></span>
+      <span class="pair"><i>L</i><b id="r-low">--</b></span>
+      <span class="pair"><i>C</i><b id="r-close">--</b></span>
+      <span class="pair"><i>V</i><b id="r-vol">--</b></span>
+      <span class="pos" id="r-pos">--</span>
+    </div>
+
+    <div id="hint" class="hint">Click a bar to cut back and start replay there</div>
+    <div id="end" class="hint end">End of data</div>
+  </main>
+
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>
