@@ -76,6 +76,14 @@ class ChartHandler(SimpleHTTPRequestHandler):
         if parsed.path.startswith("/api/"):
             self._serve_api(parsed.path, parse_qs(parsed.query))
             return
+        if parsed.path == "/favicon.ico":
+            # Browsers ask for this unprompted; nothing references it. Answering
+            # 404 puts a red line in the console that reads like a broken page,
+            # and sends the reader hunting for a missing module.
+            self.send_response(204)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
         if parsed.path == "/":
             self.path = "/index.html"
         super().do_GET()

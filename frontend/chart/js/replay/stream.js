@@ -11,17 +11,22 @@
  */
 
 /**
- * A stable id for this browser, surviving refreshes.
+ * A stable id for this TAB, surviving refreshes.
  *
- * Without it, a refresh forgets the session id and starts a second replay
- * beside the first. They pile up until the server's idle reaper notices, and a
- * table attaching in the meantime cannot tell which one is "the" replay.
+ * Without it, a refresh forgets the session id and starts a second replay beside
+ * the first. They pile up until the server's idle reaper notices, and a table
+ * attaching in the meantime cannot tell which one is "the" replay.
+ *
+ * sessionStorage, not localStorage: it survives a reload of this tab but is not
+ * shared with another. The server retires whatever a given owner left running,
+ * so two tabs sharing one owner id evict each other - and since each then
+ * re-seeds on being evicted, they do it forever, spawning a session per round.
  */
 function clientId() {
-  let id = localStorage.getItem('algo3.clientId');
+  let id = sessionStorage.getItem('algo3.clientId');
   if (!id) {
     id = `chart-${Math.random().toString(36).slice(2, 10)}`;
-    localStorage.setItem('algo3.clientId', id);
+    sessionStorage.setItem('algo3.clientId', id);
   }
   return id;
 }
@@ -44,6 +49,7 @@ export class ReplayStream {
   constructor() {
     this.sessionId = null;
     this._source = null;
+    this._starting = false;
     this._handlers = { snapshot: [], state: [], lost: [] };
   }
 
@@ -68,14 +74,29 @@ export class ReplayStream {
    * exactly what they would have held had we played into this point.
    */
   async start(symbol, timeframe, index) {
-    // Hand the old id back so the server can retire it: an orphaned session
-    // would keep a stepping thread alive behind a view that moved on.
-    const seed = await post('/api/replay/start', {
-      symbol, timeframe, index, replace: this.sessionId, owner: clientId(),
-    });
-    this.sessionId = seed.session;
-    this._open();
-    return seed;
+    const previous = this.sessionId;
+
+    // Close the old socket BEFORE asking the server to retire its session.
+    // Retiring it ends that stream, the EventSource sees the close and fires
+    // onerror, and onerror concludes - correctly - that the session is gone.
+    // Left open across this await, that fires `lost` for a session we are in the
+    // middle of replacing on purpose, and whoever listens for `lost` re-seeds:
+    // one restart, then another, then another, a server session per round.
+    this.close();
+    this.sessionId = null;
+    this._starting = true;
+    try {
+      // Hand the old id back so the server can retire it: an orphaned session
+      // would keep a stepping thread alive behind a view that moved on.
+      const seed = await post('/api/replay/start', {
+        symbol, timeframe, index, replace: previous, owner: clientId(),
+      });
+      this.sessionId = seed.session;
+      this._open();
+      return seed;
+    } finally {
+      this._starting = false;
+    }
   }
 
   _open() {
@@ -115,8 +136,14 @@ export class ReplayStream {
     }
   }
 
-  /** Our session is gone. Stop talking to it, and tell whoever cares. */
+  /**
+   * Our session is gone. Stop talking to it, and tell whoever cares.
+   *
+   * Silent while a start is in flight: a session retired by our own restart is
+   * not a session we lost, and treating it as one restarts us again.
+   */
   _lost() {
+    if (this._starting) return;
     const id = this.sessionId;
     this.close();
     this.sessionId = null;

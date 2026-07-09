@@ -33,6 +33,7 @@ export class ReplayEngine {
     this.symbol = null;
     this.timeframe = null;
     this._recovering = false;
+    this._generation = 0;   // guards a slow start against a newer one
 
     this._listeners = { bar: [], state: [] };
 
@@ -88,12 +89,20 @@ export class ReplayEngine {
   async start(symbol, timeframe, index) {
     this.symbol = symbol;
     this.timeframe = timeframe;
+    const generation = ++this._generation;
+
     const seed = await this.stream.start(symbol, timeframe, index);
 
     // History bars still come over the binary endpoint: 5,000 bars is 120KB of
     // packed records, versus megabytes of JSON inside a snapshot.
     const count = seed.cursor + 1 - seed.first_index;
     const { bars } = await getBars(symbol, timeframe, seed.first_index, count);
+
+    // Two awaits above; a newer start may have overtaken us. Seeding the buffer
+    // now would replace its bars with older ones while the newer session's
+    // snapshots are already arriving - and the chart would be handed a bar older
+    // than its last.
+    if (generation !== this._generation) return seed;
 
     this.buffer.seed(bars, seed.first_index, seed.total);
     this.marks = flattenOverlays(seed.overlays);
