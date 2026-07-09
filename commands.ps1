@@ -105,6 +105,18 @@ $root = @{
             }
         },
         @{
+            # Live market feed: record it verbatim so we can see what it sends.
+            Label = 'Live'
+            Submenu = @{
+                Title = 'Live  -  record the TopstepX market feed'
+                Items = @(
+                    @{ Label = 'Record 60s  (NQ front month)'; Run = { python -m src.cli.capture --seconds 60 } },
+                    @{ Label = 'Record 5 min  (NQ front month)'; Run = { python -m src.cli.capture --seconds 300 } },
+                    @{ Label = 'Record 5 min + market depth  (high volume)'; Run = { python -m src.cli.capture --seconds 300 --depth } }
+                )
+            }
+        },
+        @{
             Label = 'Data'
             Submenu = @{
                 Title = 'Data'

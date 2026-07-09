@@ -28,6 +28,7 @@ Or run a door directly:
 ```
 python -m src.cli.data NQ 5m       # load & summarize prepared bars
 python -m src.cli.chart --open    # replay chart at http://127.0.0.1:8765
+python -m src.cli.capture --seconds 60   # record the live TopstepX market feed
 ```
 
 ## Chart
@@ -66,6 +67,7 @@ _See `ARCHITECTURE.md` for all entry points. `src/broker/` is a reusable engine 
 - `data/` — market data, git-ignored (quality audit: `DATA_AUDIT.md`)
 - `scratch/` — experiments & one-off tools, git-ignored
 - `cache/` — packed bar cache & server pidfile, git-ignored (rebuild: `--repack`)
+- `capture/` — recorded live market sessions (raw JSONL), git-ignored
 - `projectX_API/` — ProjectX API reference docs
 - `commands.bat` — the runnable command menu
 - `CLAUDE.md` — project rules & conventions

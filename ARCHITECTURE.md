@@ -15,7 +15,8 @@ algo_3/
 │   │   ├── instruments.py per-symbol tick/point value (read from audit)
 │   │   ├── session.py     UTC + RTH hours (09:30-16:00 ET)
 │   │   ├── backtest.py    slippage, backtest window, gap/hold policy
-│   │   └── chart.py       chart server host/port, bar cache, replay dials
+│   │   ├── chart.py       chart server host/port, bar cache, replay dials
+│   │   └── live.py        contract id, which market streams, capture dir
 │   ├── audit/           read the data-truth facts from DATA_AUDIT.json
 │   │   └── reader.py       front door: specs, handling flags, data end
 │   ├── logging/         the logging job: dials + the setup that applies them
@@ -51,7 +52,10 @@ algo_3/
 │   │   ├── client.py      connection + auth; exposes post() for reuse
 │   │   ├── accounts.py    search accounts, pick a tradable one
 │   │   ├── contracts.py   search contracts, resolve a symbol to its id
-│   │   └── history.py     fetch OHLCV bars for a contract
+│   │   ├── history.py     fetch OHLCV bars for a contract
+│   │   └── market_hub.py  live SignalR feed: GatewayTrade / GatewayQuote / Depth
+│   ├── capture/        record the live feed so we can see what it sends
+│   │   └── recorder.py    raw hub events -> JSONL, verbatim, one file per session
 │   ├── chart/          serve bars to the browser chart (backend half)
 │   │   ├── packer.py      Parquet -> flat 24-byte bar records in cache/chart/
 │   │   ├── store.py       memmap the packed cache: slice bars, locate a time
@@ -60,7 +64,8 @@ algo_3/
 │   │   └── lifecycle.py   single-instance guard; confirmed-closed shutdown
 │   └── cli/            thin doors: parse input, call an engine, format out
 │       ├── data.py        load & summarize prepared bars (python -m src.cli.data)
-│       └── chart.py       serve the replay chart (python -m src.cli.chart)
+│       ├── chart.py       serve the replay chart (python -m src.cli.chart)
+│       └── capture.py     record the live market feed (python -m src.cli.capture)
 ├── frontend/           browser code — never inside the Python src/
 │   └── chart/          the replay chart (plain ES modules, no build step)
 │       ├── index.html    toolbar + chart stage + OHLC readout
@@ -80,6 +85,7 @@ algo_3/
 │               ├── registry.js the indicator seam: create/compute/last
 │               └── sma.js      the reference indicator; copy its shape
 ├── cache/              packed bar cache + server pidfile (git-ignored)
+├── capture/            recorded live sessions, raw JSONL (git-ignored)
 ├── runs/               labeled run outputs (git-ignored): trades, summary, equity.png
 ├── tests/              pytest suite (dev tooling, not product code)
 │   ├── test_fills.py       pins the fill model's honest assumptions
@@ -128,6 +134,19 @@ Neither optimizer nor walk-forward engine knows any strategy: both take a
 the engines stay generic. A strategy is anything with ``entry_signals(bars)``
 returning ``backtest.bracket.Bracket`` intents.
 
+broker.market_hub ─► signalrcore, config.live   (live trades/quotes over websocket)
+capture.recorder  ─► config.live                (raw hub events -> JSONL, verbatim)
+cli.capture       ─► broker.{client,contracts,market_hub}, capture.recorder
+
+The market hub sends TWO different things. ``GatewayTrade`` is executed trades
+(a LIST per event: price, volume, timestamp, type); ``GatewayQuote`` is
+top-of-book bid/ask, pushed on quote change, ~80x more frequent. A NinjaTrader
+'Last' tick row is a trade with the prevailing quote stamped on it - i.e. the
+join of the two. Subscribing to quotes alone yields no trades and every volume
+indicator reads zero. On the quote, use ``lastUpdated`` (real event time), not
+``timestamp`` (a constant session anchor); its ``volume`` is session-cumulative,
+not per-event.
+
 chart.packer     ─► data.loader, numpy  (Parquet -> flat bar records)
 chart.store      ─► chart.packer, numpy (memmap the cache; slice + binary-search)
 chart.api        ─► chart.store, config.chart   (routes -> bytes; no sockets)
@@ -175,6 +194,8 @@ The backtest and walk-forward doors were removed with the strategy layer; they
 return when the new strategy layer lands (a door wires its catalogue into the
 engines' ``build`` callable).
 
+- **`python -m src.cli.capture --seconds N`** — record the live market feed for one contract to `capture/<stamp>_<contract>.jsonl`, one raw event per line with a local receipt timestamp. It interprets nothing: the ProjectX docs name the hub events but do not document their payloads, so we record first and write the adapter against what the feed really sends. A recording also serves as a test fixture (drives the live code path with no network) and as the only way to check whether TopstepX's stream agrees with the NinjaTrader tick export. Wired into `commands.bat` → Live.
+
 `broker/` is a verified, reusable engine (auth → account → contract → bars) still awaiting its own command (e.g. live trading, health check); when built it adds another thin `cli/` door here, wired into `commands.bat`.
 
 ## Note on API history depth
@@ -193,7 +214,7 @@ strategy-agnostic. What returns: a strategy package emitting `Bracket` intents f
 `entry_signals(bars)`, whatever indicators it needs, its run configs, and the thin
 `cli/` doors that wire a catalogue into the engines' `build` callable.
 
-These get created — with their config section alongside — when the area is actually built: `broker/orders.py`, `broker/positions.py`, `risk/` (sizing/limits, reads `config/risk.py`), `execution/` (live loop, reads `config/live.py`), `config/live.py`, `config/risk.py`. (`data/`, `backtest/`, `chart/`, and `cli/` now exist.)
+These get created — with their config section alongside — when the area is actually built: `broker/orders.py`, `broker/positions.py`, `risk/` (sizing/limits, reads `config/risk.py`), `execution/` (live loop, reads `config/live.py`), `config/risk.py`. (`data/`, `backtest/`, `chart/`, and `cli/` now exist.)
 
 `frontend/chart/` is plain ES modules with no build step and no package.json — the
 browser loads them directly and the one dependency is vendored. If a real build

@@ -23,8 +23,11 @@ secrets.json
 # Backtest run outputs (labeled runs: trades, summary, equity.png, manifest)
 /runs/
 
-# Cached derived series (e.g. the VA-breakout consolidation mask)
+# Cached derived series + the packed chart bar cache
 /cache/
+
+# Recorded live market sessions (raw JSONL from the SignalR market hub)
+/capture/
 
 # Scratch — disposable spikes & experiments (README is force-added)
 scratch/
