@@ -39,8 +39,9 @@ server restarts itself on any `.py` change.
 | `js/overlays.js` | renders the backend's shapes; knows no indicator |
 | `js/vertical_lines.js` | a chart primitive: dashed vertical rules with labels |
 | `js/format.js` | time / price / volume display strings (UTC, like the bars) |
-| `js/replay/window.js` | the sliding bar buffer: prefetch ahead, trim behind |
-| `js/replay/engine.js` | play / pause / step / speed — owns the clock |
+| `js/replay/stream.js` | control POSTs + the `EventSource` snapshot stream |
+| `js/replay/window.js` | the bounded display buffer: append, trim |
+| `js/replay/engine.js` | subscribes to snapshots and draws them; owns no clock |
 | `js/replay/controls.js` | toolbar → engine wiring; the thin door |
 
 ### Why it stays fast
@@ -49,11 +50,16 @@ Bars arrive as a flat array of 24-byte records (`uint32` time + five `float32`s)
 JSON — the 1m NQ dataset is ~6.2M bars, and parsing that as JSON would dominate every
 frame. `api.js` walks the `ArrayBuffer` with a `DataView`.
 
-Replay never holds the dataset. It keeps a bounded window (~5,000 bars of history
-behind the cursor), fetches the next run of bars before it needs them, and drops the
-oldest chunk once the buffer exceeds its cap. Dropping bars renumbers the chart's
-logical indices, so `chart.js` shifts the visible range by the same amount — which is
-why the view never jumps and your zoom survives a trim.
+Replay never holds the dataset, and it does not own the cursor. The **server** owns the
+cursor, the clock and the live indicator state; the browser subscribes to a stream of
+snapshots and draws each one. `play` is a POST — bars arrive because the server decided it
+was time. That is what lets the TUI watch the same session and show the same row at the
+same instant.
+
+The browser keeps a bounded display buffer (~5,000 bars of history behind the cursor) and
+drops the oldest chunk once it exceeds its cap. Dropping bars renumbers the chart's
+logical indices, so `chart.js` shifts the visible range by the same amount — which is why
+the view never jumps and your zoom survives a trim.
 
 ### Indicators do not live here
 

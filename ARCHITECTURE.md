@@ -16,6 +16,7 @@ algo_3/
 │   │   ├── session.py     UTC + RTH hours (09:30-16:00 ET)
 │   │   ├── backtest.py    slippage, backtest window, gap/hold policy
 │   │   ├── chart.py       chart server host/port, bar cache, replay dials
+│   │   ├── replay.py      session idle timeout, subscriber queue, speeds
 │   │   ├── live.py        contract id, which market streams, capture dir
 │   │   └── indicators/    one module per indicator, named for its id
 │   │       └── sessions.py  enable + band colors for the sessions indicator
@@ -29,6 +30,11 @@ algo_3/
 │   │   └── progress.py      in-place ANSI progress bar for long loops
 │   ├── events/         the market event vocabulary (bars, later ticks/quotes)
 │   │   └── types.py       BarClose: a completed bar, stamped at its close
+│   ├── replay/         the server-side replay session (one cursor, many views)
+│   │   ├── snapshot.py    one flat row: bar + indicator fields + drawings
+│   │   ├── session.py     owns the cursor and live indicator state; publishes
+│   │   ├── manager.py     sessions by id; reaps abandoned ones
+│   │   └── routes.py      control (POST) + the SSE snapshot stream
 │   ├── indicators/     state machines over the event stream
 │   │   ├── base.py        what an indicator is; Unavailable (no proxy values)
 │   │   ├── registry.py    topological order by dependency; merged field row
@@ -90,8 +96,9 @@ algo_3/
 │           ├── vertical_lines.js  chart primitive: dashed rules with labels
 │           ├── format.js     time/price/volume display strings
 │           └── replay/
-│               ├── window.js   the sliding bar buffer (prefetch + trim)
-│               ├── engine.js   play/pause/step/speed; owns the clock
+│               ├── stream.js   EventSource + control POSTs to the session
+│               ├── window.js   the bounded display buffer (append + trim)
+│               ├── engine.js   subscribes to snapshots; owns no clock
 │               └── controls.js toolbar -> engine wiring (the thin door)
 ├── BUILD_PLAN.md       the phased road to a live brain (read before a phase)
 ├── cache/              packed bar cache + server pidfile (git-ignored)
@@ -100,8 +107,10 @@ algo_3/
 ├── tests/              pytest suite (dev tooling, not product code)
 │   ├── test_fills.py       pins the fill model's honest assumptions
 │   ├── test_chart_store.py pins the 24-byte wire format; slice/locate rules
-│   └── test_sessions.py    pins the session windows, the close-stamped
-│                           boundary rule, and the indicator registry
+│   ├── test_sessions.py    pins the session windows, the close-stamped
+│   │                       boundary rule, and the indicator registry
+│   ├── test_replay_session.py  pins seek == play-into, fan-out, no lookahead
+│   └── test_lifecycle.py   pins per-port pidfiles; the Windows os.kill trap
 ├── conftest.py         puts repo root on sys.path so tests import `src`
 ├── (top level, not code): .env, logs/, data/, projectX_API/
 ```
@@ -168,6 +177,19 @@ chart.packer     ─► data.loader, numpy  (Parquet -> flat bar records)
 chart.store      ─► chart.packer, numpy (memmap the cache; slice + binary-search)
 chart.overlays   ─► chart.store, indicators.{registry,sessions}, config.indicators.sessions
 chart.api        ─► chart.store, chart.overlays, config.chart   (routes -> bytes)
+
+replay.session   ─► chart.{overlays,store}, config.{chart,replay}, replay.snapshot
+replay.manager   ─► replay.session, config.replay   (registry + idle reaper)
+replay.routes    ─► replay.manager, config.replay   (POST control; SSE stream)
+chart.server     ─► replay.{routes,manager}         (dispatches /api/replay/*)
+
+The replay cursor and the live indicator state live on the SERVER, not in the
+browser. A step is a POST; bars arrive because the session published a Snapshot.
+The chart subscribes to that stream and draws it; the TUI will subscribe to the
+same stream and print it. One cursor, one computation, so two views cannot
+disagree - and a third costs nothing. Seeking replays the warmup silently, so
+the indicators at a cut point hold exactly what they would have held had you
+played into it (pinned by tests/test_replay_session.py).
 chart.server     ─► chart.{api,lifecycle,packer,autoreload}, config.chart  (HTTP + static)
 chart.lifecycle  ─► config.chart        (pidfile, port probe, confirmed shutdown)
 chart.autoreload ─► (watch .py mtimes; trip the server's stop event)
@@ -217,7 +239,9 @@ audit.reader       ─► DATA_AUDIT.json     (the data's own rules, read once)
   data lands; `--stop` closes a running server and confirms the port is free;
   `--reload` restarts the server whenever Python changes. HTML/CSS/JS need no
   flag - static files are read per request and sent `no-cache`, so a plain
-  browser refresh picks them up.
+  browser refresh picks them up. Each server records itself in a per-port
+  pidfile (`cache/chart/server-<port>.pid`), so two servers on two ports can
+  coexist and `--stop` only ever touches its own.
   Starting always reclaims the port, so servers never stack. Wired into
   `commands.bat` → Chart. **The page must be served — opening `index.html` from the
   filesystem cannot work** (`file://` has no origin, so the module and API fetches

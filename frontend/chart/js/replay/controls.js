@@ -3,6 +3,11 @@
  *
  * One job: DOM in, calls out. Every button here delegates to ReplayEngine or
  * Browser - no replay logic, no chart calls, no fetching. The frontend's thin door.
+ *
+ * Note the transport buttons do not set their own state. Play, pause and speed
+ * are requests; the button repaints when the SERVER says the session changed.
+ * A button that lied about the state would be a second source of truth, and the
+ * TUI watching the same session would disagree with it.
  */
 
 import { fmtPrice, fmtTime, fmtVol, fromInputValue, toInputValue } from '../format.js';
@@ -57,17 +62,20 @@ export class Controls {
 
   _wireTransport() {
     $('play').addEventListener('click', () => this.engine.toggle());
-    $('step').addEventListener('click', () => { this.engine.pause(); this.engine.step(); });
+    $('step').addEventListener('click', () => this.engine.step());
 
     for (const speed of [1, 2, 4]) {
-      $(`speed-${speed}`).addEventListener('click', () => this.engine.setSpeed(speed));
+      $(`speed-${speed}`).addEventListener('click', () => {
+        this.engine.setSpeed(speed);
+        this._renderSpeed(speed);   // the server echoes this back; show it now
+      });
     }
 
     // Space plays/pauses; arrow steps. Ignored while typing in the date box.
     document.addEventListener('keydown', (e) => {
       if (e.target.tagName === 'INPUT' || this.mode !== 'replay') return;
       if (e.code === 'Space') { e.preventDefault(); this.engine.toggle(); }
-      if (e.code === 'ArrowRight') { e.preventDefault(); this.engine.pause(); this.engine.step(); }
+      if (e.code === 'ArrowRight') { e.preventDefault(); this.engine.step(); }
     });
   }
 
@@ -154,10 +162,15 @@ export class Controls {
     }
   }
 
-  _renderState({ playing, speed, atEnd }) {
+  /** Repaint from the SERVER's view of the session (snake_case on the wire). */
+  _renderState({ playing, speed, at_end: atEnd }) {
     $('play').textContent = playing ? 'Pause' : 'Play';
     $('play').classList.toggle('active', playing);
+    this._renderSpeed(speed);
+    $('end').classList.toggle('visible', Boolean(atEnd));
+  }
+
+  _renderSpeed(speed) {
     for (const s of [1, 2, 4]) $(`speed-${s}`).classList.toggle('active', s === speed);
-    $('end').classList.toggle('visible', atEnd);
   }
 }

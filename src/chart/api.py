@@ -88,9 +88,7 @@ def _config() -> dict:
         "max_buffer_bars": chart_cfg.MAX_BUFFER_BARS,
         "trim_chunk_bars": chart_cfg.TRIM_CHUNK_BARS,
         "prefetch_bars": chart_cfg.PREFETCH_BARS,
-        "prefetch_threshold_bars": chart_cfg.PREFETCH_THRESHOLD_BARS,
         "base_step_ms": chart_cfg.BASE_STEP_MS,
-        "overlay_refresh_bars": chart_cfg.OVERLAY_REFRESH_BARS,
         "max_bars_per_request": chart_cfg.MAX_BARS_PER_REQUEST,
     }
 

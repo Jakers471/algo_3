@@ -1,30 +1,45 @@
 /**
- * Drive replay: play, pause, step, speed.
+ * Drive replay from the browser side: ask the server, draw what comes back.
  *
- * One job: decide *when* the next bar is revealed, and tell listeners it was.
- * It owns the clock and the play state, delegating "what is the next bar" to
- * BarWindow and "draw it" to whoever subscribes. No DOM, no chart calls.
+ * One job: hold the display buffer and the accumulated marks, translate a
+ * snapshot into the cheapest possible redraw, and forward transport commands to
+ * the server.
  *
- * The clock is a self-rescheduling timeout rather than setInterval: a step can
- * await a network fill, and setInterval would happily queue callbacks on top of
- * a slow step until playback ran away from itself.
+ * It does not own the clock. It does not step anything. `play` is a POST, and
+ * bars arrive because the server decided it was time - which is exactly why a
+ * TUI watching the same session sees the same bar at the same moment.
+ *
+ * Three redraw paths, cheapest first: append one bar (the common case), rebuild
+ * after a buffer trim (holding the zoom), or rebuild from a fresh seed.
  */
 
-import { BarWindow } from './window.js';
+import { getBars } from '../api.js';
+import { BarBuffer } from './window.js';
+import { ReplayStream } from './stream.js';
 
 export class ReplayEngine {
-  constructor(cfg) {
+  constructor(cfg, surface) {
     this.cfg = cfg;
-    this.window = null;
-    this.speed = 1;
-    this.playing = false;
+    this.surface = surface;
+    this.buffer = new BarBuffer(cfg);
+    this.stream = new ReplayStream();
 
-    this._timer = null;
-    this._stepping = false;
+    this.marks = [];
+    this.playing = false;
+    this.speed = 1;
+    this.atEnd = false;
+
     this._listeners = { bar: [], state: [] };
+
+    this.stream.on('snapshot', (snap) => this._onSnapshot(snap));
+    this.stream.on('state', (state) => {
+      this.playing = state.playing;
+      this.speed = state.speed;
+      this.atEnd = state.at_end;
+      this._emit('state', state);
+    });
   }
 
-  /** Subscribe to 'bar' ({bar, trimmed, bars}) or 'state' ({playing, speed, atEnd}). */
   on(event, fn) {
     this._listeners[event].push(fn);
     return this;
@@ -34,77 +49,79 @@ export class ReplayEngine {
     this._listeners[event].forEach((fn) => fn(payload));
   }
 
-  _emitState() {
-    this._emit('state', {
-      playing: this.playing,
-      speed: this.speed,
-      atEnd: this.window ? this.window.atEnd : false,
-    });
+  get cursor() { return this.buffer.cursor; }
+  get total() { return this.buffer.total; }
+
+  /**
+   * Cut back to `index`, draw the history, and start listening.
+   *
+   * The server seeds its indicators over the same window it hands us marks for,
+   * so what we draw and what it believes are the same thing.
+   */
+  async start(symbol, timeframe, index) {
+    const seed = await this.stream.start(symbol, timeframe, index);
+
+    // History bars still come over the binary endpoint: 5,000 bars is 120KB of
+    // packed records, versus megabytes of JSON inside a snapshot.
+    const count = seed.cursor + 1 - seed.first_index;
+    const { bars } = await getBars(symbol, timeframe, seed.first_index, count);
+
+    this.buffer.seed(bars, seed.first_index, seed.total);
+    this.marks = collectLines(seed.overlays);
+
+    this.surface.rebuild(bars);
+    this.surface.setVerticalLines(this.marks);
+    this.surface.fit();
+
+    this._emit('bar', { bar: null, bars, seeded: true });
+    return seed;
   }
 
-  /** Cut back to `startIndex` and show only the history behind it. */
-  async start(symbol, timeframe, startIndex) {
-    this.pause();
-    this.window = new BarWindow(symbol, timeframe, this.cfg);
-    const bars = await this.window.seed(startIndex);
-    this._emit('bar', { bar: null, trimmed: 0, bars, seeded: true });
-    this._emitState();
-    return bars;
-  }
+  _onSnapshot(snap) {
+    const bar = { time: snap.time, ...snap.bar };
+    const trimmed = this.buffer.push(bar);
 
-  /** Reveal exactly one bar. Safe to call while playing or paused. */
-  async step() {
-    if (!this.window || this._stepping) return null;
-    this._stepping = true;
-    try {
-      const result = await this.window.step();
-      if (!result) {
-        this.pause();
-        this._emitState();
-        return null;
-      }
-      this._emit('bar', { ...result, bars: this.window.bars, seeded: false });
-      return result;
-    } finally {
-      this._stepping = false;
+    if (snap.marks.length) this.marks = this.marks.concat(snap.marks);
+    if (trimmed) {
+      // Marks scrolled off the front can never be drawn again; dropping them
+      // keeps this list bounded over a long replay.
+      const oldest = this.buffer.oldestTime;
+      this.marks = this.marks.filter((m) => m.time >= oldest);
+      this.surface.rebuild(this.buffer.bars, trimmed);
+    } else {
+      this.surface.push(bar);
     }
+    if (snap.marks.length || trimmed) this.surface.setVerticalLines(this.marks);
+
+    this.atEnd = snap.at_end;
+    this._emit('bar', { bar, bars: this.buffer.bars, seeded: false, snapshot: snap });
   }
 
-  get intervalMs() {
-    return this.cfg.baseStepMs / this.speed;
-  }
+  // --- transport: every one of these is a request, not a local decision ---
 
-  /** 1, 2 or 4. Takes effect on the next scheduled bar. */
+  step() { return this.stream.step(1); }
+  play() { return this.stream.play(this.speed); }
+  pause() { return this.stream.pause(); }
+  toggle() { return this.playing ? this.pause() : this.play(); }
+
   setSpeed(speed) {
     this.speed = speed;
-    this._emitState();
+    // Changing speed mid-play must not stop playback; the server re-paces.
+    return this.playing ? this.stream.play(speed) : Promise.resolve();
   }
 
-  play() {
-    if (this.playing || !this.window) return;
-    this.playing = true;
-    this._emitState();
-    this._schedule();
+  stop() {
+    this.marks = [];
+    this.surface.setVerticalLines([]);
+    return this.stream.stop();
   }
+}
 
-  pause() {
-    this.playing = false;
-    clearTimeout(this._timer);
-    this._timer = null;
-    this._emitState();
+/** Flatten the seed's overlay specs into the mark list the surface draws. */
+function collectLines(overlays) {
+  let lines = [];
+  for (const overlay of overlays || []) {
+    if (overlay.kind === 'vlines') lines = lines.concat(overlay.lines);
   }
-
-  toggle() {
-    this.playing ? this.pause() : this.play();
-  }
-
-  /** Reschedule only after the step resolves, so a slow fetch cannot stack up. */
-  _schedule() {
-    if (!this.playing) return;
-    this._timer = setTimeout(async () => {
-      if (!this.playing) return;
-      const result = await this.step();
-      if (result) this._schedule();
-    }, this.intervalMs);
-  }
+  return lines;
 }

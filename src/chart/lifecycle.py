@@ -17,7 +17,12 @@ and reclaim it deliberately on startup.
 Identification is by pidfile AND a signature header, never by pid alone: a pid
 is reused by the OS, and killing a stranger because it inherited a dead
 server's number would be unforgivable. We kill a process only when the pidfile
-names it and the port answers as one of ours.
+for THAT PORT names it and the port answers as one of ours.
+
+The pidfile is per-port. A single shared one can only describe one server, so
+running a second on another port would overwrite it - and then --stop would read
+a stale record and terminate an unrelated process while leaving its own port
+bound. That is the very failure this module exists to prevent.
 
 Knows nothing about bars or HTTP routes - only about sockets and processes.
 """
@@ -32,6 +37,7 @@ import signal
 import socket
 import sys
 import time
+from pathlib import Path
 import urllib.error
 import urllib.request
 
@@ -79,23 +85,32 @@ def wait_until_free(host: str, port: int, timeout: float) -> bool:
 
 # --- pidfile ----------------------------------------------------------------
 
+def pid_path(port: int) -> Path:
+    """Where the server on this port records itself."""
+    return chart_cfg.PID_DIR / f"server-{port}.pid"
+
+
 def write_pidfile(host: str, port: int) -> None:
-    chart_cfg.PID_FILE.parent.mkdir(parents=True, exist_ok=True)
-    chart_cfg.PID_FILE.write_text(json.dumps({
+    path = pid_path(port)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({
         "pid": os.getpid(), "host": host, "port": port, "started": time.time(),
     }))
 
 
-def read_pidfile() -> dict | None:
+def read_pidfile(port: int) -> dict | None:
     try:
-        return json.loads(chart_cfg.PID_FILE.read_text())
+        record = json.loads(pid_path(port).read_text())
     except (OSError, ValueError):
         return None
+    # Belt and braces: a record that does not name this port cannot authorize
+    # killing anything on it.
+    return record if int(record.get("port", -1)) == int(port) else None
 
 
-def clear_pidfile() -> None:
+def clear_pidfile(port: int) -> None:
     with contextlib.suppress(OSError):
-        chart_cfg.PID_FILE.unlink()
+        pid_path(port).unlink()
 
 
 if sys.platform == "win32":
@@ -178,7 +193,7 @@ def stop_running(host: str, port: int) -> bool:
     process holds it - we will not kill something we did not start.
     """
     if not port_in_use(host, port):
-        clear_pidfile()
+        clear_pidfile(port)
         return True
 
     if not is_our_server(host, port):
@@ -187,12 +202,12 @@ def stop_running(host: str, port: int) -> bool:
             f"Stop it, or start the chart on another port: --port <n>"
         )
 
-    record = read_pidfile()
+    record = read_pidfile(port)
     pid = record.get("pid") if record else None
     if not pid or not _process_alive(pid):
         raise PortBusy(
             f"A chart server is listening on {port} but no pidfile names it "
-            f"({chart_cfg.PID_FILE}). Close that terminal, or use --port <n>."
+            f"({pid_path(port)}). Close that terminal, or use --port <n>."
         )
 
     logger.info("Reclaiming port %d from chart server pid %d", port, pid)
@@ -201,7 +216,7 @@ def stop_running(host: str, port: int) -> bool:
     if not wait_until_free(host, port, chart_cfg.SHUTDOWN_TIMEOUT):
         raise PortBusy(f"Port {port} still in use after stopping pid {pid}")
 
-    clear_pidfile()
+    clear_pidfile(port)
     logger.info("Port %d released - confirmed closed", port)
     return True
 

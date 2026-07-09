@@ -1,12 +1,13 @@
 """Turn indicator state into drawing instructions the chart can render blindly.
 
-One job: run the registered indicators over a range of bars and emit overlay
-specs - shapes and colors, no meaning. The chart drops a labelled rule without
-knowing what a trading session is; if we later mark a break of structure the
-same way, the frontend needs no change at all.
+One job: decide what a row of indicator fields should draw. The chart drops a
+labelled rule without knowing what a trading session is; if we later mark a
+break of structure the same way, the frontend needs no change at all.
 
-This is the seam that keeps the chart from computing anything. The indicator is
-written once, in Python, and the browser receives the result.
+``marks_for`` is the single source of that decision. Browse mode walks a bar
+range through it (``for_range``); replay calls it once per step, on the row the
+live indicator state just produced. Both paths therefore draw identically -
+which is the whole point of computing indicators once, in Python.
 
 Overlay kinds (only what has a producer; more arrive with their indicators):
     vlines  - dashed rules with labels: [{time, label, color, labelColor}]
@@ -28,14 +29,14 @@ logger = logging.getLogger(__name__)
 
 
 def build_registry() -> Registry:
-    """The indicators the chart draws. Add one here when it earns a drawing."""
+    """The indicators that run. Add one here when it earns a place in the row."""
     indicators = []
     if sessions_cfg.ENABLED:
         indicators.append(Sessions())
     return Registry(indicators)
 
 
-def _events(bars) -> list[BarClose]:
+def bar_events(bars) -> list[BarClose]:
     """Structured bar records -> BarClose events, in order.
 
     Columns are pulled to Python lists once. Reading fields off numpy scalars
@@ -48,12 +49,43 @@ def _events(bars) -> list[BarClose]:
             for i, t in enumerate(times)]
 
 
+def marks_for(time: int, row: dict, *, is_first: bool = False) -> list[dict]:
+    """The drawings this row produces. One row in, zero or more shapes out.
+
+    ``is_first`` suppresses the boundary on the first row of any window. Every
+    indicator starts with empty state, so its first event always reports
+    ``session_new`` - a fact about the indicator waking up, not about the market
+    opening a session. Drawing it would put a phantom rule at the left edge of
+    every window we ever request.
+    """
+    marks: list[dict] = []
+    if is_first:
+        return marks
+
+    if sessions_cfg.ENABLED and sessions_cfg.DRAW_BOUNDARIES and row.get("session_new"):
+        name = row.get("session")
+        if name is not None:      # entering the halt is not a session open
+            marks.append({
+                "kind": "vline",
+                "time": int(time),
+                "label": name,
+                "color": sessions_cfg.LINE_COLORS.get(name, "rgba(125,133,144,0.6)"),
+                "labelColor": sessions_cfg.LABEL_COLORS.get(name, "rgba(201,209,217,0.9)"),
+            })
+    return marks
+
+
+def group_marks(marks: list[dict]) -> list[dict]:
+    """Group flat marks into the overlay specs the frontend renders."""
+    lines = [m for m in marks if m["kind"] == "vline"]
+    return [{"id": "sessions", "kind": "vlines", "lines": lines}] if lines else []
+
+
 def for_range(symbol: str, timeframe: str, start: int, count: int) -> list[dict]:
-    """Overlay specs for bars ``[start, start+count)``.
+    """Overlay specs for bars ``[start, start+count)``. Used by browse mode.
 
     Indicators are fed only these bars, in order, so nothing in the output can
-    depend on a bar after the last one requested. During replay the caller passes
-    exactly the revealed range, and the drawing cannot leak the future.
+    depend on a bar after the last one requested.
     """
     bars = store.slice_bars(symbol, timeframe, start, count)
     if len(bars) == 0:
@@ -62,34 +94,8 @@ def for_range(symbol: str, timeframe: str, start: int, count: int) -> list[dict]
     registry = build_registry()
     registry.reset()
 
-    rows = [registry.update(event) for event in _events(bars)]
-    overlays = []
-    if sessions_cfg.ENABLED and sessions_cfg.DRAW_BOUNDARIES:
-        lines = _session_boundaries(bars, rows)
-        if lines:
-            overlays.append({"id": "sessions", "kind": "vlines", "lines": lines})
-    return overlays
-
-
-def _session_boundaries(bars, rows: list[dict]) -> list[dict]:
-    """A dashed rule at each session open.
-
-    The FIRST row is skipped. Every indicator starts with empty state, so its
-    first event always reports ``session_new`` - that is a fact about the
-    indicator waking up, not about the market opening a session. Drawing it would
-    put a phantom rule at the left edge of every window we ever request.
-    """
-    lines: list[dict] = []
-    for i, (bar, row) in enumerate(zip(bars, rows)):
-        if i == 0 or not row.get("session_new"):
-            continue
-        name = row.get("session")
-        if name is None:      # entering the halt is not a session open
-            continue
-        lines.append({
-            "time": int(bar["time"]),
-            "label": name,
-            "color": sessions_cfg.LINE_COLORS.get(name, "rgba(125,133,144,0.6)"),
-            "labelColor": sessions_cfg.LABEL_COLORS.get(name, "rgba(201,209,217,0.9)"),
-        })
-    return lines
+    marks: list[dict] = []
+    for i, (bar, event) in enumerate(zip(bars, bar_events(bars))):
+        row = registry.update(event)
+        marks.extend(marks_for(int(bar["time"]), row, is_first=(i == 0)))
+    return group_marks(marks)

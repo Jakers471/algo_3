@@ -19,9 +19,12 @@ PORT = 8765
 # The static frontend the server hands out (top-level, never inside src/).
 FRONTEND_DIR = _ROOT / "frontend" / "chart"
 
-# Records the running server so a new one can reclaim the port instead of
+# Records each running server so a new one can reclaim its port instead of
 # stacking behind it. Under cache/ because it is disposable runtime state.
-PID_FILE = _ROOT / "cache" / "chart" / "server.pid"
+# One file PER PORT: a single pidfile can only ever describe one server, and a
+# second server on another port would overwrite it - after which --stop would
+# read a stale record and kill the wrong process.
+PID_DIR = _ROOT / "cache" / "chart"
 
 # Seconds to wait for an old server to die, and for the port to come free.
 SHUTDOWN_TIMEOUT = 5.0
@@ -40,8 +43,9 @@ TIMEFRAMES = ("1m", "5m", "15m", "60m", "1d")
 MAX_BARS_PER_REQUEST = 20_000
 
 # --- Replay -----------------------------------------------------------------
-# Bars kept behind the cursor. Enough to zoom out into real history without
-# holding the whole dataset in the browser.
+# Bars of history the server warms its indicators over when you cut back, and
+# the browser draws behind the cursor. Enough to zoom out into real context
+# without holding the whole dataset.
 HISTORY_BARS = 5_000
 
 # Once the client buffer exceeds this, the oldest bars are dropped.
@@ -51,18 +55,9 @@ MAX_BUFFER_BARS = 8_000
 # infrequent chunks rather than one bar at a time.
 TRIM_CHUNK_BARS = 1_500
 
-# Bars fetched ahead of the cursor, so stepping never waits on the network.
+# Bars pulled per chunk when browse mode backfills older history on scroll-back.
 PREFETCH_BARS = 2_000
 
-# Refetch when fewer than this many un-played bars remain buffered.
-PREFETCH_THRESHOLD_BARS = 500
-
-# Milliseconds between bars at 1x. 2x and 4x divide this.
+# Milliseconds between bars at 1x. 2x and 4x divide this. The SERVER paces
+# playback, so this is the real clock, not a hint to the browser.
 BASE_STEP_MS = 500
-
-# Refresh the indicator overlays every N revealed bars during replay. The server
-# recomputes indicators over the whole revealed buffer (~58ms at 8,000 bars), so
-# this is a cost/latency dial, not a correctness one - the drawing is always
-# computed from bars at or before the cursor. Phase 5's server-side replay
-# session makes it O(1) per bar and this dial goes away.
-OVERLAY_REFRESH_BARS = 5

@@ -8,7 +8,11 @@
  * There are deliberately no indicators here. Indicators are computed in Python
  * and arrive as drawing instructions; the chart never calculates one. A second
  * implementation in JavaScript would drift from the backtest, and the day it
- * drifts is the day a chart contradicts a backtest. See BUILD_PLAN.md phase 2.
+ * drifts is the day a chart contradicts a backtest. See BUILD_PLAN.md.
+ *
+ * Two modes, two sources. Browse pulls bars and overlays for whatever window is
+ * on screen. Replay subscribes to a server-side session that owns the cursor and
+ * the live indicator state, and draws each snapshot as it is published.
  */
 
 import { getConfig, getDatasets, locate } from './api.js';
@@ -21,47 +25,23 @@ import { ReplayEngine } from './replay/engine.js';
 async function boot() {
   const [cfg, datasets] = await Promise.all([getConfig(), getDatasets()]);
   if (Object.keys(datasets).length === 0) {
-    document.getElementById('hint').textContent =
-      'No packed data. Run: python -m src.cli.chart --repack';
-    document.getElementById('hint').classList.add('visible');
+    const hint = document.getElementById('hint');
+    hint.textContent = 'No packed data. Run: python -m src.cli.chart --repack';
+    hint.classList.add('visible');
     return;
   }
 
   const surface = createChart(document.getElementById('chart'));
   const overlays = new OverlayLayer(surface);
   const browser = new Browser(surface, overlays, cfg);
-  const engine = new ReplayEngine(cfg);
+  const engine = new ReplayEngine(cfg, surface);
 
-  // Repaint the indicator drawings from the revealed range only. Fetching is
-  // async and self-cancelling, so it never blocks a step or lands out of order.
-  const refreshOverlays = () => overlays.refresh(
-    controls.symbol, controls.timeframe, engine.window.firstIndex, engine.window.bars,
-  );
-
-  // Replay redraws through exactly three paths, cheapest first.
-  engine.on('bar', ({ bar, trimmed, bars, seeded }) => {
-    if (seeded) {
-      // New cut point: everything is new.
-      surface.rebuild(bars);
-      surface.fit();
-      refreshOverlays();
-    } else if (trimmed) {
-      // The buffer shed its oldest chunk; rebuild, holding the user's zoom.
-      surface.rebuild(bars, trimmed);
-      refreshOverlays();
-    } else {
-      // The common case: one bar appended, no redraw.
-      surface.push(bar);
-      // Overlays lag the cursor by at most this many bars. They are never AHEAD
-      // of it: the server only ever sees the revealed range.
-      if (engine.window.cursor % cfg.overlayRefreshBars === 0) refreshOverlays();
-    }
-
+  engine.on('bar', ({ bar, seeded }) => {
     if (bar) {
       controls.showBar(bar);
       controls.setDate(bar.time);
     }
-    controls.showProgress(engine.window.cursor, engine.window.total);
+    if (!seeded) controls.showProgress(engine.cursor, engine.total);
   });
 
   const controls = new Controls({
@@ -70,15 +50,17 @@ async function boot() {
     surface,
     datasets,
 
-    /** Cut back to a point in time and hand the bars to replay. */
+    /** Cut back to a point in time; the server seeds and starts publishing. */
     async onStart(epochSeconds) {
       const { index } = await locate(controls.symbol, controls.timeframe, epochSeconds);
       controls.setMode('replay');
       await engine.start(controls.symbol, controls.timeframe, index);
+      controls.showProgress(engine.cursor, engine.total);
     },
 
-    /** Leave replay: back to the live tail of the data. */
+    /** Leave replay: retire the session, go back to the live tail of the data. */
     async onExit() {
+      await engine.stop();
       await browser.load(controls.symbol, controls.timeframe);
       const last = browser.bars[browser.bars.length - 1];
       if (last) { controls.showBar(last); controls.setDate(last.time); }

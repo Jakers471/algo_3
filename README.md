@@ -40,9 +40,13 @@ bar to cut back to that moment, and step forward one bar at a time (play/pause,
 
 It stays fast by never sending a dataset it does not need: bars are packed into a
 flat 24-byte record file that the server memmaps and slices, they cross the wire as
-raw bytes rather than JSON, and replay holds a bounded window (~5,000 bars of
-history) that prefetches ahead and trims behind. A 6-million-bar 1m dataset opens as
-one small fetch.
+raw bytes rather than JSON, and the browser holds a bounded window (~5,000 bars) that
+trims behind. A 6-million-bar 1m dataset opens as one small fetch.
+
+**Replay runs on the server.** It owns the cursor, the clock, and the live indicator
+state, and publishes one snapshot per bar over a stream the chart subscribes to. Seeking
+back replays the warmup silently, so the indicators at a cut point hold exactly what they
+would have held had you played into it — nothing can see past the cursor, by construction.
 
 The chart draws; it does not compute. Indicators are computed once in Python and arrive
 over `/api/overlays` as drawing instructions — today a dashed, labelled rule at each

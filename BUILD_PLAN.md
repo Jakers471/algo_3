@@ -155,7 +155,25 @@ per UTC hour (exact, not approximate). Overlays for 8,000 bars: 187ms -> 58ms.
   it tracks pan and zoom exactly), and `--reload` so a Python edit restarts the server.
   Static files already reload on a plain browser refresh.
 
-### Phase 3 — the snapshot row and the TUI table
+### Phase 3 — the snapshot row and the server-side replay session  *(built — awaiting review)*
+
+Phase 5 was pulled forward and merged in here, because a TUI cannot watch a replay whose
+cursor lives in the browser. The server now owns the cursor, the clock and the indicator
+state, and publishes a Snapshot per bar over SSE. The chart is a subscriber. Play/pause/
+speed are requests; the button repaints when the *server* says the session changed.
+
+- `replay/snapshot.py` one flat row: bar + indicator fields + drawings, market-time stamped.
+- `replay/session.py` seek replays the warmup silently, so seeking to a bar leaves the
+  indicators in the same state as playing into it. Pinned by a test — if that ever breaks,
+  replay lies and nothing in the output says so.
+- Steps cost **0.2ms** (state is resident) instead of a 45ms indicator recompute every
+  5 bars, and the `OVERLAY_REFRESH_BARS` workaround is gone.
+- Fan-out is built in: a second subscriber (the TUI) costs nothing and sees identical rows.
+
+Still to come in this phase: **the TUI itself** — a horizontal table, one row per snapshot,
+columns scrolling as price moves, running beside the chart off the same stream.
+
+### Phase 3b — the TUI table
 - The snapshot: one flat, immutable, market-time-stamped row of named fields.
 - The registry: indicators declare fields and dependencies; topological sort; emit trigger
   from config.
@@ -170,8 +188,9 @@ appearing as a column in the TUI and (where it makes sense) a drawing on the cha
 Tick-only indicators refuse to produce values when fed bars.
 
 ### Phase 5 — the clock-driven replay engine
-Replace the bar-index cursor with a **market-time clock**. A step advances time; every
-timeframe is a fold over events at or before the clock. This is what unlocks:
+The session now exists (phase 3); what remains is to replace its bar-index cursor with a
+**market-time clock**. A step advances time; every timeframe is a fold over events at or
+before the clock. This is what unlocks:
 - tick-resolution replay (stepping *one tick* is meaningless — 20,065 prints landed in the
   13:30 minute alone; replay must advance market time and apply the batch),
 - several timeframes on screen at once (they share a clock, not an index),

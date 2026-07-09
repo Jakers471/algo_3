@@ -12,6 +12,7 @@ single-threaded server would serialize the module fetches behind them.
 from __future__ import annotations
 
 import atexit
+import json
 import logging
 import mimetypes
 import os
@@ -25,6 +26,8 @@ from urllib.parse import parse_qs, urlparse
 
 from src.chart import api, autoreload, lifecycle, packer
 from src.config import chart as chart_cfg
+from src.replay import manager as replay_manager
+from src.replay import routes as replay_routes
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +67,9 @@ class ChartHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self) -> None:  # noqa: N802 - stdlib's casing
         parsed = urlparse(self.path)
+        if parsed.path == "/api/replay/stream":
+            self._serve_stream(parse_qs(parsed.query))
+            return
         if parsed.path.startswith("/api/"):
             self._serve_api(parsed.path, parse_qs(parsed.query))
             return
@@ -71,8 +77,56 @@ class ChartHandler(SimpleHTTPRequestHandler):
             self.path = "/index.html"
         super().do_GET()
 
+    def do_POST(self) -> None:  # noqa: N802
+        parsed = urlparse(self.path)
+        if not parsed.path.startswith("/api/replay/"):
+            self.send_error(404, "no such route")
+            return
+        length = int(self.headers.get("Content-Length") or 0)
+        raw = self.rfile.read(length) if length else b"{}"
+        try:
+            body = json.loads(raw or b"{}")
+        except ValueError:
+            status, content_type, payload, extra = 400, "application/json", b'{"error":"bad JSON"}', {}
+        else:
+            status, content_type, payload, extra = replay_routes.handle_post(parsed.path, body)
+        self._write(status, content_type, payload, extra)
+
+    def _serve_stream(self, query: dict) -> None:
+        """Hold the connection open and push snapshots as they are published.
+
+        No Content-Length is possible for an open-ended stream, so the response
+        is delimited by closing the connection. That is why HTTP/1.1 keep-alive
+        is switched off for this one request and only this one.
+        """
+        session_id = (query.get("session", [""])[0] or "")
+        try:
+            frames = replay_routes.stream(session_id)
+        except KeyError as exc:
+            self._write(404, "application/json", json.dumps({"error": str(exc)}).encode(), {})
+            return
+
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Connection", "close")
+        self.close_connection = True
+        self.end_headers()
+
+        try:
+            for frame in frames:
+                self.wfile.write(frame)
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            # The tab closed. Normal; the generator's finally unsubscribes.
+            logger.debug("Replay stream closed by client")
+        finally:
+            frames.close()
+
     def _serve_api(self, path: str, query: dict) -> None:
-        status, content_type, body, extra = api.handle(path, query)
+        self._write(*api.handle(path, query))
+
+    def _write(self, status: int, content_type: str, body: bytes, extra: dict) -> None:
         self.send_response(status)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(body)))
@@ -118,7 +172,7 @@ def serve(host: str = chart_cfg.HOST, port: int = chart_cfg.PORT, *,
     handler = partial(ChartHandler, root=chart_cfg.FRONTEND_DIR)
     httpd = ChartServer((host, port), handler)
     lifecycle.write_pidfile(host, port)
-    atexit.register(lifecycle.clear_pidfile)
+    atexit.register(lifecycle.clear_pidfile, port)
 
     stop = threading.Event()
     changed = threading.Event()
@@ -147,9 +201,12 @@ def serve(host: str = chart_cfg.HOST, port: int = chart_cfg.PORT, *,
 
 def _shutdown(httpd: ChartServer, host: str, port: int) -> None:
     """Stop serving, release the socket, and confirm the port is actually free."""
+    # Playing sessions hold a stepping thread; stop them before the socket goes,
+    # or a reload races a session still pushing into a dead connection.
+    replay_manager.stop_all()
     httpd.shutdown()
     httpd.server_close()
-    lifecycle.clear_pidfile()
+    lifecycle.clear_pidfile(port)
 
     if lifecycle.wait_until_free(host, port, chart_cfg.SHUTDOWN_TIMEOUT):
         logger.info("Chart server stopped - port %d confirmed closed", port)
