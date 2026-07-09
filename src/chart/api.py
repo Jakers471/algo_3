@@ -10,6 +10,7 @@ Routes:
   /api/datasets                          -> JSON: symbols/timeframes on offer
   /api/bars?symbol&timeframe&start&count -> raw bars (application/octet-stream)
   /api/locate?symbol&timeframe&time      -> JSON: bar index for an epoch second
+  /api/overlays?symbol&timeframe&start&count -> JSON: drawing instructions
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ from __future__ import annotations
 import json
 import logging
 
-from src.chart import store
+from src.chart import overlays, store
 from src.config import chart as chart_cfg
 
 logger = logging.getLogger(__name__)
@@ -67,6 +68,8 @@ def handle(path: str, query: dict) -> Response:
             return _bars(query)
         if path == "/api/locate":
             return _locate(query)
+        if path == "/api/overlays":
+            return _overlays(query)
     except store.NotPacked as exc:
         return _error(404, str(exc))
     except ValueError as exc:
@@ -87,6 +90,7 @@ def _config() -> dict:
         "prefetch_bars": chart_cfg.PREFETCH_BARS,
         "prefetch_threshold_bars": chart_cfg.PREFETCH_THRESHOLD_BARS,
         "base_step_ms": chart_cfg.BASE_STEP_MS,
+        "overlay_refresh_bars": chart_cfg.OVERLAY_REFRESH_BARS,
         "max_bars_per_request": chart_cfg.MAX_BARS_PER_REQUEST,
     }
 
@@ -118,3 +122,18 @@ def _locate(query: dict) -> Response:
     epoch = _int_arg(query, "time")
     idx = store.locate(symbol, timeframe, epoch)
     return _json(200, {"index": idx, "total": store.count(symbol, timeframe)})
+
+
+def _overlays(query: dict) -> Response:
+    """Indicator output for a bar range, as shapes the chart renders blindly.
+
+    The caller passes the range it has REVEALED, so during replay the indicators
+    never see a bar past the cursor and the drawing cannot leak the future.
+    """
+    symbol, timeframe = _pair(query)
+    start = _int_arg(query, "start")
+    n = _int_arg(query, "count", chart_cfg.PREFETCH_BARS)
+    if n < 0:
+        raise ValueError("'count' must not be negative")
+    n = min(n, chart_cfg.MAX_BARS_PER_REQUEST)
+    return _json(200, {"overlays": overlays.for_range(symbol, timeframe, start, n)})

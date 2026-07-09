@@ -23,7 +23,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from src.chart import api, lifecycle, packer
+from src.chart import api, autoreload, lifecycle, packer
 from src.config import chart as chart_cfg
 
 logger = logging.getLogger(__name__)
@@ -96,11 +96,15 @@ class ChartHandler(SimpleHTTPRequestHandler):
 
 
 def serve(host: str = chart_cfg.HOST, port: int = chart_cfg.PORT, *,
-          pack_first: bool = True, on_ready=None) -> None:
+          pack_first: bool = True, on_ready=None, reload: bool = False) -> bool:
     """Reclaim the port, pack any missing bar caches, then serve until stopped.
 
     ``on_ready`` fires once the socket is bound and accepting - the only safe
     moment to open a browser, since the first run may spend seconds packing.
+
+    With ``reload``, a change to any watched .py file stops the server the same
+    way Ctrl-C does. Returns True if it stopped for a reload, so the caller can
+    start it again. Static files never need this: they are read per request.
 
     Exits only after the port is confirmed free, so a relaunch never races a
     dying predecessor and servers cannot stack.
@@ -117,10 +121,13 @@ def serve(host: str = chart_cfg.HOST, port: int = chart_cfg.PORT, *,
     atexit.register(lifecycle.clear_pidfile)
 
     stop = threading.Event()
+    changed = threading.Event()
     # shutdown() blocks until serve_forever() returns, so it must never be
     # called from the thread running serve_forever - hence serving off-thread
     # while the main thread waits for the stop signal.
     lifecycle.install_signal_handlers(stop.set)
+    if reload:
+        autoreload.watch([Path(__file__).resolve().parents[1]], changed, stop)
 
     serving = threading.Thread(target=httpd.serve_forever, name="chart-http", daemon=True)
     serving.start()
@@ -135,6 +142,7 @@ def serve(host: str = chart_cfg.HOST, port: int = chart_cfg.PORT, *,
         pass
     finally:
         _shutdown(httpd, host, port)
+    return changed.is_set()
 
 
 def _shutdown(httpd: ChartServer, host: str, port: int) -> None:

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T07:19:54.524033+00:00",
+  "generated_at": "2026-07-09T04:53:54.857480+00:00",
   "source": "NinjaTrader 8 continuous back-adjusted export",
   "verdict": "clean",
   "note_large_gaps": "All >75h gaps are Christmas/New-Year exchange closures, not data holes.",
@@ -1264,7 +1264,17 @@
     {
       "id": "timezone",
       "severity": "required",
-      "note": "All timestamps are tz-aware UTC. Keep everything UTC internally; convert to US/Eastern only for RTH session logic (09:30-16:00 ET)."
+      "note": "All timestamps are tz-aware UTC. Keep everything UTC internally; convert to US/Eastern only for session logic. Session windows are EASTERN (18:00->03:00 Asia, 03:00->08:00 London, 08:00->17:00 NY); the 17:00-18:00 ET gap is the CME maintenance halt. Using America/Chicago with those numbers silently drops the 17:00-18:00 ET trading hour into no session."
+    },
+    {
+      "id": "bar_stamping",
+      "severity": "required",
+      "note": "Bars are CLOSE-stamped: a bar labelled T covers (T-step, T]. Verified - 1m bars aggregate into 5m exactly (OHLC and volume) with closed='right', label='right'. Consequences: a bar stamped T is fully known at T, so revealing it at T leaks nothing; and any interval membership test (sessions, windows) must be start < t <= end, or the closing bar of each session belongs to nothing."
+    },
+    {
+      "id": "tick_dataset",
+      "severity": "info",
+      "note": "A separate NT8 tick dataset exists outside the repo (Desktop/NQ_Tick_Data): 10 NQ contracts, 2024-03-12 -> 2026-07-03, ~300M ticks with bid/ask. It is UTC, 52% of ticks share a timestamp with a neighbour (time is NOT a unique key), and tick-rebuilt bars reconcile with these Parquet bars to 0.0012% on total volume. Order flow (delta, absorption, sweeps, spread) is computable ONLY from it - never from these bars."
     }
   ]
 }

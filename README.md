@@ -44,8 +44,14 @@ raw bytes rather than JSON, and replay holds a bounded window (~5,000 bars of
 history) that prefetches ahead and trims behind. A 6-million-bar 1m dataset opens as
 one small fetch.
 
-The chart draws; it does not compute. Indicators are computed once in Python and will
-arrive as drawing instructions — see `BUILD_PLAN.md` for the phased road from here.
+The chart draws; it does not compute. Indicators are computed once in Python and arrive
+over `/api/overlays` as drawing instructions — today a dashed, labelled rule at each
+trading-session open (Asia / London / NY), straight from `src/indicators/sessions.py`.
+Because the overlay request carries only the bars replay has revealed, a drawing can never
+leak the future. See `BUILD_PLAN.md` for the road from here.
+
+Editing HTML/CSS/JS? Just refresh the page. Editing Python? Add `--reload` and the server
+restarts itself.
 
 The page **must be served** — opening `index.html` from the filesystem cannot work.
 Starting reclaims the port from any older chart server, so they never stack;

@@ -10,6 +10,7 @@ Run: ``python -m src.cli.chart``   (--repack after new data, --stop to close)
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import webbrowser
 
@@ -32,6 +33,9 @@ def main() -> None:
                     help="stop a running chart server on this port and exit")
     ap.add_argument("--open", action="store_true",
                     help="open the chart in a browser once the server is listening")
+    ap.add_argument("--reload", action="store_true",
+                    help="restart automatically when Python changes (HTML/CSS/JS "
+                         "already reload on a plain browser refresh)")
     args = ap.parse_args()
 
     try:
@@ -50,7 +54,16 @@ def main() -> None:
         print()
         # Only after the socket is bound - the first run packs bars for seconds.
         on_ready = (lambda ready_url: webbrowser.open(ready_url)) if args.open else None
-        server.serve(args.host, args.port, on_ready=on_ready)
+        restart = server.serve(args.host, args.port, on_ready=on_ready, reload=args.reload)
+
+        if restart:
+            # Re-exec rather than re-serve in place: the point of a reload is to
+            # re-import every module, and only a fresh interpreter does that.
+            # The port is already confirmed free by the shutdown we just finished.
+            print(console.paint("  reloading...", console.DIM))
+            os.execv(sys.executable, [sys.executable, "-m", "src.cli.chart",
+                                      "--host", args.host, "--port", str(args.port),
+                                      "--reload"])
     except lifecycle.PortBusy as exc:
         print(console.paint(f"  {exc}", console.RED))
         sys.exit(1)

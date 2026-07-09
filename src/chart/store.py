@@ -88,6 +88,19 @@ def slice_bytes(symbol: str, timeframe: str, start: int, n: int) -> tuple[bytes,
     return mm[start:stop].tobytes(), start
 
 
+def slice_bars(symbol: str, timeframe: str, start: int, n: int) -> np.ndarray:
+    """Bars ``[start, start+n)`` as a structured array (a zero-copy memmap view).
+
+    The typed counterpart of ``slice_bytes``: same bars, but for code that needs
+    to read fields rather than ship bytes. Clamps like ``slice_bytes`` does.
+    """
+    mm = _bars_mm(symbol, timeframe)
+    total = len(mm)
+    start = max(0, min(int(start), total))
+    stop = max(start, min(start + int(n), total))
+    return mm[start:stop]
+
+
 def locate(symbol: str, timeframe: str, epoch_seconds: int) -> int:
     """Index of the first bar at or after ``epoch_seconds`` (binary search).
 

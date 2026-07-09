@@ -118,7 +118,7 @@ contracts of delta.** The projection from ticks to a bar is not injective and ha
 Each phase is small, ends in a commit, and ends with something to look at.
 **Do not start a phase before the previous one has been seen and approved.**
 
-### Phase 1 — the chart, correct  *(in progress)*
+### Phase 1 — the chart, correct  *(done — f926b4f)*
 Make the existing replay chart honest before anything is layered on it.
 
 - Remove all indicator math from JavaScript. The chart draws; it does not compute.
@@ -128,8 +128,20 @@ Make the existing replay chart honest before anything is layered on it.
   that keeps a trim from jumping the view.
 - **Done when:** the chart is clean, fast, and has no second implementation of anything.
 
-### Phase 2 — one indicator, end to end
+### Phase 2 — one indicator, end to end  *(built — awaiting review)*
 The narrowest possible slice through the whole spine.
+
+Two bugs found by measuring, before a line of it was written:
+- `config/session.py` paired **Eastern** window numbers with `America/Chicago`. That
+  discarded 5,764 real trading bars (the 17:00-18:00 ET hour) into no session at all,
+  and mislabelled the maintenance halt as NY. Fixed to `US/Eastern`; now every one of
+  143,013 bars falls in exactly one session.
+- Session membership must be `start < minute <= end`, because bars are close-stamped.
+  With `minute < end` the 17:00 ET bar - NY's last - belongs nowhere.
+
+Also: converting each timestamp to Eastern cost 85ms of a 125ms indicator pass. US
+offsets are whole hours and DST flips on a UTC hour boundary, so the offset is cached
+per UTC hour (exact, not approximate). Overlays for 8,000 bars: 187ms -> 58ms.
 
 - The indicator interface: a state machine (`update(event)` → fields) with declared
   dependencies and a per-indicator config file under `src/config/indicators/`.
@@ -137,8 +149,11 @@ The narrowest possible slice through the whole spine.
 - A backend endpoint that serves the indicator's output alongside the bars, and a
   **renderer** on the chart that draws whatever spec the backend sends (line / band /
   marker) without knowing what a session is.
-- **Done when:** Jake sees session bands on the chart in browse *and* replay, drawn from
-  values Python computed, with a config file he can edit.
+- **Done when:** Jake sees the sessions marked on the chart in browse *and* replay, drawn
+  from values Python computed, with a config file he can edit.
+- Shipped: a dashed labelled rule at each session open (a lightweight-charts primitive, so
+  it tracks pan and zoom exactly), and `--reload` so a Python edit restarts the server.
+  Static files already reload on a plain browser refresh.
 
 ### Phase 3 — the snapshot row and the TUI table
 - The snapshot: one flat, immutable, market-time-stamped row of named fields.
@@ -184,9 +199,11 @@ it — that vocabulary is deliberately independent of any strategy.
   `GatewayTrade.type` agrees with bid/ask classification where both exist.
 - **RTH live capture** to settle the `type` question. `python -m src.cli.capture --seconds 300`
   between 13:30 and 20:00 UTC.
-- **15s and the rebuilt timeframes.** 15s exists only where ticks exist. Once the stitched
-  tick file is built, rebuild 15s/1m/5m/15m/1h/4h from ticks for the 2.3-year tick window.
-  The 20-year bar history remains its own dataset for bar-expressible work.
+- **15s and the rebuilt timeframes.** 15s exists only where ticks exist. The stitched tick
+  file is now **built**: `NQ_continuous_ticks.parquet`, **296,029,228 ticks**, 2.0 GB,
+  2024-03-12 → 2026-07-03, all 10 contracts back-adjusted across roll seams of +212 to
+  +286 points. Next: rebuild 15s/1m/5m/15m/1h/4h from it for the tick window. The 20-year
+  bar history remains its own dataset for bar-expressible work.
 
 ---
 

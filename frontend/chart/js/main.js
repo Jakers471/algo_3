@@ -14,6 +14,7 @@
 import { getConfig, getDatasets, locate } from './api.js';
 import { Browser } from './browse.js';
 import { createChart } from './chart.js';
+import { OverlayLayer } from './overlays.js';
 import { Controls } from './replay/controls.js';
 import { ReplayEngine } from './replay/engine.js';
 
@@ -27,8 +28,15 @@ async function boot() {
   }
 
   const surface = createChart(document.getElementById('chart'));
-  const browser = new Browser(surface, cfg);
+  const overlays = new OverlayLayer(surface);
+  const browser = new Browser(surface, overlays, cfg);
   const engine = new ReplayEngine(cfg);
+
+  // Repaint the indicator drawings from the revealed range only. Fetching is
+  // async and self-cancelling, so it never blocks a step or lands out of order.
+  const refreshOverlays = () => overlays.refresh(
+    controls.symbol, controls.timeframe, engine.window.firstIndex, engine.window.bars,
+  );
 
   // Replay redraws through exactly three paths, cheapest first.
   engine.on('bar', ({ bar, trimmed, bars, seeded }) => {
@@ -36,12 +44,17 @@ async function boot() {
       // New cut point: everything is new.
       surface.rebuild(bars);
       surface.fit();
+      refreshOverlays();
     } else if (trimmed) {
       // The buffer shed its oldest chunk; rebuild, holding the user's zoom.
       surface.rebuild(bars, trimmed);
+      refreshOverlays();
     } else {
       // The common case: one bar appended, no redraw.
       surface.push(bar);
+      // Overlays lag the cursor by at most this many bars. They are never AHEAD
+      // of it: the server only ever sees the revealed range.
+      if (engine.window.cursor % cfg.overlayRefreshBars === 0) refreshOverlays();
     }
 
     if (bar) {

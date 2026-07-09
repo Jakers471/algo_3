@@ -16,7 +16,9 @@ algo_3/
 │   │   ├── session.py     UTC + RTH hours (09:30-16:00 ET)
 │   │   ├── backtest.py    slippage, backtest window, gap/hold policy
 │   │   ├── chart.py       chart server host/port, bar cache, replay dials
-│   │   └── live.py        contract id, which market streams, capture dir
+│   │   ├── live.py        contract id, which market streams, capture dir
+│   │   └── indicators/    one module per indicator, named for its id
+│   │       └── sessions.py  enable + band colors for the sessions indicator
 │   ├── audit/           read the data-truth facts from DATA_AUDIT.json
 │   │   └── reader.py       front door: specs, handling flags, data end
 │   ├── logging/         the logging job: dials + the setup that applies them
@@ -25,6 +27,12 @@ algo_3/
 │   ├── core/            shared infrastructure used everywhere
 │   │   ├── console.py       ANSI color codes + paint() (no emoji, ever)
 │   │   └── progress.py      in-place ANSI progress bar for long loops
+│   ├── events/         the market event vocabulary (bars, later ticks/quotes)
+│   │   └── types.py       BarClose: a completed bar, stamped at its close
+│   ├── indicators/     state machines over the event stream
+│   │   ├── base.py        what an indicator is; Unavailable (no proxy values)
+│   │   ├── registry.py    topological order by dependency; merged field row
+│   │   └── sessions.py    Asia/London/NY + running session extremes
 │   ├── data/           load the NT8 Parquet store into clean bars — engine
 │   │   ├── loader.py      read a symbol/TF Parquet -> raw UTC OHLCV (I/O)
 │   │   └── prepare.py     window + gap-mark + zero-vol policy (logic)
@@ -59,9 +67,11 @@ algo_3/
 │   ├── chart/          serve bars to the browser chart (backend half)
 │   │   ├── packer.py      Parquet -> flat 24-byte bar records in cache/chart/
 │   │   ├── store.py       memmap the packed cache: slice bars, locate a time
+│   │   ├── overlays.py    run indicators over a bar range -> drawing instructions
 │   │   ├── api.py         route -> (status, content-type, bytes); no sockets
 │   │   ├── server.py      HTTP: static frontend + /api, one port, no stacking
-│   │   └── lifecycle.py   single-instance guard; confirmed-closed shutdown
+│   │   ├── lifecycle.py   single-instance guard; confirmed-closed shutdown
+│   │   └── autoreload.py  dev: restart the server when Python changes
 │   └── cli/            thin doors: parse input, call an engine, format out
 │       ├── data.py        load & summarize prepared bars (python -m src.cli.data)
 │       ├── chart.py       serve the replay chart (python -m src.cli.chart)
@@ -72,10 +82,12 @@ algo_3/
 │       ├── css/chart.css dark, gridless theme
 │       ├── vendor/       TradingView Lightweight Charts (vendored, not CDN)
 │       └── js/
-│           ├── main.js       wire the pieces; register indicators here
+│           ├── main.js       wire the pieces; decides who talks to whom
 │           ├── api.js        fetch + decode the binary bar records
 │           ├── chart.js      the chart surface: rebuild (zoom-safe) / push
 │           ├── browse.js     non-replay view; backfills older bars on scroll
+│           ├── overlays.js   draw the backend's shapes; knows no indicator
+│           ├── vertical_lines.js  chart primitive: dashed rules with labels
 │           ├── format.js     time/price/volume display strings
 │           └── replay/
 │               ├── window.js   the sliding bar buffer (prefetch + trim)
@@ -87,7 +99,9 @@ algo_3/
 ├── runs/               labeled run outputs (git-ignored): trades, summary, equity.png
 ├── tests/              pytest suite (dev tooling, not product code)
 │   ├── test_fills.py       pins the fill model's honest assumptions
-│   └── test_chart_store.py pins the 24-byte wire format; slice/locate rules
+│   ├── test_chart_store.py pins the 24-byte wire format; slice/locate rules
+│   └── test_sessions.py    pins the session windows, the close-stamped
+│                           boundary rule, and the indicator registry
 ├── conftest.py         puts repo root on sys.path so tests import `src`
 ├── (top level, not code): .env, logs/, data/, projectX_API/
 ```
@@ -145,11 +159,18 @@ indicator reads zero. On the quote, use ``lastUpdated`` (real event time), not
 ``timestamp`` (a constant session anchor); its ``volume`` is session-cumulative,
 not per-event.
 
+indicators.base      ─► (the Indicator interface + Unavailable)
+indicators.registry  ─► indicators.base         (toposort deps; merged field row)
+indicators.sessions  ─► config.session, indicators.base   (Asia/London/NY)
+events.types         ─► (BarClose; Trade/Quote arrive with their sources)
+
 chart.packer     ─► data.loader, numpy  (Parquet -> flat bar records)
 chart.store      ─► chart.packer, numpy (memmap the cache; slice + binary-search)
-chart.api        ─► chart.store, config.chart   (routes -> bytes; no sockets)
-chart.server     ─► chart.{api,lifecycle,packer}, config.chart  (HTTP + static)
+chart.overlays   ─► chart.store, indicators.{registry,sessions}, config.indicators.sessions
+chart.api        ─► chart.store, chart.overlays, config.chart   (routes -> bytes)
+chart.server     ─► chart.{api,lifecycle,packer,autoreload}, config.chart  (HTTP + static)
 chart.lifecycle  ─► config.chart        (pidfile, port probe, confirmed shutdown)
+chart.autoreload ─► (watch .py mtimes; trip the server's stop event)
 cli.chart        ─► chart.{server,packer,lifecycle}, logging.setup, core.console
 
 The browser talks only to chart.api. Bars cross the wire as raw 24-byte records
@@ -157,9 +178,15 @@ The browser talks only to chart.api. Bars cross the wire as raw 24-byte records
 frontend/chart/js/api.js decodes that layout; tests/test_chart_store.py pins it.
 
 The chart DRAWS; it never computes. There are no indicators in the frontend and
-none may be added: indicators are computed once, in Python, and arrive as
-drawing instructions. A second implementation in JavaScript would drift from the
-backtest. See BUILD_PLAN.md phase 2 for how they land.
+none may be added: indicators are computed once, in Python, and arrive over
+/api/overlays as drawing instructions. One shape exists today: "vlines", a
+dashed rule with a label, drawn by a lightweight-charts primitive onto the
+chart's own canvas. overlays.js understands *shapes*, never meaning - it drops a
+labelled rule without knowing what a trading session is, so the next indicator to
+reuse that shape needs no frontend change at all.
+
+The overlay request carries the REVEALED bar range, so indicators are fed only
+bars at or before the replay cursor and a drawing cannot leak the future.
 
 logging.setup    ─► logging.settings    (reads the dial value)
                  └► core.console         (color codes)
@@ -187,7 +214,10 @@ audit.reader       ─► DATA_AUDIT.json     (the data's own rules, read once)
   any timeframe, or click a bar to cut back and replay forward bar by bar with
   play/pause and 1x/2x/4x. Zoom and pan stay live throughout. First run packs the bar
   cache (a few seconds); after that it is instant. `--repack` rebuilds it after new
-  data lands; `--stop` closes a running server and confirms the port is free.
+  data lands; `--stop` closes a running server and confirms the port is free;
+  `--reload` restarts the server whenever Python changes. HTML/CSS/JS need no
+  flag - static files are read per request and sent `no-cache`, so a plain
+  browser refresh picks them up.
   Starting always reclaims the port, so servers never stack. Wired into
   `commands.bat` → Chart. **The page must be served — opening `index.html` from the
   filesystem cannot work** (`file://` has no origin, so the module and API fetches

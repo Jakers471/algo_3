@@ -14,8 +14,9 @@ import { getBars } from './api.js';
 const BACKFILL_TRIGGER_BARS = 100;
 
 export class Browser {
-  constructor(surface, cfg) {
+  constructor(surface, overlays, cfg) {
     this.surface = surface;
+    this.overlays = overlays;
     this.cfg = cfg;
 
     this.bars = [];
@@ -45,6 +46,7 @@ export class Browser {
 
     this.surface.rebuild(this.bars);
     this.surface.fit();
+    this.overlays.refresh(symbol, timeframe, this.firstIndex, this.bars);
     return this.bars;
   }
 
@@ -66,6 +68,7 @@ export class Browser {
       // Bars were added to the front, so every existing bar moved RIGHT by
       // bars.length: a negative shift-left.
       this.surface.rebuild(this.bars, -bars.length);
+      this.overlays.refresh(this.symbol, this.timeframe, this.firstIndex, this.bars);
     } catch (err) {
       console.error('backfill failed', err);
     } finally {

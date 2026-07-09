@@ -59,3 +59,10 @@ PREFETCH_THRESHOLD_BARS = 500
 
 # Milliseconds between bars at 1x. 2x and 4x divide this.
 BASE_STEP_MS = 500
+
+# Refresh the indicator overlays every N revealed bars during replay. The server
+# recomputes indicators over the whole revealed buffer (~58ms at 8,000 bars), so
+# this is a cost/latency dial, not a correctness one - the drawing is always
+# computed from bars at or before the cursor. Phase 5's server-side replay
+# session makes it O(1) per bar and this dial goes away.
+OVERLAY_REFRESH_BARS = 5

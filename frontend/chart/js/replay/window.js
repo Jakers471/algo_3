@@ -53,6 +53,11 @@ export class BarWindow {
     return this.next - 1;
   }
 
+  /** Dataset index of `bars[0]` - the start of the revealed range. */
+  get firstIndex() {
+    return this.next - this.bars.length;
+  }
+
   /**
    * Start replay at `startIndex`: reveal the history behind it, nothing ahead.
    *

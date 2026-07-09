@@ -7,6 +7,8 @@
  * (append one bar). Replay logic lives in replay/. It draws; it never computes.
  */
 
+import { VerticalLines } from './vertical_lines.js';
+
 const UP = '#26a69a';
 const DOWN = '#ef5350';
 const BG = '#0d1117';
@@ -69,7 +71,12 @@ export function createChart(container) {
   });
   volume.priceScale().applyOptions({ scaleMargins: { top: 0.85, bottom: 0 } });
 
-  return new ChartSurface(chart, candles, volume);
+  // Dashed rules (session opens today) drawn onto the chart's own canvas, so
+  // they track every pan and zoom exactly. No vertical-line series exists.
+  const vlines = new VerticalLines();
+  candles.attachPrimitive(vlines);
+
+  return new ChartSurface(chart, candles, volume, vlines);
 }
 
 const volumeBar = (bar) => ({
@@ -79,10 +86,16 @@ const volumeBar = (bar) => ({
 });
 
 class ChartSurface {
-  constructor(chart, candles, volume) {
+  constructor(chart, candles, volume, vlines) {
     this.chart = chart;
     this.candles = candles;
     this.volume = volume;
+    this.vlines = vlines;
+  }
+
+  /** Drop dashed rules with labels. `lines` are {time, label, color, labelColor}. */
+  setVerticalLines(lines) {
+    this.vlines.setLines(lines);
   }
 
   /**

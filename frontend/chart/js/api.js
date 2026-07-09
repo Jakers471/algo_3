@@ -61,6 +61,15 @@ export const locate = (symbol, timeframe, time) =>
   getJSON('/api/locate', { symbol, timeframe, time: Math.floor(time) });
 
 /**
+ * Drawing instructions for bars `[start, start+count)`.
+ *
+ * Python computed these. The chart renders them without knowing what they mean -
+ * pass the range you have REVEALED and the drawing cannot leak the future.
+ */
+export const getOverlays = (symbol, timeframe, start, count) =>
+  getJSON('/api/overlays', { symbol, timeframe, start: Math.max(0, Math.floor(start)), count: Math.floor(count) });
+
+/**
  * Bars `[start, start+count)`.
  *
  * The server clamps, so the returned `start` and `bars.length` are the truth

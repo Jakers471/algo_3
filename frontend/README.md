@@ -22,6 +22,10 @@ call `/api/*`. Always go through the server.
 Edits to HTML/CSS/JS take effect on a plain browser refresh — the server sends
 `Cache-Control: no-cache` for static assets, and no build artifact sits in between.
 
+Python is different: a module is imported once, so an edited indicator keeps serving the
+old code until the process restarts. Run `python -m src.cli.chart --open --reload` and the
+server restarts itself on any `.py` change.
+
 ## `chart/` — the replay chart
 
 | Path | Job |
@@ -32,6 +36,8 @@ Edits to HTML/CSS/JS take effect on a plain browser refresh — the server sends
 | `js/api.js` | fetch + decode the binary bar records |
 | `js/chart.js` | the chart surface: zoom-preserving `rebuild()`, cheap `push()` |
 | `js/browse.js` | the non-replay view; backfills older bars as you scroll back |
+| `js/overlays.js` | renders the backend's shapes; knows no indicator |
+| `js/vertical_lines.js` | a chart primitive: dashed vertical rules with labels |
 | `js/format.js` | time / price / volume display strings (UTC, like the bars) |
 | `js/replay/window.js` | the sliding bar buffer: prefetch ahead, trim behind |
 | `js/replay/engine.js` | play / pause / step / speed — owns the clock |
@@ -52,9 +58,13 @@ why the view never jumps and your zoom survives a trim.
 ### Indicators do not live here
 
 **The chart draws; it never computes.** There is no indicator code in this folder, and
-none may be added. Every indicator is computed once, in Python, and will arrive over the
-wire as drawing instructions (a line, a shaded band, a marker) that the chart renders
-without knowing what they mean.
+none may be added. Every indicator is computed once, in Python, and arrives over
+`/api/overlays` as drawing instructions that `overlays.js` renders without knowing what
+they mean. It understands *shapes* — today `vlines`, a dashed vertical rule with a label,
+painted by `vertical_lines.js` onto the chart's own canvas (lightweight-charts has no
+vertical-line series, so this uses its primitive API). It marks each trading-session open
+without the word "session" appearing anywhere in its logic, so the next indicator that
+wants a labelled rule needs no change here at all.
 
 This is not a style preference. Two implementations of an indicator — one in Python for
 the backtest, one in JavaScript for the chart — *will* drift, and the day they drift is

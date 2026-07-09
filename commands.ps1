@@ -98,6 +98,7 @@ $root = @{
                 Title = 'Chart  -  browse and replay bars in the browser'
                 Items = @(
                     @{ Label = 'Open chart  (serves http://127.0.0.1:8765)'; Run = { python -m src.cli.chart --open } },
+                    @{ Label = 'Open chart, auto-reload on Python edits  (dev)'; Run = { python -m src.cli.chart --open --reload } },
                     @{ Label = 'Serve only  (no browser)'; Run = { python -m src.cli.chart } },
                     @{ Label = 'Rebuild bar cache, then serve  (after new data)'; Run = { python -m src.cli.chart --repack } },
                     @{ Label = 'Stop chart server  (confirm port closed)'; Run = { python -m src.cli.chart --stop } }
