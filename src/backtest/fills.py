@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from src.strategy.bracket import Bracket, Direction
+from src.backtest.bracket import Bracket, Direction
 
 
 @dataclass(frozen=True)

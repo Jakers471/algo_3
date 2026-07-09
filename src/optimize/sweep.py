@@ -7,7 +7,9 @@ this is just orchestration over the same atomic backtest.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 import pandas as pd
 
@@ -16,7 +18,6 @@ from src.optimize import grid as grid_mod
 from src.optimize import objective as obj_mod
 from src.reporting import stats as stats_mod
 from src.reporting.stats import Stats
-from src.strategy import registry
 
 
 @dataclass
@@ -28,20 +29,23 @@ class SweepResult:
 
 def sweep(
     bars: pd.DataFrame,
-    strategy_name: str,
+    build: Callable[[dict], Any],
     param_grid: dict,
     objective: str,
     symbol: str,
     *,
-    timeframe: str | None = None,
     size: int = 1,
     min_trades: int = 0,
     starting_capital: float = 0.0,
 ) -> list[SweepResult]:
-    """Backtest every grid combo on ``bars``; return them ranked best-first."""
+    """Backtest every grid combo on ``bars``; return them ranked best-first.
+
+    ``build`` turns one param dict into a strategy instance. The caller owns the
+    strategy catalogue; this module only needs something it can call per combo.
+    """
     results: list[SweepResult] = []
     for params in grid_mod.expand(param_grid):
-        strat = registry.build(strategy_name, params, symbol, timeframe)
+        strat = build(params)
         trades = engine.run(bars, strat, symbol, size=size)
         st = stats_mod.compute(trades, starting_capital, "all")
         results.append(SweepResult(params, obj_mod.score(st, objective, min_trades), st))

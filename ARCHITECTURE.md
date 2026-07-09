@@ -25,20 +25,9 @@ algo_3/
 │   │   └── progress.py      in-place ANSI progress bar for long loops
 │   ├── data/           load the NT8 Parquet store into clean bars — engine
 │   │   ├── loader.py      read a symbol/TF Parquet -> raw UTC OHLCV (I/O)
-│   │   ├── prepare.py     window + gap-mark + zero-vol policy (logic)
-│   │   └── cache.py       compute-once/read-many derived series (regime state) to cache/
-│   ├── indicators/     shared raw math (pure) — strategies compose these
-│   │   ├── volume_profile.py  volume-per-row + value area (POC/VAH/VAL core)
-│   │   ├── volume.py          per-bar volume facts: rvol / delta / vexp
-│   │   ├── grade.py           OHLCV window -> regime; rolling_state / _consolidation
-│   │   ├── sessions.py        session instances + per-bar session_strength (L1 bias)
-│   │   └── consolidation.py   CONSOLIDATION mask -> per-bar tradeable base (VAH/VAL)
-│   ├── strategy/       bars -> bracket order intents (signals)
-│   │   ├── bracket.py     Direction + Bracket (entry stop + SL/TP as absolute levels)
-│   │   ├── breakout.py    Donchian long/short starter (entry_signals) + params
-│   │   ├── va_breakout.py value-area breakout in a directional session (GRADE-based)
-│   │   └── registry.py    name -> strategy class (build one from a run config)
+│   │   └── prepare.py     window + gap-mark + zero-vol policy (logic)
 │   ├── backtest/       resolve brackets against bars -> fills, PnL, stats
+│   │   ├── bracket.py     Direction + Bracket (entry stop + SL/TP as absolute levels)
 │   │   ├── fills.py       pure fill model (slippage, gaps, adverse-first flag)
 │   │   ├── engine.py      the bar loop; emits Trades (MAE/MFE/ETD, hold policy)
 │   │   └── runspec.py     load a JSON run config; label a run (replayable)
@@ -63,10 +52,7 @@ algo_3/
 │   │   ├── contracts.py   search contracts, resolve a symbol to its id
 │   │   └── history.py     fetch OHLCV bars for a contract
 │   └── cli/            thin doors: parse input, call an engine, format out
-│       ├── data.py        load & summarize prepared bars (python -m src.cli.data)
-│       ├── backtest.py    run a backtest from a config; save a labeled run
-│       └── walkforward.py run a walk-forward from a config; save a labeled run
-├── run_configs/        JSON run recipes (tracked) — strategy + params + data
+│       └── data.py        load & summarize prepared bars (python -m src.cli.data)
 ├── runs/               labeled run outputs (git-ignored): trades, summary, equity.png
 ├── tests/              pytest suite (dev tooling, not product code)
 │   └── test_fills.py     pins the fill model's honest assumptions
@@ -92,18 +78,8 @@ cli.data         ─► data.prepare         (the bars engine it drives)
                  ├► logging.setup         (configure logging at startup)
                  └► core.console          (color the summary)
 
-indicators.grade         ─► indicators.volume_profile   (profile + value area)
-indicators.sessions      ─► config.session              (session windows + tz)
-indicators.consolidation ─► indicators.grade            (grade each base run)
-
-data.cache           ─► data.loader, indicators.grade   (full-dataset cons mask -> cache/)
-
-strategy.breakout    ─► strategy.bracket   (emits Bracket order intents)
-strategy.va_breakout ─► indicators.{sessions, grade, consolidation}, strategy.bracket,
-                        data.cache (full-dataset mask when symbol/tf known)
-strategy.registry    ─► strategy.{breakout, va_breakout}   (attaches symbol/tf)
 backtest.engine   ─► backtest.fills      (resolve fills against a bar)
-                  ├► strategy.bracket     (the order intent it consumes)
+                  ├► backtest.bracket     (the order intent it consumes)
                   ├► config.backtest      (slippage, commission, hold policy)
                   └► config.instruments   (tick/point value for PnL)
 backtest.runspec  ─► json                 (load the run config; a manifest replays)
@@ -115,14 +91,14 @@ reporting.folds   ─► (walk-forward fold results -> CSV/text)
 reporting.console ─► reporting.stats, core.console (terminal summaries)
 reporting.run     ─► reporting.{trades,stats,equity,folds}, backtest.runspec  (labeled run)
 
-optimize.sweep    ─► optimize.{grid,objective}, backtest.engine, reporting.stats, strategy.registry
+optimize.sweep    ─► optimize.{grid,objective}, backtest.engine, reporting.stats
 walkforward.engine ─► walkforward.folds, optimize.{sweep,objective}, backtest.engine,
-                      reporting.stats, strategy.registry, config.backtest
+                      reporting.stats, config.backtest
 
-cli.backtest      ─► data.prepare, strategy.registry, backtest.{engine,runspec},
-                     reporting.{stats,console,run}, core.progress
-cli.walkforward   ─► data.prepare, walkforward.{engine,folds,wfaspec},
-                     reporting.{stats,console,run}, core.progress
+Neither optimizer nor walk-forward engine knows any strategy: both take a
+``build(params) -> strategy`` callable. The caller owns the strategy catalogue;
+the engines stay generic. A strategy is anything with ``entry_signals(bars)``
+returning ``backtest.bracket.Bracket`` intents.
 
 logging.setup    ─► logging.settings    (reads the dial value)
                  └► core.console         (color codes)
@@ -145,8 +121,9 @@ audit.reader       ─► DATA_AUDIT.json     (the data's own rules, read once)
 ## Entry points (the doors you can run)
 
 - **`python -m src.cli.data [SYMBOL] [TIMEFRAME]`** — load prepared bars (default `NQ 5m`) and print a summary (rows, range, session-gap count). Wired into `commands.bat` → Data.
-- **`python -m src.cli.backtest run_configs/<name>.json`** — run a backtest from a JSON run config with a progress bar, print the All/Long/Short summary, and save a **labeled run** to `runs/<timestamp>_<strategy>_<params>/` (trades.csv/txt, summary.json/txt, equity.png, run.json manifest). The manifest replays as a config. A run is always defined by a config. Wired into `commands.bat` → Backtest.
-- **`python -m src.cli.walkforward run_configs/<name>.json`** — run a walk-forward analysis: for each fold, optimize the param grid in-sample and test the winner out-of-sample, then stitch the OOS trades. Prints the per-fold table + stitched-OOS summary + walk-forward efficiency; saves a labeled run (adds `folds.csv/txt`, `wfa.json`). Judge on the stitched OOS, never the in-sample optimization. Wired into `commands.bat` → Backtest.
+The backtest and walk-forward doors were removed with the strategy layer; they
+return when the new strategy layer lands (a door wires its catalogue into the
+engines' ``build`` callable).
 
 `broker/` is a verified, reusable engine (auth → account → contract → bars) still awaiting its own command (e.g. live trading, health check); when built it adds another thin `cli/` door here, wired into `commands.bat`.
 
@@ -160,4 +137,10 @@ The historical NQ/ES Parquet in `data/` is audited in `DATA_AUDIT.md` (human) an
 
 ## Not built yet (planned shape)
 
-These get created — with their config section alongside — when the area is actually built: `broker/orders.py`, `broker/positions.py`, `risk/` (sizing/limits, reads `config/risk.py`), `execution/` (live loop, reads `config/live.py`), `config/live.py`, `config/risk.py`. (`data/`, `strategy/`, `backtest/`, and `cli/` now exist.)
+**The strategy layer is being redefined and is currently absent.** The engines it
+plugs into (`backtest/`, `optimize/`, `walkforward/`, `reporting/`) are intact and
+strategy-agnostic. What returns: a strategy package emitting `Bracket` intents from
+`entry_signals(bars)`, whatever indicators it needs, its run configs, and the thin
+`cli/` doors that wire a catalogue into the engines' `build` callable.
+
+These get created — with their config section alongside — when the area is actually built: `broker/orders.py`, `broker/positions.py`, `risk/` (sizing/limits, reads `config/risk.py`), `execution/` (live loop, reads `config/live.py`), `config/live.py`, `config/risk.py`. (`data/`, `backtest/`, and `cli/` now exist.)

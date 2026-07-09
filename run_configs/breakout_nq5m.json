@@ -1,7 +1,0 @@
-{
-  "strategy": "breakout",
-  "params": { "lookback": 20, "stop_points": 20, "target_points": 40 },
-  "symbol": "NQ",
-  "timeframe": "5m",
-  "size": 1
-}

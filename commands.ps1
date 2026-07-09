@@ -92,36 +92,6 @@ $root = @{
             }
         },
         @{
-            # Category = TYPE (backtest). Label = strategy (market). Config named to match.
-            Label = 'Backtest'
-            Submenu = @{
-                Title = 'Backtest  -  one run over the full history'
-                Items = @(
-                    @{ Label = 'Breakout      (NQ 5m)'; Run = { python -m src.cli.backtest run_configs/breakout_nq5m.json } },
-                    @{ Label = 'VA-breakout   (NQ 5m)'; Run = { python -m src.cli.backtest run_configs/va_breakout_nq5m.json } }
-                )
-            }
-        },
-        @{
-            Label = 'Walk-forward'
-            Submenu = @{
-                Title = 'Walk-forward  -  optimize in-sample, test out-of-sample'
-                Items = @(
-                    @{ Label = 'Breakout      (NQ 5m)'; Run = { python -m src.cli.walkforward run_configs/wfa_breakout_nq5m.json } }
-                )
-            }
-        },
-        @{
-            Label = 'Tools'
-            Submenu = @{
-                Title = 'Tools  -  inspect / explain'
-                Items = @(
-                    @{ Label = 'Decode a VA-breakout signal  (NQ 5m)'; Run = { python scratch/va_breakout_demo.py NQ 5m } },
-                    @{ Label = 'Regime census  -  how common is each regime  (NQ 5m)'; Run = { python scratch/regime_census.py NQ 5m } }
-                )
-            }
-        },
-        @{
             Label = 'Data'
             Submenu = @{
                 Title = 'Data'

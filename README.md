@@ -27,11 +27,16 @@ Or run a door directly:
 
 ```
 python -m src.cli.data NQ 5m                                    # load & summarize prepared bars
-python -m src.cli.backtest run_configs/breakout_nq5m.json       # backtest -> saved labeled run
-python -m src.cli.walkforward run_configs/wfa_breakout_nq5m.json  # walk-forward (IS/OOS) -> saved run
 ```
 
-A backtest saves a **labeled run** to `runs/<timestamp>_<strategy>_<params>/` (git-ignored): `trades.csv`/`trades.txt`, `summary.json`/`summary.txt`, `equity.png`, and a `run.json` manifest that replays as a config. Run recipes live in `run_configs/` (tracked JSON) — see `run_configs/README.md` for every field and the swappable objective/strategy names.
+**The strategy layer is being redefined and is currently absent**, so there is no
+backtest or walk-forward door to run yet. The engines behind them (`backtest/`,
+`optimize/`, `walkforward/`, `reporting/`) are intact and strategy-agnostic: a
+strategy is anything with `entry_signals(bars)` emitting `Bracket` intents, and the
+optimizer and walk-forward engine take a `build(params) -> strategy` callable, so
+the door owns the catalogue and the engines stay generic.
+
+When a backtest door returns it saves a **labeled run** to `runs/<timestamp>_<strategy>_<params>/` (git-ignored): `trades.csv`/`trades.txt`, `summary.json`/`summary.txt`, `equity.png`, and a `run.json` manifest that replays as a config.
 
 _See `ARCHITECTURE.md` for all entry points. `src/broker/` is a reusable engine still awaiting its own command._
 

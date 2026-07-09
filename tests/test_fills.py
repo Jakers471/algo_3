@@ -8,7 +8,7 @@ the limit, and adverse-first (stop) on an ambiguous same-bar stop+target.
 from pytest import approx
 
 from src.backtest.fills import Bar, entry_fill, exit_fill
-from src.strategy.bracket import Bracket, Direction
+from src.backtest.bracket import Bracket, Direction
 
 TICK = 0.25
 SLIP = 1          # ticks

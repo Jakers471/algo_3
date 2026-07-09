@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import logging
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
 from statistics import mean
+from typing import Any
 
 import pandas as pd
 
@@ -22,7 +24,6 @@ from src.config import backtest as bt_cfg
 from src.optimize import objective as obj_mod
 from src.optimize import sweep as sweep_mod
 from src.reporting import stats as stats_mod
-from src.strategy import registry
 from src.walkforward import folds as folds_mod
 from src.walkforward.wfaspec import WFASpec
 
@@ -64,7 +65,13 @@ def _wfe(fold_results: list[FoldResult]) -> float:
     return mean(oos_scores) / m_is if m_is else 0.0
 
 
-def run(bars: pd.DataFrame, spec: WFASpec, *, progress=None) -> WFAResult:
+def run(bars: pd.DataFrame, spec: WFASpec, build: Callable[[dict], Any], *,
+        progress=None) -> WFAResult:
+    """Walk the folds, optimizing in-sample and testing out-of-sample.
+
+    ``build`` turns one param dict into a strategy instance. The caller owns the
+    strategy catalogue; this engine stays strategy-agnostic.
+    """
     index = bars.index
     the_folds = folds_mod.generate(index, spec.is_days, spec.oos_days, spec.step_days, spec.anchored)
     if not the_folds:
@@ -81,14 +88,12 @@ def run(bars: pd.DataFrame, spec: WFASpec, *, progress=None) -> WFAResult:
         oos_bars = bars[(index >= f.oos_start) & (index < f.oos_end)]
 
         ranked = sweep_mod.sweep(
-            is_bars, spec.strategy, spec.param_grid, spec.objective, spec.symbol,
-            timeframe=spec.timeframe, size=spec.size, min_trades=spec.min_trades,
-            starting_capital=cap,
+            is_bars, build, spec.param_grid, spec.objective, spec.symbol,
+            size=spec.size, min_trades=spec.min_trades, starting_capital=cap,
         )
         best = ranked[0]
 
-        strat = registry.build(spec.strategy, best.params, spec.symbol, spec.timeframe)
-        oos_trades = bt_engine.run(oos_bars, strat, spec.symbol, size=spec.size)
+        oos_trades = bt_engine.run(oos_bars, build(best.params), spec.symbol, size=spec.size)
         oos_stats = stats_mod.compute(oos_trades, cap, "all")
         oos_score = obj_mod.score(oos_stats, spec.objective, 0)
 

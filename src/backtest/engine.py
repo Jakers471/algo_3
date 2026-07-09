@@ -19,7 +19,7 @@ import pandas as pd
 from src.backtest import fills
 from src.config import backtest as bt_cfg
 from src.config import instruments
-from src.strategy.bracket import Bracket, Direction
+from src.backtest.bracket import Bracket, Direction
 
 logger = logging.getLogger(__name__)
 

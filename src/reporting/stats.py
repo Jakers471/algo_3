@@ -13,7 +13,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from src.backtest.engine import Trade
-from src.strategy.bracket import Direction
+from src.backtest.bracket import Direction
 
 
 @dataclass
