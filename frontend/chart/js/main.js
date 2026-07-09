@@ -54,6 +54,9 @@ async function boot() {
     async onStart(epochSeconds) {
       const { index } = await locate(controls.symbol, controls.timeframe, epochSeconds);
       controls.setMode('replay');
+      // Browse and replay share one surface. Hand it over before replay draws,
+      // or a scroll-triggered backfill will rebuild the series out from under it.
+      browser.suspend();
       await engine.start(controls.symbol, controls.timeframe, index);
       controls.showProgress(engine.cursor, engine.total);
     },

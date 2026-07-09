@@ -23,14 +23,26 @@ export class Browser {
     this.firstIndex = 0;   // dataset index of bars[0]
     this.total = 0;
     this._loading = false;
+    this.active = false;
 
+    // The subscription lives for the life of the chart, but the handler must
+    // not: browse and replay share one surface, and zoom stays live during a
+    // replay. A backfill fired then would rebuild the series with the TAIL of
+    // the dataset - thousands of bars ahead of the replay cursor - and the next
+    // snapshot would be handed to a chart whose newest bar is in its future.
     this.surface.onVisibleRangeChange((range) => this._maybeBackfill(range));
+  }
+
+  /** Stop touching the surface. Replay owns it now. */
+  suspend() {
+    this.active = false;
   }
 
   /** Load the newest `historyBars` bars of a symbol/timeframe and frame them. */
   async load(symbol, timeframe) {
     this.symbol = symbol;
     this.timeframe = timeframe;
+    this.active = true;
 
     // start=0,count=0 is the cheap way to ask "how many bars are there?" - the
     // server answers with an empty body and the true total in X-Total.
@@ -52,6 +64,7 @@ export class Browser {
 
   /** Prepend the previous chunk when the user scrolls near the loaded edge. */
   async _maybeBackfill(range) {
+    if (!this.active) return;   // replay owns the surface
     if (!range || this._loading || this.firstIndex === 0 || !this.symbol) return;
     if (range.from > BACKFILL_TRIGGER_BARS) return;
 
@@ -60,7 +73,8 @@ export class Browser {
       const count = Math.min(this.cfg.prefetchBars, this.firstIndex);
       const from = this.firstIndex - count;
       const { bars } = await getBars(this.symbol, this.timeframe, from, count);
-      if (bars.length === 0) return;
+      // The fetch is slow enough for replay to have started underneath it.
+      if (bars.length === 0 || !this.active) return;
 
       this.bars = bars.concat(this.bars);
       this.firstIndex = from;
