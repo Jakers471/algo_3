@@ -24,12 +24,13 @@ OUTPUT_SYMBOL = "NQT"
 # the ticks are streamed exactly once and the rest are folded up from the result.
 # (Deriving 1m from 15s is exact; re-reading 296M ticks per timeframe is not.)
 BASE_TIMEFRAME = "15s"
-DERIVED_TIMEFRAMES = ("1m", "5m", "15m", "60m", "4h")
+DERIVED_TIMEFRAMES = ("30s", "1m", "5m", "15m", "60m", "4h")
 
 # Pandas offset per timeframe. Bars are CLOSE-stamped, like the NT8 store:
 # a bar labelled T covers (T - step, T].
 FREQ = {
     "15s": "15s",
+    "30s": "30s",
     "1m": "1min",
     "5m": "5min",
     "15m": "15min",

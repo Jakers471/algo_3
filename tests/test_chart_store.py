@@ -32,24 +32,38 @@ def packed(tmp_path, monkeypatch):
     recs["low"] = np.arange(n) + 4999.00
     recs["close"] = np.arange(n) + 5000.75
     recs["volume"] = np.arange(n) * 10
+    # This synthetic dataset has no order flow, exactly like the NT8 bar files.
+    for field in packer.ORDER_FLOW_FIELDS:
+        recs[field] = np.float32("nan")
 
     bars_fp, times_fp, meta_fp = packer.paths_for("XX", "5m")
     recs.tofile(bars_fp)
     recs["time"].astype(packer.TIME_DTYPE).tofile(times_fp)
     meta_fp.write_text(json.dumps({
         "format_version": packer.FORMAT_VERSION, "symbol": "XX", "timeframe": "5m",
-        "count": n, "bar_bytes": packer.BAR_DTYPE.itemsize,
+        "count": n, "bar_bytes": packer.BAR_DTYPE.itemsize, "order_flow": False,
         "first_time": int(recs["time"][0]), "last_time": int(recs["time"][-1]),
     }))
     return recs
 
 
-def test_bar_record_is_24_bytes():
-    """The JS decoder hard-codes this stride; changing it breaks the chart."""
-    assert packer.BAR_DTYPE.itemsize == 24
-    assert [name for name in packer.BAR_DTYPE.names] == [
+def test_bar_record_is_40_bytes():
+    """The JS decoder hard-codes this stride and these offsets; both must agree.
+
+    The fields are positional, not named. A change here that is not mirrored in
+    frontend/chart/js/api.js misreads every candle silently.
+    """
+    assert packer.BAR_DTYPE.itemsize == 40
+    assert list(packer.BAR_DTYPE.names) == [
         "time", "open", "high", "low", "close", "volume",
+        "delta", "buy_volume", "sell_volume", "trades",
     ]
+    # The offsets the decoder walks.
+    assert [packer.BAR_DTYPE.fields[n][1] for n in packer.BAR_DTYPE.names] ==         [0, 4, 8, 12, 16, 20, 24, 28, 32, 36]
+
+
+def test_order_flow_fields_are_the_ones_that_may_be_absent():
+    assert packer.ORDER_FLOW_FIELDS == ("delta", "buy_volume", "sell_volume", "trades")
 
 
 def test_quarter_tick_prices_survive_float32():
@@ -61,7 +75,7 @@ def test_quarter_tick_prices_survive_float32():
 def test_slice_returns_exact_bytes(packed):
     body, start = store.slice_bytes("XX", "5m", 2, 3)
     assert start == 2
-    assert len(body) == 3 * 24
+    assert len(body) == 3 * 40
     out = np.frombuffer(body, dtype=packer.BAR_DTYPE)
     assert list(out["time"]) == list(packed["time"][2:5])
     assert list(out["close"]) == list(packed["close"][2:5])
@@ -71,7 +85,7 @@ def test_slice_clamps_past_the_end(packed):
     """Walking off the right edge of a replay is an empty answer, not an error."""
     body, start = store.slice_bytes("XX", "5m", 8, 100)
     assert start == 8
-    assert len(body) == 2 * 24
+    assert len(body) == 2 * 40
 
     body, start = store.slice_bytes("XX", "5m", 999, 10)
     assert start == 10 and body == b""
@@ -79,7 +93,7 @@ def test_slice_clamps_past_the_end(packed):
 
 def test_slice_clamps_negative_start(packed):
     body, start = store.slice_bytes("XX", "5m", -5, 2)
-    assert start == 0 and len(body) == 2 * 24
+    assert start == 0 and len(body) == 2 * 40
 
 
 def test_locate_finds_first_bar_at_or_after(packed):
@@ -124,6 +138,6 @@ def test_request_size_is_capped(packed, monkeypatch):
     _, _, body, headers = api.handle("/api/bars", {
         "symbol": ["XX"], "timeframe": ["5m"], "start": ["0"], "count": ["999999"],
     })
-    assert len(body) == 4 * 24
+    assert len(body) == 4 * 40
     assert headers["X-Count"] == "4"
     assert headers["X-Total"] == "10"

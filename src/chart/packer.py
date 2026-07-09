@@ -7,7 +7,7 @@ that touches a handful of pages), and a JSON sidecar describing both.
 
 Why a second copy of data we already have: Parquet is columnar and compressed,
 so answering "give me bars 412,000..413,500" means decompressing row groups.
-The packed form is a flat C array of 24-byte records - slicing it is pointer
+The packed form is a flat C array of 40-byte records - slicing it is pointer
 arithmetic over the OS page cache, and the slice IS the wire payload. Building
 is a one-time cost per symbol/timeframe; reading is near-instant forever after.
 
@@ -26,10 +26,19 @@ from src.data import loader
 
 logger = logging.getLogger(__name__)
 
-# One bar = 24 bytes. Little-endian, fixed width, no padding.
-#   time   uint32  - epoch seconds UTC (valid to 2106)
-#   ohlc   float32 - exact for quarter-tick futures prices (< 2^24 quarter-ticks)
-#   volume float32 - exact to 16.7M contracts per bar
+# One bar = 40 bytes. Little-endian, fixed width, no padding.
+#   time        uint32  - epoch seconds UTC (valid to 2106)
+#   ohlc        float32 - exact for quarter-tick futures prices (< 2^24 quarter-ticks)
+#   volume      float32 - exact to 16.7M contracts per bar
+#   delta       float32 - signed volume: aggressive buys minus aggressive sells
+#   buy/sell    float32 - the two sides of it
+#   trades      float32 - number of prints in the bar
+#
+# The order-flow fields are NaN when the dataset cannot supply them. That is the
+# whole point of using a float here rather than an int: a bar file records total
+# volume but never which side was the aggressor, and packing 0 would tell every
+# indicator downstream that twenty years of history had perfectly balanced flow.
+# NaN says "absent", the format enforces it, and nobody has to remember.
 BAR_DTYPE = np.dtype([
     ("time", "<u4"),
     ("open", "<f4"),
@@ -37,11 +46,19 @@ BAR_DTYPE = np.dtype([
     ("low", "<f4"),
     ("close", "<f4"),
     ("volume", "<f4"),
+    ("delta", "<f4"),
+    ("buy_volume", "<f4"),
+    ("sell_volume", "<f4"),
+    ("trades", "<f4"),
 ])
 TIME_DTYPE = np.dtype("<u4")
 
+# Fields that may be absent. Kept here so the packer, the tests and the JS
+# decoder all agree on which columns are allowed to be NaN.
+ORDER_FLOW_FIELDS = ("delta", "buy_volume", "sell_volume", "trades")
+
 # Bump when BAR_DTYPE or the file layout changes, to invalidate stale caches.
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2
 
 
 def paths_for(symbol: str, timeframe: str) -> tuple:
@@ -88,6 +105,10 @@ def pack(symbol: str, timeframe: str, *, force: bool = False) -> dict:
     for col in ("open", "high", "low", "close", "volume"):
         recs[col] = df[col].to_numpy(dtype="<f4")
 
+    has_flow = loader.has_order_flow(df)
+    for col in ORDER_FLOW_FIELDS:
+        recs[col] = df[col].to_numpy(dtype="<f4") if has_flow else np.float32("nan")
+
     chart_cfg.CACHE_DIR.mkdir(parents=True, exist_ok=True)
     recs.tofile(bars_fp)
     recs["time"].astype(TIME_DTYPE).tofile(times_fp)
@@ -98,12 +119,14 @@ def pack(symbol: str, timeframe: str, *, force: bool = False) -> dict:
         "timeframe": timeframe,
         "count": int(len(recs)),
         "bar_bytes": BAR_DTYPE.itemsize,
+        "order_flow": bool(has_flow),
         "first_time": int(recs["time"][0]) if len(recs) else None,
         "last_time": int(recs["time"][-1]) if len(recs) else None,
     }
     meta_fp.write_text(json.dumps(meta, indent=2))
-    logger.info("Packed %s %s: %d bars, %.1f MB",
-                symbol, timeframe, len(recs), bars_fp.stat().st_size / 1e6)
+    logger.info("Packed %s %s: %d bars, %.1f MB%s",
+                symbol, timeframe, len(recs), bars_fp.stat().st_size / 1e6,
+                "" if has_flow else " (no order flow)")
     return meta
 
 

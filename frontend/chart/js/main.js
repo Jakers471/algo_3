@@ -31,7 +31,7 @@ async function boot() {
     return;
   }
 
-  const surface = createChart(document.getElementById('chart'));
+  const surface = createChart(document.getElementById('chart'), cfg);
   const overlays = new OverlayLayer(surface);
   const browser = new Browser(surface, overlays, cfg);
   const engine = new ReplayEngine(cfg, surface);

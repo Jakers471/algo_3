@@ -28,6 +28,12 @@ class BarClose:
     This matches the NT8 Parquet store exactly (verified: 1m bars aggregate into
     5m bars, OHLC and volume, using closed='right'/label='right'). A bar stamped
     ``T`` is therefore fully known at ``T``, so revealing it at ``T`` leaks nothing.
+
+    The order-flow fields are ``None`` on any bar that cannot supply them. A bar
+    file records total volume but never which side was the aggressor - that is
+    destroyed by aggregation and no transformation recovers it. ``None`` means
+    absent; it never means zero. An indicator that needs them and finds None must
+    raise ``Unavailable`` rather than compute on a fabricated number.
     """
 
     ts: datetime
@@ -37,6 +43,12 @@ class BarClose:
     close: float
     volume: float
 
+    # Present only on bars rebuilt from ticks (data/NQT/).
+    delta: float | None = None
+    buy_volume: float | None = None
+    sell_volume: float | None = None
+    trades: float | None = None
+
     @property
     def range(self) -> float:
         return self.high - self.low
@@ -44,3 +56,7 @@ class BarClose:
     @property
     def body(self) -> float:
         return self.close - self.open
+
+    @property
+    def has_order_flow(self) -> bool:
+        return self.delta is not None

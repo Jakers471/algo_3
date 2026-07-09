@@ -9,9 +9,17 @@
  * A DataView walk over an ArrayBuffer costs microseconds per thousand bars.
  */
 
-// Must match src/chart/packer.py BAR_DTYPE.
-const BAR_BYTES = 24;
+// Must match src/chart/packer.py BAR_DTYPE. Changing this without changing that
+// silently misreads every candle - the fields are positional, not named.
+const BAR_BYTES = 40;
 const LITTLE_ENDIAN = true;
+
+/**
+ * NaN on the wire means the dataset cannot supply this field, not that it is
+ * zero. The NT8 bar files have no order flow and never can. Returning null
+ * keeps "absent" distinguishable from "balanced" all the way to the screen.
+ */
+const optional = (value) => (Number.isNaN(value) ? null : value);
 
 /** Decode a raw /api/bars payload into bar objects (time in epoch seconds, UTC). */
 export function decodeBars(buffer) {
@@ -27,6 +35,10 @@ export function decodeBars(buffer) {
       low: view.getFloat32(o + 12, LITTLE_ENDIAN),
       close: view.getFloat32(o + 16, LITTLE_ENDIAN),
       volume: view.getFloat32(o + 20, LITTLE_ENDIAN),
+      delta: optional(view.getFloat32(o + 24, LITTLE_ENDIAN)),
+      buyVolume: optional(view.getFloat32(o + 28, LITTLE_ENDIAN)),
+      sellVolume: optional(view.getFloat32(o + 32, LITTLE_ENDIAN)),
+      trades: optional(view.getFloat32(o + 36, LITTLE_ENDIAN)),
     };
   }
   return bars;
@@ -45,12 +57,13 @@ async function getJSON(path, params) {
  * Snake_case on the wire, camelCase in JS.
  */
 export async function getConfig() {
-  const raw = await getJSON('/api/config');
-  const cfg = {};
-  for (const [key, value] of Object.entries(raw)) {
-    cfg[key.replace(/_([a-z])/g, (_, c) => c.toUpperCase())] = value;
-  }
-  return cfg;
+  const camel = (obj) => Object.fromEntries(
+    Object.entries(obj).map(([k, v]) => [
+      k.replace(/_([a-z])/g, (_, c) => c.toUpperCase()),
+      v && typeof v === 'object' && !Array.isArray(v) ? camel(v) : v,
+    ]),
+  );
+  return camel(await getJSON('/api/config'));
 }
 
 /** Every packed symbol/timeframe with its bar count and time span. */

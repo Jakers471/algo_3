@@ -27,6 +27,7 @@ SYMBOLS = ("NQ", "ES", "NQT")
 # 15s exists only for NQT: bars cannot be subdivided, only ticks can.
 TIMEFRAMES: dict[str, str] = {
     "15s": "15s",
+    "30s": "30s",
     "1m": "1min",
     "5m": "5min",
     "15m": "15min",
@@ -37,14 +38,27 @@ TIMEFRAMES: dict[str, str] = {
 
 EXPECTED_COLUMNS = ["open", "high", "low", "close", "volume"]
 
+# Order flow, present only in datasets rebuilt from ticks. A bar file records
+# total volume but not which side was the aggressor, and that information is
+# destroyed by aggregation - so these columns are absent, not zero, on NQ/ES.
+ORDER_FLOW_COLUMNS = ["delta", "buy_volume", "sell_volume", "trades"]
+
 
 def path_for(symbol: str, timeframe: str) -> Path:
     """Resolve the Parquet path for a symbol/timeframe (no I/O)."""
     return DATA_DIR / symbol / f"{symbol}_{timeframe}.parquet"
 
 
+def has_order_flow(df: pd.DataFrame) -> bool:
+    """True if this dataset carries signed volume (i.e. it was built from ticks)."""
+    return all(column in df.columns for column in ORDER_FLOW_COLUMNS)
+
+
 def load_raw(symbol: str, timeframe: str) -> pd.DataFrame:
-    """Load one symbol/timeframe Parquet as raw UTC-indexed OHLCV bars."""
+    """Load one symbol/timeframe Parquet as raw UTC-indexed bars.
+
+    Always OHLCV; additionally the order-flow columns when the dataset has them.
+    """
     if timeframe not in TIMEFRAMES:
         raise ValueError(f"Unknown timeframe {timeframe!r}; known: {list(TIMEFRAMES)}")
     fp = path_for(symbol, timeframe)
@@ -66,7 +80,8 @@ def _normalize(df: pd.DataFrame, fp: Path) -> pd.DataFrame:
     missing = [c for c in EXPECTED_COLUMNS if c not in df.columns]
     if missing:
         raise ValueError(f"{fp.name} missing columns {missing}; has {list(df.columns)}")
-    df = df[EXPECTED_COLUMNS]
+    keep = EXPECTED_COLUMNS + [c for c in ORDER_FLOW_COLUMNS if c in df.columns]
+    df = df[keep]
 
     if not isinstance(df.index, pd.DatetimeIndex):
         raise TypeError(f"{fp.name} index is not a DatetimeIndex: {type(df.index).__name__}")

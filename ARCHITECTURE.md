@@ -21,7 +21,8 @@ algo_3/
 │   │   ├── table.py       desktop table: server URL, row cap, theme
 │   │   ├── live.py        contract id, which market streams, capture dir
 │   │   └── indicators/    one module per indicator, named for its id
-│   │       └── sessions.py  enable + band colors for the sessions indicator
+│   │       ├── sessions.py  enable + line colors for the sessions indicator
+│   │       └── orderflow.py enable + delta strip colors and placement
 │   ├── audit/           read the data-truth facts from DATA_AUDIT.json
 │   │   └── reader.py       front door: specs, handling flags, data end
 │   ├── logging/         the logging job: dials + the setup that applies them
@@ -44,7 +45,8 @@ algo_3/
 │   ├── indicators/     state machines over the event stream
 │   │   ├── base.py        what an indicator is; Unavailable (no proxy values)
 │   │   ├── registry.py    topological order by dependency; merged field row
-│   │   └── sessions.py    Asia/London/NY + running session extremes
+│   │   ├── sessions.py    Asia/London/NY + running session extremes
+│   │   └── orderflow.py   delta/buy/sell/trades, or Unavailable on bar files
 │   ├── data/           load the NT8 Parquet store into clean bars — engine
 │   │   ├── loader.py      read a symbol/TF Parquet -> raw UTC OHLCV (I/O)
 │   │   ├── prepare.py     window + gap-mark + zero-vol policy (logic)
@@ -184,6 +186,7 @@ not per-event.
 indicators.base      ─► (the Indicator interface + Unavailable)
 indicators.registry  ─► indicators.base         (toposort deps; merged field row)
 indicators.sessions  ─► config.session, indicators.base   (Asia/London/NY)
+indicators.orderflow ─► indicators.base   (lifts delta off the bar; refuses if absent)
 events.types         ─► (BarClose; Trade/Quote arrive with their sources)
 
 chart.packer     ─► data.loader, numpy  (Parquet -> flat bar records)
@@ -221,7 +224,11 @@ chart.autoreload ─► (watch .py mtimes; trip the server's stop event)
 cli.chart        ─► chart.{server,packer,lifecycle}, logging.setup, core.console
 
 The browser talks only to chart.api. Bars cross the wire as raw 24-byte records
-(uint32 time + 5 float32s), never JSON - at 1m there are ~6M of them per symbol.
+(uint32 time + 9 float32s, 40 bytes), never JSON - at 1m there are ~6M of them.
+The four order-flow fields are NaN when the dataset cannot supply them, decoded
+to `null` in the browser and `None` in Python. Absent is not zero: packing 0 for
+the NT8 bar files would tell every indicator that twenty years of history had
+perfectly balanced buying and selling.
 frontend/chart/js/api.js decodes that layout; tests/test_chart_store.py pins it.
 
 The chart DRAWS; it never computes. There are no indicators in the frontend and
@@ -290,7 +297,7 @@ engines' ``build`` callable).
 ## Two bar datasets, deliberately kept apart
 
 `data/NQ/`, `data/ES/` are the **NT8 bar files**: 2005-01-11 → 2025-01-10, OHLCV only.
-`data/NQT/` are **bars rebuilt from ticks**: 2024-03-12 → 2026-07-03, at 15s/1m/5m/15m/60m/4h,
+`data/NQT/` are **bars rebuilt from ticks**: 2024-03-12 → 2026-07-03, at 15s/30s/1m/5m/15m/60m/4h,
 and each bar additionally carries `delta`, `buy_volume`, `sell_volume`, `trades`.
 
 They live under different symbols on purpose. The two series are back-adjusted from

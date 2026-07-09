@@ -196,10 +196,15 @@ counts what has landed, and resumes on Follow or on scrolling back to the bottom
   can watch the drawings and the numbers agree in real time.
 - **Done when:** chart and TUI run together during a replay and tell the same story.
 
-### Phase 4 — indicators in volume
-Structure, volume, delta, absorption, regime. One at a time, each with its config, each
-appearing as a column in the TUI and (where it makes sense) a drawing on the chart.
-Tick-only indicators refuse to produce values when fed bars.
+### Phase 4 — indicators in volume  *(started)*
+Structure, delta, absorption, regime. One at a time, each with its config, each appearing as
+a column in the table and (where it makes sense) a drawing on the chart. Tick-only indicators
+refuse to produce values when fed bars.
+
+- **orderflow** *(done)* — `delta` / `buy_volume` / `sell_volume` / `trades`, drawn as a signed
+  strip and shown as four table columns. `Unavailable` on NQ/ES, which is the whole point.
+- Next candidates: **absorption** (a green close on net selling — 17.9% of bars, measured),
+  **structure** (swing highs/lows, break of structure), **regime**.
 
 ### Phase 5 — the clock-driven replay engine
 The session now exists (phase 3); what remains is to replace its bar-index cursor with a
@@ -240,9 +245,12 @@ it — that vocabulary is deliberately independent of any strategy.
   anchor; never mix). Each bar carries `delta`, `buy_volume`, `sell_volume`, `trades`.
   The 20-year NT8 bar history remains its own dataset for bar-expressible work.
 
-- **Delta on the chart.** The order-flow columns exist now; the chart's packed wire format
-  still carries only OHLCV. Widening it (or serving delta as a second series) is what puts
-  real order flow on screen.
+- ~~**Delta on the chart.**~~ **Done.** The packed record went 24 -> 40 bytes, carrying
+  `delta`, `buy_volume`, `sell_volume`, `trades`. They are **NaN when absent**, decoded to
+  `null`/`None`, because packing 0 for the NT8 bar files would claim twenty years of
+  perfectly balanced flow. `indicators/orderflow.py` lifts them into the snapshot row and
+  raises `Unavailable` on bars that have none; the chart draws a signed delta strip and the
+  table grows four columns, both automatically.
 
 ---
 

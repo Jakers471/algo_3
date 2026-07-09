@@ -48,6 +48,11 @@ state, and publishes one snapshot per bar over a stream the chart subscribes to.
 back replays the warmup silently, so the indicators at a cut point hold exactly what they
 would have held had you played into it — nothing can see past the cursor, by construction.
 
+`NQT` bars carry **order flow**: delta (aggressive buys minus aggressive sells) is drawn as
+a signed strip beneath the price, green above the zero line and red below. The NT8 `NQ`/`ES`
+bars have no aggressor recorded, so the strip is simply empty for them — never a flat zero,
+which would claim the buying and selling were balanced.
+
 The chart draws; it does not compute. Indicators are computed once in Python and arrive
 over `/api/overlays` as drawing instructions — today a dashed, labelled rule at each
 trading-session open (Asia / London / NY), straight from `src/indicators/sessions.py`.

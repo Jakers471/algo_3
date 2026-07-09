@@ -28,7 +28,7 @@ Integrity, gaps, and how the backtest pipeline must handle this data: `DATA_AUDI
 
 | Timeframe | Bars | Range (UTC) |
 |---|---|---|
-| 15s, 1m, 5m, 15m, 60m, 4h | 3.2M … 3.8k | 2024-03-12 → 2026-07-03 |
+| 15s, 30s, 1m, 5m, 15m, 60m, 4h | 3.2M … 3.8k | 2024-03-12 → 2026-07-03 |
 
 Built by `python -m src.cli.resample` from the tick file below. Columns: the usual
 `open/high/low/close/volume`, **plus `delta`, `buy_volume`, `sell_volume`, `trades`** —

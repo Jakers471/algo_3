@@ -37,7 +37,7 @@ CACHE_DIR = _ROOT / "cache" / "chart"
 # NQT is rebuilt from ticks (2024-03 -> 2026-07) and carries 15s; NQ/ES are the
 # NT8 bar files (2005 -> 2025-01). They are separate datasets, not one series.
 SYMBOLS = ("NQ", "ES", "NQT")
-TIMEFRAMES = ("15s", "1m", "5m", "15m", "60m", "4h", "1d")
+TIMEFRAMES = ("15s", "30s", "1m", "5m", "15m", "60m", "4h", "1d")
 
 # --- Wire -------------------------------------------------------------------
 # Largest slice one /api/bars request may return, so a bad query can't ask for

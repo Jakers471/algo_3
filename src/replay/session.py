@@ -128,6 +128,9 @@ class ReplaySession:
                     "open": float(bar["open"]), "high": float(bar["high"]),
                     "low": float(bar["low"]), "close": float(bar["close"]),
                     "volume": float(bar["volume"]),
+                    # NaN is not valid JSON and would not mean "absent" to a
+                    # browser anyway. None crosses the wire as null.
+                    "delta": overlays._optional(float(bar["delta"])),
                 },
                 fields=row,
                 marks=overlays.marks_for(int(bar["time"]), row),

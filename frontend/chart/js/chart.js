@@ -15,8 +15,8 @@ const BG = '#0d1117';
 const AXIS = '#1c2128';
 const TEXT = '#7d8590';
 
-/** Create the chart, candles, and the volume overlay. */
-export function createChart(container) {
+/** Create the chart, candles, the delta strip and the volume overlay. */
+export function createChart(container, cfg = {}) {
   const chart = LightweightCharts.createChart(container, {
     layout: {
       background: { type: 'solid', color: BG },
@@ -63,6 +63,22 @@ export function createChart(container) {
     lastValueVisible: true,
   });
 
+  // Signed volume, in its own strip: aggressive buying above the zero line,
+  // aggressive selling below. Colours and placement come from the backend, with
+  // the indicator they belong to. A bar with no order flow contributes no point,
+  // so on the NT8 datasets this strip is simply empty - never a flat zero line,
+  // which would claim buying and selling were balanced.
+  const flow = cfg.orderflow || {};
+  const delta = chart.addHistogramSeries({
+    priceScaleId: 'delta',
+    base: 0,
+    priceLineVisible: false,
+    lastValueVisible: false,
+  });
+  delta.priceScale().applyOptions({
+    scaleMargins: { top: flow.paneTop ?? 0.72, bottom: flow.paneBottom ?? 0.17 },
+  });
+
   const volume = chart.addHistogramSeries({
     priceFormat: { type: 'volume' },
     priceScaleId: '',
@@ -76,7 +92,7 @@ export function createChart(container) {
   const vlines = new VerticalLines();
   candles.attachPrimitive(vlines);
 
-  return new ChartSurface(chart, candles, volume, vlines);
+  return new ChartSurface(chart, candles, volume, delta, vlines, flow);
 }
 
 const volumeBar = (bar) => ({
@@ -86,11 +102,23 @@ const volumeBar = (bar) => ({
 });
 
 class ChartSurface {
-  constructor(chart, candles, volume, vlines) {
+  constructor(chart, candles, volume, delta, vlines, flow) {
     this.chart = chart;
     this.candles = candles;
     this.volume = volume;
+    this.delta = delta;
     this.vlines = vlines;
+    this.flow = flow;
+  }
+
+  /** A delta bar, or null when this dataset has no order flow (never a zero). */
+  deltaBar(bar) {
+    if (!this.flow.draw || bar.delta === null || bar.delta === undefined) return null;
+    return {
+      time: bar.time,
+      value: bar.delta,
+      color: bar.delta >= 0 ? this.flow.upColor : this.flow.downColor,
+    };
   }
 
   /** Drop dashed rules with labels. `lines` are {time, label, color, labelColor}. */
@@ -115,6 +143,7 @@ class ChartSurface {
 
     this.candles.setData(bars);
     this.volume.setData(bars.map(volumeBar));
+    this.delta.setData(bars.map((b) => this.deltaBar(b)).filter(Boolean));
 
     if (range) {
       ts.setVisibleLogicalRange({
@@ -128,6 +157,8 @@ class ChartSurface {
   push(bar) {
     this.candles.update(bar);
     this.volume.update(volumeBar(bar));
+    const point = this.deltaBar(bar);
+    if (point) this.delta.update(point);
   }
 
   /** Frame everything currently loaded. Only ever called on an explicit action. */

@@ -16,12 +16,15 @@ Overlay kinds (only what has a producer; more arrive with their indicators):
 from __future__ import annotations
 
 import logging
+import math
 
 import pandas as pd
 
 from src.chart import store
+from src.config.indicators import orderflow as orderflow_cfg
 from src.config.indicators import sessions as sessions_cfg
 from src.events.types import BarClose
+from src.indicators.orderflow import OrderFlow
 from src.indicators.registry import Registry
 from src.indicators.sessions import Sessions
 
@@ -33,7 +36,14 @@ def build_registry() -> Registry:
     indicators = []
     if sessions_cfg.ENABLED:
         indicators.append(Sessions())
+    if orderflow_cfg.ENABLED:
+        indicators.append(OrderFlow())
     return Registry(indicators)
+
+
+def _optional(value) -> float | None:
+    """NaN on the wire means ABSENT. Never let it become a number downstream."""
+    return None if value is None or math.isnan(value) else float(value)
 
 
 def bar_events(bars) -> list[BarClose]:
@@ -45,7 +55,12 @@ def bar_events(bars) -> list[BarClose]:
     times = pd.to_datetime(bars["time"].astype("int64"), unit="s", utc=True)
     o, h = bars["open"].tolist(), bars["high"].tolist()
     lo, c, v = bars["low"].tolist(), bars["close"].tolist(), bars["volume"].tolist()
-    return [BarClose(ts=t, open=o[i], high=h[i], low=lo[i], close=c[i], volume=v[i])
+    d = bars["delta"].tolist()
+    bv, sv = bars["buy_volume"].tolist(), bars["sell_volume"].tolist()
+    tr = bars["trades"].tolist()
+    return [BarClose(ts=t, open=o[i], high=h[i], low=lo[i], close=c[i], volume=v[i],
+                     delta=_optional(d[i]), buy_volume=_optional(bv[i]),
+                     sell_volume=_optional(sv[i]), trades=_optional(tr[i]))
             for i, t in enumerate(times)]
 
 

@@ -40,13 +40,15 @@ def packed(tmp_path, monkeypatch):
     recs["low"] = base - 1.0
     recs["close"] = base + 0.5
     recs["volume"] = 10.0
+    for field in packer.ORDER_FLOW_FIELDS:
+        recs[field] = np.float32("nan")     # a bar file, like NQ: no order flow
 
     bars_fp, times_fp, meta_fp = packer.paths_for("TT", "5m")
     recs.tofile(bars_fp)
     recs["time"].astype(packer.TIME_DTYPE).tofile(times_fp)
     meta_fp.write_text(json.dumps({
         "format_version": packer.FORMAT_VERSION, "symbol": "TT", "timeframe": "5m",
-        "count": N, "bar_bytes": packer.BAR_DTYPE.itemsize,
+        "count": N, "bar_bytes": packer.BAR_DTYPE.itemsize, "order_flow": False,
         "first_time": int(recs["time"][0]), "last_time": int(recs["time"][-1]),
     }))
     yield recs
@@ -61,7 +63,8 @@ def test_seed_warms_indicators_without_publishing(packed):
     assert info["first_index"] == 100
     assert info["cursor"] == 199
     assert q.empty(), "the warmup must not publish - it is not a replay step"
-    assert info["fields"] == ["session", "session_new"]
+    assert info["fields"] == ["session", "session_new",
+                             "delta", "buy_volume", "sell_volume", "trades"]
 
 
 def test_seeking_equals_playing_into_the_same_bar(packed):
@@ -81,6 +84,28 @@ def test_seeking_equals_playing_into_the_same_bar(packed):
     assert a.bar == b.bar
     assert a.fields == b.fields          # identical indicator state
     assert a.marks == b.marks
+
+
+def test_a_bar_without_order_flow_publishes_None_never_zero(packed):
+    """This fixture is a bar file: no aggressor was ever recorded.
+
+    Zero would claim buying and selling were balanced. None says nobody wrote it
+    down. A backtest would believe the first.
+    """
+    s = ReplaySession("TT", "5m")
+    s.seed(100, history=50)
+    row = s.step().fields
+    assert row["delta"] is None
+    assert row["buy_volume"] is None and row["sell_volume"] is None
+    assert row["trades"] is None
+
+
+def test_the_snapshot_bar_carries_delta_as_null_when_absent(packed):
+    s = ReplaySession("TT", "5m")
+    s.seed(100, history=50)
+    bar = s.step().to_dict()["bar"]
+    assert bar["delta"] is None, "NaN is not valid JSON and would not mean absent"
+    json.dumps(bar)   # must survive the wire
 
 
 def test_step_publishes_to_every_subscriber(packed):

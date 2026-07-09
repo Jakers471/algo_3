@@ -20,6 +20,7 @@ import logging
 
 from src.chart import overlays, store
 from src.config import chart as chart_cfg
+from src.config.indicators import orderflow as orderflow_cfg
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +91,14 @@ def _config() -> dict:
         "prefetch_bars": chart_cfg.PREFETCH_BARS,
         "base_step_ms": chart_cfg.BASE_STEP_MS,
         "max_bars_per_request": chart_cfg.MAX_BARS_PER_REQUEST,
+        # Style lives in Python with the indicator, not in the browser.
+        "orderflow": {
+            "draw": orderflow_cfg.ENABLED and orderflow_cfg.DRAW_DELTA,
+            "up_color": orderflow_cfg.DELTA_UP,
+            "down_color": orderflow_cfg.DELTA_DOWN,
+            "pane_top": orderflow_cfg.PANE_TOP,
+            "pane_bottom": orderflow_cfg.PANE_BOTTOM,
+        },
     }
 
 
