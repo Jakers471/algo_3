@@ -23,6 +23,8 @@ import threading
 import urllib.error
 import urllib.request
 
+from src.config import table as cfg
+
 logger = logging.getLogger(__name__)
 
 
@@ -63,7 +65,18 @@ def bar_count(base_url: str, symbol: str, timeframe: str) -> int:
 
 
 class SnapshotStream:
-    """Reads one session's SSE stream on a thread; hands rows to a queue."""
+    """Reads a session's SSE stream on a thread; hands rows to a queue.
+
+    Survives two things that used to be fatal. A retired session closes the
+    connection *cleanly*, which is indistinguishable from a healthy close - so
+    every reconnect waits, and the delay grows. And when the session it was
+    watching is gone, it looks for the one that replaced it: switching timeframe
+    on the chart retires a session and starts another, and the table follows.
+
+    Session changes reach the window as a ``{"session_changed": info}`` payload
+    on the same queue, so the window learns about it the same way it learns
+    about everything else.
+    """
 
     def __init__(self, base_url: str, session_id: str) -> None:
         self.base_url = base_url
@@ -71,6 +84,7 @@ class SnapshotStream:
         self.queue: queue.Queue = queue.Queue()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        self._delay = cfg.RECONNECT_DELAY_S
 
     def start(self) -> None:
         self._thread = threading.Thread(target=self._run, name="table-stream", daemon=True)
@@ -84,17 +98,26 @@ class SnapshotStream:
         return self._thread is not None and self._thread.is_alive()
 
     def _run(self) -> None:
-        url = f"{self.base_url}/api/replay/stream?session={self.session_id}"
         while not self._stop.is_set():
             try:
-                self._read(url)
+                self._read(f"{self.base_url}/api/replay/stream?session={self.session_id}")
+            except urllib.error.HTTPError as exc:
+                if exc.code != 404:        # 404 = the session is gone; expected
+                    logger.warning("Stream error %s", exc)
             except (urllib.error.URLError, OSError, TimeoutError) as exc:
                 if self._stop.is_set():
                     return
-                # The session outlives a dropped connection on purpose, so
-                # reconnecting picks the cursor back up where it was.
-                logger.warning("Stream dropped (%s); reconnecting", exc)
-                self._stop.wait(1.0)
+                logger.debug("Stream dropped (%s)", exc)
+
+            if self._stop.is_set():
+                return
+            # A retired session closes the connection CLEANLY, which from here
+            # is indistinguishable from a healthy close. So check whether it is
+            # still there, and never retry without waiting - retrying a dead
+            # session with no delay is how a reconnect storm starts.
+            if not self._alive() and self._adopt():
+                continue    # a fresh session is waiting: attach now, not in 500ms
+            self._backoff()
         logger.info("Stream stopped")
 
     def _read(self, url: str) -> None:
@@ -109,6 +132,42 @@ class SnapshotStream:
                     self.queue.put(json.loads(line[6:]))
                 except ValueError:
                     logger.debug("Skipping unparseable frame")
+                    continue
+                self._delay = cfg.RECONNECT_DELAY_S   # data flowed: reset backoff
+
+    def _backoff(self) -> None:
+        self._stop.wait(self._delay)
+        self._delay = min(self._delay * 2, cfg.RECONNECT_DELAY_MAX_S)
+
+    def _alive(self) -> bool:
+        try:
+            return any(s["id"] == self.session_id for s in list_sessions(self.base_url))
+        except OSError:
+            return True    # the server is unreachable, not the session retired
+
+    def _adopt(self) -> bool:
+        """Our session is gone. Attach to whatever replaced it, if anything.
+
+        Switching timeframe on the chart retires one session and starts another.
+        Following it is what the user means by "watch the replay". Only adopt
+        when exactly one is running: with several, we would be guessing.
+        """
+        if not cfg.ADOPT_NEW_SESSION:
+            return False
+        try:
+            running = list_sessions(self.base_url)
+        except OSError:
+            return False
+        if len(running) != 1:
+            return False
+
+        session = running[0]
+        logger.info("Session %s retired; following %s (%s %s)", self.session_id,
+                    session["id"], session["symbol"], session["timeframe"])
+        self.session_id = session["id"]
+        self._delay = cfg.RECONNECT_DELAY_S
+        self.queue.put({"session_changed": session})
+        return True
 
 
 def resolve_session(base_url: str, session_id: str | None,

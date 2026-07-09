@@ -248,6 +248,12 @@ it — that vocabulary is deliberately independent of any strategy.
 
 ## Traps we have already paid for
 
+- **A generator route sends its headers before it runs.** `stream()` returned a generator,
+  so `manager.get()` did not execute until the first frame — after a `200 OK` had already
+  gone out. A dead session then raised into the handler thread, the client saw a *clean*
+  close (indistinguishable from a healthy one), retried instantly, and produced 200
+  reconnects in 3 seconds. Resolve before you promise a status, and never retry a stream
+  without a growing delay.
 - `os.kill(pid, 0)` is **not** an existence probe on Windows — CPython implements `os.kill`
   there as `TerminateProcess`, so the "probe" kills the process it asks about.
 - `HTTPServer.allow_reuse_address = True` on Windows lets a **second** process bind a port

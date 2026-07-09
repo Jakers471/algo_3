@@ -240,6 +240,24 @@ class TableWindow(QMainWindow):
 
     # --- the pump -----------------------------------------------------------
 
+    def _switch_session(self, session: dict) -> None:
+        """The chart retired its replay and started another - follow it.
+
+        A new timeframe (or symbol) is a different series, so the old rows are
+        not history, they are a different story. And its indicators may publish
+        different fields, so the columns are rebuilt rather than reused.
+        """
+        self.session = session
+        self.received = 0
+        self.pending = 0
+        self.model = SnapshotModel(session.get("fields", []))
+        self.view.setModel(self.model)
+        self.setWindowTitle(
+            f"algo_3  -  {session['symbol']} {session['timeframe']}  snapshots")
+        self._set_following(True)
+        logger.info("Following session %s (%s %s)",
+                    session["id"], session["symbol"], session["timeframe"])
+
     def _drain(self) -> None:
         """Move everything waiting on the queue into the view, then scroll once."""
         appended = 0
@@ -248,6 +266,9 @@ class TableWindow(QMainWindow):
                 payload = self.stream.queue.get_nowait()
             except Exception:  # queue.Empty
                 break
+            if "session_changed" in payload:
+                self._switch_session(payload["session_changed"])
+                continue
             if "state" in payload:
                 self.session.update(payload["state"])
                 self._render_status()

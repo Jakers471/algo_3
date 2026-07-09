@@ -124,7 +124,10 @@ def stream(session_id: str):
     stream gets closed by browsers and proxies and the reconnect would lose the
     cursor's place in the user's eye, if not in ours.
     """
-    session = manager.get(session_id)
+    try:
+        session = manager.get(session_id)
+    except KeyError:
+        return          # retired between the server's check and here
     q = session.subscribe()
     try:
         yield _frame({"state": {"playing": session.playing, "speed": session.speed,

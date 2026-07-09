@@ -98,17 +98,24 @@ class ChartHandler(SimpleHTTPRequestHandler):
     def _serve_stream(self, query: dict) -> None:
         """Hold the connection open and push snapshots as they are published.
 
+        The session is resolved BEFORE any headers go out. `stream()` is a
+        generator, so calling it runs no code - a dead session would otherwise
+        surface as a KeyError on the first frame, long after we had promised a
+        200, and the client would read a clean close and retry immediately. That
+        is a reconnect storm, and it is what this ordering prevents.
+
         No Content-Length is possible for an open-ended stream, so the response
         is delimited by closing the connection. That is why HTTP/1.1 keep-alive
         is switched off for this one request and only this one.
         """
         session_id = (query.get("session", [""])[0] or "")
         try:
-            frames = replay_routes.stream(session_id)
+            replay_manager.get(session_id)      # 404 now, not mid-stream
         except KeyError as exc:
             self._write(404, "application/json", json.dumps({"error": str(exc)}).encode(), {})
             return
 
+        frames = replay_routes.stream(session_id)
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-store")
@@ -123,6 +130,10 @@ class ChartHandler(SimpleHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError):
             # The tab closed. Normal; the generator's finally unsubscribes.
             logger.debug("Replay stream closed by client")
+        except KeyError:
+            # The session was retired between the check above and the first
+            # frame. Nothing to say; the client will re-resolve.
+            logger.debug("Replay stream: session retired mid-connect")
         finally:
             frames.close()
 

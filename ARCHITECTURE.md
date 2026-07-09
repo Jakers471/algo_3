@@ -121,6 +121,7 @@ algo_3/
 │   ├── test_replay_session.py  pins seek == play-into, fan-out, no lookahead
 │   ├── test_resample.py    pins the tick->bar rebuild: ties, chunk seams, roll
 │   ├── test_table_columns.py  pins row rendering: absent != zero, colour rules
+│   ├── test_table_client.py   pins the reconnect storm: backoff, adoption
 │   └── test_lifecycle.py   pins per-port pidfiles; the Windows os.kill trap
 ├── conftest.py         puts repo root on sys.path so tests import `src`
 ├── (top level, not code): .env, logs/, data/, projectX_API/
@@ -195,7 +196,8 @@ replay.manager   ─► replay.session, config.replay   (registry + idle reaper)
 replay.routes    ─► replay.manager, config.replay   (POST control; SSE stream)
 chart.server     ─► replay.{routes,manager}         (dispatches /api/replay/*)
 
-table.client     ─► urllib            (find a session; read its SSE stream)
+table.client     ─► urllib, config.table  (find a session; read its SSE stream;
+                     back off on reconnect; adopt the session that replaced it)
 table.columns    ─► config.table      (snapshot -> cells; pure, no Qt)
 table.window     ─► PySide6, table.columns, config.table
 cli.table        ─► table.{client,window}

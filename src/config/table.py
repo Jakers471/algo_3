@@ -46,3 +46,15 @@ ROW_HEIGHT = 22
 # Follow the newest row unless the user has scrolled away from the bottom.
 # Slack in pixels: a scrollbar parked "at the bottom" is rarely exactly there.
 FOLLOW_SLACK_PX = 4
+
+# --- reconnecting -----------------------------------------------------------
+# A dropped stream is retried with a growing delay. Never retry immediately: a
+# retired session closes the connection cleanly, which looks identical to a
+# healthy close, and a zero-delay retry becomes a reconnect storm.
+RECONNECT_DELAY_S = 0.5
+RECONNECT_DELAY_MAX_S = 5.0
+
+# When the session we were watching disappears, look for the one that replaced
+# it. Switching timeframe on the chart retires a session and starts another;
+# the table should follow, not die.
+ADOPT_NEW_SESSION = True
