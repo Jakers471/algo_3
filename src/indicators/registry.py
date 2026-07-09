@@ -42,6 +42,16 @@ class Registry:
         """Every field the row will carry, in run order. The TUI's columns."""
         return [name for ind in self._order for name in ind.fields]
 
+    def field_groups(self) -> list[dict]:
+        """The same fields, still in run order, but labelled by who published them.
+
+        A flat list of names loses the one thing a reader needs: `swing_price`
+        and `bos_level` are both prices of swing points, and only the indicator
+        that emitted them says which question each answers. A view that groups by
+        producer can show that; a flat list cannot.
+        """
+        return [{"id": ind.id, "fields": list(ind.fields)} for ind in self._order]
+
     def reset(self) -> None:
         for ind in self._order:
             ind.reset()

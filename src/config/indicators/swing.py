@@ -37,7 +37,7 @@ ENABLED = True
 # A swing is confirmed after price retraces this many multiples of the current
 # range_scale from the running extreme. Points would be wrong: NQ's median 30s
 # range moved 4.50 -> 14.25 across 29 months, a 3.17x swing.
-RETRACE = 5.0
+RETRACE = 6.0
 
 # --- drawing ----------------------------------------------------------------
 # Off: the legs and breaks drawn from these points carry the structure now, and

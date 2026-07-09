@@ -5,8 +5,26 @@ and a colour for each. Pure functions over dicts, so the formatting rules are
 testable without opening a window.
 
 Columns are NOT configured anywhere. The fixed ones describe the bar; the rest
-come from whatever the replay session reports as its indicator fields. Add an
-indicator and a column appears, with no edit to this file or to the window.
+come from whatever the replay session reports as its indicator fields, GROUPED by
+the indicator that published them. Add an indicator and a group appears, with no
+edit to this file or to the window.
+
+**The row is not the view.** A snapshot carries everything a renderer needs,
+which is more than a reader wants. There is only one kind of object in the
+structure layer - a swing point, a price and a time - and six fields point at
+one: `swing_price`, `leg_from_price`, `leg_to_price`, `bos_level`,
+`extreme_high`, `extreme_low`. Shown as six columns they read as six facts. They
+are not.
+
+So this module distinguishes three things:
+
+  a FACT      the state of the market, shown by default
+  a COMPOSITE an event and the price it happened at, collapsed into one cell
+              ("high 27,642.50" rather than three columns)
+  a DETAIL    the timestamps and endpoints a drawing needs and a reader does not
+
+Details are hidden unless asked for. Nothing is dropped from the row - the chart
+still draws from every one of them, and the brain will still read them.
 
 Colour carries meaning here exactly as it does on the chart: green and red for
 direction and for the sign of signed volume, the session's own accent for its
@@ -16,10 +34,22 @@ name, muted grey for a value that does not exist. There are no emoji, ever.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import NamedTuple
 
 from src.config import table as cfg
 
 LEFT, RIGHT, CENTER = "left", "right", "center"
+
+BAR_GROUP = "bar"
+
+
+class Column(NamedTuple):
+    key: str
+    label: str
+    align: str
+    group: str
+    first_in_group: bool
+
 
 # The bar is always the first six columns; the rest are indicator fields.
 BAR_COLUMNS = (
@@ -60,11 +90,50 @@ def _right_aligned(name: str) -> bool:
             or is_price_field(name) or name == "retrace")
 
 
-def columns_for(fields: list[str]) -> list[tuple[str, str, str]]:
-    """(key, label, alignment) per column, bar first then indicator fields."""
-    out = list(BAR_COLUMNS)
-    for name in fields:
-        out.append((name, name.replace("_", " "), RIGHT if _right_aligned(name) else LEFT))
+# An event and the price it happened at, shown in one cell instead of three.
+# The second field is folded into the first; both stay in the row.
+COMPOSITES = {
+    "swing": "swing_price",     # "high 27,642.50"
+    "bos": "bos_level",         # "up 27,642.50"
+}
+
+# Values a drawing needs and a reader does not.
+_DERIVED = {"trigger"}          # = extreme -/+ RETRACE * range_scale
+
+
+def is_detail(name: str) -> bool:
+    """Hidden unless asked for: scaffolding, not a fact about the market."""
+    if is_time_field(name):
+        return True                      # which bar, not what happened
+    if name in COMPOSITES.values():
+        return True                      # folded into its event's cell
+    if name in _DERIVED:
+        return True                      # arithmetic on columns already shown
+    if name == "leg" or name.startswith("leg_"):
+        # `legs` joins two swings with a line. It knows nothing the swings do
+        # not; it is a drawing, and five columns of one.
+        return True
+    return False
+
+
+def columns_for(groups, *, show_all: bool = False) -> list[Column]:
+    """Bar columns, then one block per indicator, in dependency order.
+
+    ``groups`` is what the session publishes: ``[{"id", "fields"}, ...]``. A bare
+    list of field names is accepted too, and lands in a single unnamed group.
+    """
+    if groups and isinstance(groups[0], str):
+        groups = [{"id": "fields", "fields": list(groups)}]
+
+    out = [Column(k, label, align, BAR_GROUP, i == 0)
+           for i, (k, label, align) in enumerate(BAR_COLUMNS)]
+
+    for group in groups or []:
+        shown = [f for f in group["fields"] if show_all or not is_detail(f)]
+        for i, name in enumerate(shown):
+            out.append(Column(name, name.replace("_", " "),
+                              RIGHT if _right_aligned(name) else LEFT,
+                              group["id"], i == 0))
     return out
 
 
@@ -99,11 +168,19 @@ def cell_text(key: str, snapshot: dict) -> str:
     if key == "volume":
         return fmt_int(snapshot["bar"].get("volume"))
 
-    value = snapshot.get("fields", {}).get(key)
+    fields = snapshot.get("fields", {})
+    value = fields.get(key)
     if value is None:
         # A field that is absent, not zero. A tick-only indicator fed bars says
         # so here rather than showing a fabricated number.
         return "-"
+
+    if key in COMPOSITES:
+        # "high" alone is half a fact. The price it happened at is the other
+        # half, and it is sitting in the next column doing nothing else.
+        price = fields.get(COMPOSITES[key])
+        return f"{value} {fmt_price(price)}" if price is not None else str(value)
+
     if isinstance(value, bool):
         return "yes" if value else ""
     if is_time_field(key):

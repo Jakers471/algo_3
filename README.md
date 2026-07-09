@@ -101,7 +101,17 @@ until you scroll up, then stays where you put it and counts what has landed; cli
 (or scroll back to the bottom) to resume.
 
 Columns are not configured anywhere: the first six describe the bar, the rest are whatever
-fields the session publishes. Add an indicator and a column appears.
+fields the session publishes, **grouped under the indicator that published them**. Add an
+indicator and a block appears.
+
+The row is not the view. A snapshot carries everything a *renderer* needs, which is more
+than a reader wants — there is only one kind of object in the structure layer, a swing
+point, and six fields point at one (`swing_price`, `leg_from_price`, `leg_to_price`,
+`bos_level`, `extreme_high`, `extreme_low`). So the table shows the **facts** by default,
+folds each event into one cell with the price it happened at (`swing` reads `high
+27,642.50`), and hides the scaffolding a drawing needs: timestamps, leg endpoints, and
+`trigger`, which is just `extreme ∓ RETRACE × range_scale`. **Details** brings all of it
+back — 21 columns become 33. Nothing is ever dropped from the row itself.
 
 The page **must be served** — opening `index.html` from the filesystem cannot work.
 Starting reclaims the port from any older chart server, so they never stack;

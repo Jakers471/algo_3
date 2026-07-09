@@ -100,6 +100,7 @@ class ReplaySession:
                 "total": self.total,
                 "overlays": overlays.group_marks(marks),
                 "fields": self.registry.field_names(),
+                "groups": self.registry.field_groups(),
             }
 
     @property

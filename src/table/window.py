@@ -44,11 +44,11 @@ _ALIGN = {
 
 
 class SnapshotModel(QAbstractTableModel):
-    """Rows are snapshots; columns come from the session's own field names."""
+    """Rows are snapshots; columns come from the session's own field groups."""
 
-    def __init__(self, fields: list[str]) -> None:
+    def __init__(self, groups, *, show_all: bool = False) -> None:
         super().__init__()
-        self._columns = cols.columns_for(fields)
+        self._columns = cols.columns_for(groups, show_all=show_all)
         self._rows: deque = deque(maxlen=cfg.MAX_ROWS)
 
     # --- Qt plumbing --------------------------------------------------------
@@ -62,17 +62,25 @@ class SnapshotModel(QAbstractTableModel):
     def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):  # noqa: N802
         if orientation != Qt.Orientation.Horizontal:
             return None
+        column = self._columns[section]
         if role == Qt.ItemDataRole.DisplayRole:
-            return self._columns[section][1]
+            # Two lines: the indicator that owns this block, then the field. Only
+            # the first column of a block names it, so the eye sees where each
+            # one starts - `swing_price` and `bos_level` are both swing prices,
+            # and the block is the only thing that says which question each
+            # answers.
+            owner = column.group if column.first_in_group else ""
+            return f"{owner}\n{column.label}"
         if role == Qt.ItemDataRole.TextAlignmentRole:
-            return _ALIGN[self._columns[section][2]]
+            return _ALIGN[column.align]
         return None
 
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
         if not index.isValid():
             return None
         snapshot = self._rows[index.row()]
-        key, _label, align = self._columns[index.column()]
+        column = self._columns[index.column()]
+        key, align = column.key, column.align
 
         if role == Qt.ItemDataRole.DisplayRole:
             return cols.cell_text(key, snapshot)
@@ -125,9 +133,18 @@ class TableWindow(QMainWindow):
             f"algo_3  -  {session['symbol']} {session['timeframe']}  snapshots")
         self.resize(1100, 620)
 
-        self.model = SnapshotModel(session.get("fields", []))
+        self.show_all = False
+        self.model = SnapshotModel(self._groups(), show_all=self.show_all)
         self.view = self._build_view()
         self.status = QLabel("waiting for the first bar...")
+
+        # The row carries everything a drawing needs. Most of it is timestamps
+        # and endpoints, and a reader wants none of them until something looks
+        # wrong. Off by default; one click brings them all back.
+        self.details_button = QPushButton("Details")
+        self.details_button.setCheckable(True)
+        self.details_button.clicked.connect(self._toggle_details)
+
         self.follow_button = QPushButton("Following")
         self.follow_button.setCheckable(True)
         self.follow_button.setChecked(True)
@@ -169,6 +186,7 @@ class TableWindow(QMainWindow):
         bar = QHBoxLayout()
         bar.setContentsMargins(8, 6, 8, 6)
         bar.addWidget(self.status, 1)
+        bar.addWidget(self.details_button, 0)
         bar.addWidget(self.follow_button, 0)
 
         chrome = QWidget()
@@ -230,6 +248,25 @@ class TableWindow(QMainWindow):
         elif not self.following and at_bottom:
             self._set_following(True)
 
+    def _groups(self):
+        """The session's field groups, or its flat field list from an older server."""
+        return self.session.get("groups") or self.session.get("fields", [])
+
+    def _rebuild_columns(self) -> None:
+        """Swap the model, keeping the rows we already hold."""
+        rows = list(self.model._rows)   # noqa: SLF001 - same module's model
+        self.model = SnapshotModel(self._groups(), show_all=self.show_all)
+        for row in rows:
+            self.model.append(row)
+        self.view.setModel(self.model)
+        self.view.resizeColumnsToContents()
+        if self.following:
+            self.view.scrollToBottom()
+
+    def _toggle_details(self) -> None:
+        self.show_all = self.details_button.isChecked()
+        self._rebuild_columns()
+
     def _toggle_follow(self) -> None:
         self._set_following(self.follow_button.isChecked())
         if self.following:
@@ -255,7 +292,7 @@ class TableWindow(QMainWindow):
         self.session = session
         self.received = 0
         self.pending = 0
-        self.model = SnapshotModel(session.get("fields", []))
+        self.model = SnapshotModel(self._groups(), show_all=self.show_all)
         self.view.setModel(self.model)
         self.setWindowTitle(
             f"algo_3  -  {session['symbol']} {session['timeframe']}  snapshots")

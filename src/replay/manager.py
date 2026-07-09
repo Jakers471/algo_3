@@ -97,6 +97,7 @@ def list_sessions() -> list[dict]:
         "playing": s.playing,
         "speed": s.speed,
         "fields": s.registry.field_names(),
+        "groups": s.registry.field_groups(),
         "subscribers": s.subscriber_count,
     } for s in sessions]
 

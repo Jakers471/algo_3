@@ -19,21 +19,87 @@ def snap(fields=None, **bar):
 
 # --- columns come from the session, not from a config -----------------------
 
+def keys_of(groups, **kw):
+    return [c.key for c in cols.columns_for(groups, **kw)]
+
+
 def test_bar_columns_come_first_then_indicator_fields():
-    keys = [k for k, _, _ in cols.columns_for(["session", "delta"])]
-    assert keys == ["time", "open", "high", "low", "close", "volume", "session", "delta"]
+    assert keys_of(["session", "delta"]) == [
+        "time", "open", "high", "low", "close", "volume", "session", "delta"]
 
 
 def test_a_new_indicator_field_becomes_a_column_with_no_edit():
-    keys = [k for k, _, _ in cols.columns_for(["absorption"])]
-    assert keys[-1] == "absorption"
+    assert keys_of(["absorption"])[-1] == "absorption"
 
 
 def test_numeric_fields_align_right_text_fields_left():
-    by_key = {k: a for k, _, a in cols.columns_for(["session", "delta", "trades"])}
+    by_key = {c.key: c.align for c in cols.columns_for(["session", "delta", "trades"])}
     assert by_key["delta"] == cols.RIGHT
     assert by_key["trades"] == cols.RIGHT
     assert by_key["session"] == cols.LEFT
+
+
+# --- grouping: one block per indicator ---------------------------------------
+
+GROUPS = [
+    {"id": "sessions", "fields": ["session", "session_new"]},
+    {"id": "swing", "fields": ["swing", "swing_price", "swing_time",
+                               "extreme_high", "extreme_high_time",
+                               "hunting", "retrace", "trigger"]},
+    {"id": "legs", "fields": ["leg", "leg_from_price", "leg_from_time"]},
+    {"id": "breaks", "fields": ["bos", "bos_level", "bos_time"]},
+]
+
+
+def test_only_the_first_column_of_a_block_names_its_indicator():
+    named = [(c.group, c.key) for c in cols.columns_for(GROUPS) if c.first_in_group]
+    assert named == [("bar", "time"), ("sessions", "session"),
+                     ("swing", "swing"), ("breaks", "bos")]
+
+
+def test_the_default_view_shows_facts_not_scaffolding():
+    keys = keys_of(GROUPS)
+    assert keys == ["time", "open", "high", "low", "close", "volume",
+                    "session", "session_new",
+                    "swing", "extreme_high", "hunting", "retrace",
+                    "bos"]
+
+
+def test_timestamps_endpoints_and_arithmetic_are_hidden_by_default():
+    hidden = set(keys_of(GROUPS, show_all=True)) - set(keys_of(GROUPS))
+    assert "swing_time" in hidden, "which bar, not what happened"
+    assert "swing_price" in hidden, "folded into the swing cell"
+    assert "trigger" in hidden, "= extreme -/+ RETRACE * range_scale"
+    assert {"leg", "leg_from_price", "leg_from_time"} <= hidden, "legs is a drawing"
+
+
+def test_details_brings_every_field_back():
+    keys = keys_of(GROUPS, show_all=True)
+    for group in GROUPS:
+        assert set(group["fields"]) <= set(keys)
+
+
+def test_legs_publishes_five_columns_and_no_facts():
+    """A leg is the previous swing and this one. Hidden, but never dropped."""
+    assert all(cols.is_detail(f) for f in
+               ["leg", "leg_from_price", "leg_from_time", "leg_to_price", "leg_to_time"])
+
+
+# --- composites: an event and its price, in one cell -------------------------
+
+def test_a_swing_is_shown_with_the_price_it_happened_at():
+    row = snap({"swing": "high", "swing_price": 27642.5})
+    assert cols.cell_text("swing", row) == "high 27,642.50"
+
+
+def test_a_break_is_shown_with_the_level_it_took_out():
+    row = snap({"bos": "up", "bos_level": 27642.5})
+    assert cols.cell_text("bos", row) == "up 27,642.50"
+
+
+def test_an_event_that_did_not_happen_is_absent_not_blank():
+    assert cols.cell_text("swing", snap({"swing": None, "swing_price": None})) == "-"
+    assert cols.cell_text("bos", snap({"bos": None, "bos_level": None})) == "-"
 
 
 # --- formatting -------------------------------------------------------------
@@ -86,8 +152,9 @@ def test_a_computed_float_is_not_printed_to_seventeen_digits():
 
 
 def test_prices_and_ratios_line_up_on_the_right_words_on_the_left():
-    by_key = {k: a for k, _, a in cols.columns_for(
-        ["swing", "swing_price", "swing_time", "hunting", "retrace", "bos_level"])}
+    by_key = {c.key: c.align for c in cols.columns_for(
+        ["swing", "swing_price", "swing_time", "hunting", "retrace", "bos_level"],
+        show_all=True)}
     assert by_key["swing_price"] == cols.RIGHT
     assert by_key["bos_level"] == cols.RIGHT
     assert by_key["retrace"] == cols.RIGHT
