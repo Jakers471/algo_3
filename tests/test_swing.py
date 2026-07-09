@@ -32,8 +32,8 @@ def bar(i: int, high: float, low: float) -> BarClose:
 
 @pytest.fixture(autouse=True)
 def small_window(monkeypatch):
-    """Warm up in 3 bars, not 30, so a test can be read in one screen."""
-    monkeypatch.setattr(scale_cfg, "WINDOW", 6)
+    """Bars are 5 minutes apart, so 30 minutes of memory holds 6 of them."""
+    monkeypatch.setattr(scale_cfg, "WINDOW_MINUTES", 30)
     monkeypatch.setattr(scale_cfg, "MIN_BARS", 3)
     monkeypatch.setattr(swing_cfg, "RETRACE", 1.5)
 
@@ -71,16 +71,45 @@ def test_it_is_a_median_so_one_violent_bar_does_not_redefine_normal():
     assert out["range_scale"] == 2.0, "the p99 bar must not move the unit"
 
 
-def test_old_bars_age_out_of_the_window():
+def test_bars_age_out_by_market_time_not_by_count():
+    """The window is minutes. Volatility runs on the clock, not on the bar index."""
     scale = RangeScale()
-    for i in range(scale_cfg.WINDOW):          # window full of 2.0-range bars
+    for i in range(10):                        # 50 minutes of 2.0-range bars
         try:
             scale.update(bar(i, 12, 10))
         except Unavailable:
             pass
-    for i in range(scale_cfg.WINDOW):          # push them all out with 8.0s
-        out = scale.update(bar(100 + i, 18, 10))
-    assert out["range_scale"] == 8.0
+    for i in range(10, 20):                    # 50 more minutes, 8.0-range bars
+        out = scale.update(bar(i, 18, 10))
+    assert out["range_scale"] == 8.0, "the 30-minute window has forgotten the quiet bars"
+
+
+def test_a_coarse_timeframe_keeps_min_bars_however_little_time_they_span():
+    """Two hours is 240 bars on 30s and two on 1h. A median of two is their mean."""
+    scale = RangeScale()
+    hourly = [BarClose(ts=START + timedelta(hours=i), open=10, high=12, low=10,
+                       close=11, volume=1.0) for i in range(6)]
+    out = None
+    for b in hourly:                           # each bar is an hour past the window
+        try:
+            out = scale.update(b)
+        except Unavailable:
+            out = None
+    assert out is not None, "the bar-count floor must survive a window that holds nothing"
+    assert len(scale._arrivals) == scale_cfg.MIN_BARS
+
+
+def test_the_floor_carries_the_ruler_across_a_weekend():
+    scale = RangeScale()
+    for i in range(6):
+        try:
+            scale.update(bar(i, 12, 10))
+        except Unavailable:
+            pass
+    monday = BarClose(ts=START + timedelta(days=3), open=10, high=14, low=10,
+                      close=12, volume=1.0)
+    out = scale.update(monday)
+    assert out["range_scale"] is not None, "a gap must not empty the window"
 
 
 def test_a_dead_tape_has_no_scale_at_all():

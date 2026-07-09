@@ -8,11 +8,24 @@ Any threshold written in points is therefore correct for one volatility regime
 and wrong for the next, silently. Measured in multiples of *this* field instead,
 "big" means the same thing in a sleepy August and in April 2025.
 
-**Why a rolling estimate can work.** Bar range is strongly persistent: on 5m NQ
-bars, the median range of the last 60 bars correlates 0.65 with the median of
-the next 60. Were range independent bar to bar, that would be 0.00 and nothing
-adaptive would be possible - you would be stuck with a constant. The market
-tells you how big its bars are about to be.
+**Why a rolling estimate can work.** Bar range is strongly persistent: the median
+range of the recent past predicts the near future at r = 0.65. Were range
+independent bar to bar, that would be 0.00 and nothing adaptive would be
+possible - you would be stuck with a constant. The market tells you how big its
+bars are about to be.
+
+**Why the window is minutes, not bars.** Volatility runs on the wall clock: a 15m
+NQ bar at the New York open is 4.5x the size of one at 04:00 UTC. A window of 60
+bars is thirty minutes of memory on the 30s rung and fifteen hours on the 15m
+rung, where it averages most of that daily cycle - so at the open it still
+remembered the quiet night, read 20 points when bars were really 57, and turned a
+configured ``RETRACE`` of 6.0 into an effective 2.1. Counted in minutes, every
+rung remembers the same slice of the day.
+
+A bar count remains as a *floor*, because thirty minutes is 60 bars on 30s and
+only two on 15m, and the median of two numbers is their mean. On the coarse rungs
+that floor, not the clock, is what sets the memory. It is also what carries the
+ruler across the maintenance halt and the weekend.
 
 **Why a median and not a mean.** One violent bar should not redefine normal. The
 p99 bar is about five times the median at every timeframe; a mean would chase it.
@@ -57,10 +70,11 @@ class RangeScale(Indicator):
         self.reset()
 
     def reset(self) -> None:
-        # Arrival order (to know which value ages out) and sorted order (to take
-        # a median without re-sorting). WINDOW is small, so the O(n) removal from
-        # the sorted list costs less than keeping a heap honest.
-        self._arrivals: deque[float] = deque()
+        # Arrival order, with each range's market timestamp so it can age out by
+        # the clock; and sorted order, to take a median without re-sorting. The
+        # window is small, so the O(n) removal from the sorted list costs less
+        # than keeping a heap honest.
+        self._arrivals: deque[tuple[int, float]] = deque()
         self._sorted: list[float] = []
 
     def update(self, event, upstream=None) -> dict:
@@ -69,7 +83,7 @@ class RangeScale(Indicator):
         if high is None or low is None:
             raise Unavailable("range_scale needs a bar; this event has no high/low")
 
-        self._observe(high - low)
+        self._observe(int(event.ts.timestamp()), high - low)
 
         if len(self._arrivals) < cfg.MIN_BARS:
             raise Unavailable(
@@ -84,12 +98,21 @@ class RangeScale(Indicator):
 
         return {"range_scale": median}
 
-    def _observe(self, bar_range: float) -> None:
-        """Record this bar's range and age out anything past the window."""
-        self._arrivals.append(bar_range)
+    def _observe(self, ts: int, bar_range: float) -> None:
+        """Record this bar's range; drop what is both old enough and spare.
+
+        Both conditions, never one. Age it out by MARKET time, so the ruler
+        remembers the same slice of the trading day on every timeframe - but never
+        below MIN_BARS, or a coarse timeframe (and every bar after a weekend)
+        would be left taking the median of two numbers.
+        """
+        self._arrivals.append((ts, bar_range))
         insort(self._sorted, bar_range)
-        if len(self._arrivals) > cfg.WINDOW:
-            self._sorted.remove(self._arrivals.popleft())
+
+        horizon = ts - cfg.WINDOW_MINUTES * 60
+        while len(self._arrivals) > cfg.MIN_BARS and self._arrivals[0][0] <= horizon:
+            _, stale = self._arrivals.popleft()
+            self._sorted.remove(stale)
 
     def _median(self) -> float:
         n = len(self._sorted)

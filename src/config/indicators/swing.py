@@ -9,13 +9,13 @@ rung at once. Swings per NY session, measured over 658 sessions of NQ with these
 very indicators:
 
     RETRACE      30s      3m     15m    | rung spacing
-       1.0     279.4    42.5    8.80    |  /6.6  /4.8
-       1.5     166.0    27.1    5.90    |  /6.1  /4.6
-       2.0     107.5    18.5    4.00    |  /5.8  /4.6
-       3.0      55.2     9.9    2.10    |  /5.6  /4.7
-       4.0      34.8     6.1    1.30    |  /5.7  /4.7
-       6.0      18.4     2.8    0.62    |  /6.5  /4.5
-      10.0       8.1     1.2    0.25    |  /6.9  /4.7
+       1.0     277.0    47.3    9.24    |  /5.9  /5.1
+       1.5     160.9    26.8    5.50    |  /6.0  /4.9
+       2.0     101.6    16.8    3.64    |  /6.0  /4.6
+       3.0      49.2     8.4    1.99    |  /5.9  /4.2
+       4.0      29.3     5.4    1.31    |  /5.4  /4.1
+       6.0      14.2     2.9    0.71    |  /4.8  /4.1
+      10.0       5.8     1.5    0.33    |  /3.9  /4.5
 
 Read the right-hand column: whatever you choose, each rung stays 5-7x sparser
 than the one below it. That spacing is a property of the 30s/3m/15m ladder being

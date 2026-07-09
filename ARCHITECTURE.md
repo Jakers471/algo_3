@@ -24,7 +24,7 @@ algo_3/
 │   │       ├── sessions.py  enable + line colors for the sessions indicator
 │   │       ├── orderflow.py enable + delta strip colors and placement
 │   │       ├── absorption.py thresholds + marker colors
-│   │       ├── range_scale.py rolling-median window (in BARS, not minutes)
+│   │       ├── range_scale.py window in MINUTES of market time, floored in bars
 │   │       ├── swing.py     retrace threshold (multiples of range_scale)
 │   │       ├── legs.py      staircase colors (muted: a leg is not news)
 │   │       └── breaks.py    close-vs-wick definition + break colors
@@ -224,7 +224,8 @@ indicators.orderflow ─► indicators.base   (lifts delta off the bar; refuses 
 indicators.absorption ─► indicators.base, config.indicators.absorption
                          (depends on `orderflow`; reads delta, never recomputes it)
 indicators.range_scale ─► indicators.base, config.indicators.range_scale
-                         (rolling median bar range; refuses until MIN_BARS seen)
+                         (rolling median bar range; window in market MINUTES with a
+                          bar-count floor; refuses on a dead tape and while warming)
 indicators.swing     ─► indicators.base, config.indicators.swing
                          (depends on `range_scale`; retrace measured in it, never in points)
 indicators.legs      ─► indicators.base   (depends on `swing`; joins consecutive points)

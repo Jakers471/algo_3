@@ -38,7 +38,7 @@ def at(i: int) -> int:
 
 @pytest.fixture(autouse=True)
 def small_window(monkeypatch):
-    monkeypatch.setattr(scale_cfg, "WINDOW", 6)
+    monkeypatch.setattr(scale_cfg, "WINDOW_MINUTES", 30)
     monkeypatch.setattr(scale_cfg, "MIN_BARS", 3)
     monkeypatch.setattr(swing_cfg, "RETRACE", 1.5)
     monkeypatch.setattr(breaks_cfg, "USE_CLOSE", True)
