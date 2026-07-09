@@ -186,11 +186,15 @@ def resolve_session(base_url: str, session_id: str | None,
         raise NoSession(f"no session {session_id!r} on {base_url}")
 
     running = list_sessions(base_url)
-    if len(running) == 1 and not symbol:
-        return running[0]
-    if len(running) > 1 and not symbol:
-        ids = ", ".join(s["id"] for s in running)
-        raise NoSession(f"several replays are running ({ids}); pass --session <id>")
+    if running and not symbol:
+        # Several can be running if a browser was refreshed before ownership
+        # retired its orphan. The newest is the one the user just started, and
+        # guessing that is far better than refusing to open. --session overrides.
+        newest = max(running, key=lambda s: s.get("started", 0))
+        if len(running) > 1:
+            logger.info("%d replays running; attaching to the newest (%s %s)",
+                        len(running), newest["symbol"], newest["timeframe"])
+        return newest
 
     if not symbol:
         raise NoSession(

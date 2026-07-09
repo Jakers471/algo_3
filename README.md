@@ -50,8 +50,9 @@ would have held had you played into it — nothing can see past the cursor, by c
 
 `NQT` bars carry **order flow**: delta (aggressive buys minus aggressive sells) is drawn as
 a signed strip beneath the price, green above the zero line and red below. Bars that closed
-*against* their own flow — **absorption**, 21.1% of them — get a dot: below the bar when
-buyers absorbed the selling, above when sellers absorbed the buying. The NT8 `NQ`/`ES`
+*against* their own flow — **absorption**, 21.1% of them — are published as a field and shown
+in the table. Their chart markers are off by default (`DRAW_MARKERS`): a dot on one bar in
+five is noise on the candles. The NT8 `NQ`/`ES`
 bars have no aggressor recorded, so the strip is simply empty for them — never a flat zero,
 which would claim the buying and selling were balanced.
 

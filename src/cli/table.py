@@ -31,7 +31,14 @@ def main() -> None:
     ap.add_argument("--symbol", default=None, help="start a new replay on this symbol")
     ap.add_argument("--timeframe", default=None, help="timeframe for a new replay")
     ap.add_argument("--at", type=int, default=None, help="bar index to cut back to")
+    ap.add_argument("--list", action="store_true", help="list running replays and exit")
     args = ap.parse_args()
+
+    if args.list:
+        for session in client.list_sessions(args.url):
+            print(f"  {session['id']}  {session['symbol']:<5} {session['timeframe']:<4} "
+                  f"cursor {session['cursor']:,}  {session['subscribers']} subscriber(s)")
+        return
 
     try:
         session = client.resolve_session(args.url, args.session, args.symbol,

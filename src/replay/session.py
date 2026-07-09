@@ -39,10 +39,15 @@ logger = logging.getLogger(__name__)
 class ReplaySession:
     """One cursor over one symbol/timeframe, with live indicator state."""
 
-    def __init__(self, symbol: str, timeframe: str) -> None:
+    def __init__(self, symbol: str, timeframe: str, owner: str = "") -> None:
         self.id = uuid.uuid4().hex[:12]
         self.symbol = symbol
         self.timeframe = timeframe
+        # Who asked for this replay. A browser identifies itself with a stable
+        # id, so starting a new replay retires the one it left behind - even
+        # across a page refresh, when it has forgotten the session id itself.
+        self.owner = owner
+        self.started = time.time()
 
         self.registry = overlays.build_registry()
         self.total = store.count(symbol, timeframe)

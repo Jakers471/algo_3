@@ -214,6 +214,12 @@ chart.api        ─► chart.store, chart.overlays, config.chart   (routes -> b
 replay.session   ─► chart.{overlays,store}, config.{chart,replay}, replay.snapshot
 replay.manager   ─► replay.session, config.replay   (registry + idle reaper)
 replay.routes    ─► replay.manager, config.replay   (POST control; SSE stream)
+
+A replay session has an OWNER - a stable id the browser keeps in localStorage.
+Starting a replay retires every session that owner left behind, which is what
+stops a page refresh (or a --reload restart) stranding orphans until the idle
+reaper notices. `replace` handles the id the caller still remembers; `owner`
+handles the ones it has forgotten.
 chart.server     ─► replay.{routes,manager}         (dispatches /api/replay/*)
 
 table.client     ─► urllib, config.table  (find a session; read its SSE stream;

@@ -84,13 +84,19 @@ def _start(body: dict) -> Response:
     if "index" not in body:
         raise ValueError("'index' is required")
 
-    # One replay at a time per browser is the sane default; an orphaned session
-    # would keep stepping behind a tab that has moved on.
+    # One replay at a time per client. `replace` handles the id the caller still
+    # remembers; `owner` handles the ones it has forgotten - after a page
+    # refresh, or after --reload restarted the server underneath it. Without the
+    # second, orphaned sessions accumulate until the idle reaper notices, and a
+    # table attaching later cannot tell which replay is "the" replay.
     previous = body.get("replace")
     if previous:
         manager.stop(str(previous))
 
-    session = manager.create(symbol, timeframe)
+    owner = str(body.get("owner", ""))
+    manager.stop_owned_by(owner)
+
+    session = manager.create(symbol, timeframe, owner)
     return _json(200, session.seed(int(body["index"]), body.get("history")))
 
 

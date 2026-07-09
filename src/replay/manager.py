@@ -24,13 +24,29 @@ _LOCK = threading.RLock()
 _REAPER: threading.Thread | None = None
 
 
-def create(symbol: str, timeframe: str) -> ReplaySession:
+def create(symbol: str, timeframe: str, owner: str = "") -> ReplaySession:
     _ensure_reaper()
-    session = ReplaySession(symbol, timeframe)
+    session = ReplaySession(symbol, timeframe, owner)
     with _LOCK:
         _SESSIONS[session.id] = session
     logger.info("Replay %s: created (%s %s)", session.id, symbol, timeframe)
     return session
+
+
+def stop_owned_by(owner: str) -> int:
+    """Retire every session this owner left behind. Returns how many.
+
+    A browser that refreshed has forgotten its session id but not its own, so
+    this is what stops orphans accumulating until the idle reaper notices.
+    """
+    if not owner:
+        return 0
+    with _LOCK:
+        ids = [sid for sid, s in _SESSIONS.items() if s.owner == owner]
+    for sid in ids:
+        logger.info("Replay %s: retiring, owner %s started a new one", sid, owner)
+        stop(sid)
+    return len(ids)
 
 
 def get(session_id: str) -> ReplaySession:
@@ -74,6 +90,8 @@ def list_sessions() -> list[dict]:
         "id": s.id,
         "symbol": s.symbol,
         "timeframe": s.timeframe,
+        "owner": s.owner,
+        "started": s.started,
         "cursor": s.cursor,
         "total": s.total,
         "playing": s.playing,

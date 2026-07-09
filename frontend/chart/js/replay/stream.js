@@ -10,6 +10,22 @@
  * Nothing here computes; nothing here decides when the next bar arrives.
  */
 
+/**
+ * A stable id for this browser, surviving refreshes.
+ *
+ * Without it, a refresh forgets the session id and starts a second replay
+ * beside the first. They pile up until the server's idle reaper notices, and a
+ * table attaching in the meantime cannot tell which one is "the" replay.
+ */
+function clientId() {
+  let id = localStorage.getItem('algo3.clientId');
+  if (!id) {
+    id = `chart-${Math.random().toString(36).slice(2, 10)}`;
+    localStorage.setItem('algo3.clientId', id);
+  }
+  return id;
+}
+
 const post = async (path, body) => {
   const res = await fetch(path, {
     method: 'POST',
@@ -48,7 +64,7 @@ export class ReplayStream {
     // Hand the old id back so the server can retire it: an orphaned session
     // would keep a stepping thread alive behind a view that moved on.
     const seed = await post('/api/replay/start', {
-      symbol, timeframe, index, replace: this.sessionId,
+      symbol, timeframe, index, replace: this.sessionId, owner: clientId(),
     });
     this.sessionId = seed.session;
     this._open();

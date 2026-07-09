@@ -210,6 +210,41 @@ def test_speed_sets_the_interval(packed):
     assert s.interval == pytest.approx(0.125)      # 500ms base / 4
 
 
+def test_starting_a_replay_retires_the_ones_that_owner_left_behind(packed):
+    """A refreshed browser forgets its session id but not its own id.
+
+    Without this, each refresh strands a session until the idle reaper notices,
+    and a table attaching in the meantime cannot tell which replay is "the" one.
+    """
+    first = manager.create("TT", "5m", owner="chart-abc")
+    second = manager.create("TT", "5m", owner="chart-abc")
+    other = manager.create("TT", "5m", owner="chart-xyz")
+    assert manager.count() == 3
+
+    retired = manager.stop_owned_by("chart-abc")
+    assert retired == 2
+    assert manager.count() == 1
+    assert manager.get(other.id) is other
+    for session in (first, second):
+        with pytest.raises(KeyError):
+            manager.get(session.id)
+
+
+def test_an_empty_owner_retires_nothing(packed):
+    """An anonymous caller must not be able to kill every anonymous session."""
+    manager.create("TT", "5m")
+    manager.create("TT", "5m")
+    assert manager.stop_owned_by("") == 0
+    assert manager.count() == 2
+
+
+def test_sessions_report_their_owner_and_start_time(packed):
+    manager.create("TT", "5m", owner="chart-abc")
+    info = manager.list_sessions()[0]
+    assert info["owner"] == "chart-abc"
+    assert info["started"] > 0
+
+
 def test_manager_retires_a_session(packed):
     s = manager.create("TT", "5m")
     assert manager.get(s.id) is s

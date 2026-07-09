@@ -125,7 +125,26 @@ def test_min_delta_ratio_requires_the_disagreement_to_be_material(monkeypatch):
 
 # --- the drawing ------------------------------------------------------------
 
-def test_buy_absorption_is_marked_below_the_bar_and_sell_above():
+@pytest.fixture
+def markers_on(monkeypatch):
+    """Markers are OFF by default - a dot on one bar in five is noise on the
+    candles. The field is still published; only the drawing is opt-in."""
+    monkeypatch.setattr("src.config.indicators.absorption.DRAW_MARKERS", True)
+
+
+def test_markers_are_off_by_default():
+    from src.config.indicators import absorption as cfg
+    assert cfg.DRAW_MARKERS is False
+
+
+def test_the_field_is_published_even_when_the_drawing_is_off():
+    """Turning off a drawing must never turn off the data behind it."""
+    from src.chart import overlays
+    assert overlays.marks_for(1_000, {"absorption": True, "absorption_side": "buy"}) == []
+    assert row(bar(100, 101, delta=-141))["absorption"] is True
+
+
+def test_buy_absorption_is_marked_below_the_bar_and_sell_above(markers_on):
     from src.chart import overlays
 
     buy = overlays.marks_for(1_000, {"absorption": True, "absorption_side": "buy"})
@@ -135,14 +154,14 @@ def test_buy_absorption_is_marked_below_the_bar_and_sell_above():
     assert buy[0]["kind"] == "marker" and sell[0]["kind"] == "marker"
 
 
-def test_no_marker_for_a_bar_that_did_not_absorb():
+def test_no_marker_for_a_bar_that_did_not_absorb(markers_on):
     from src.chart import overlays
 
     assert overlays.marks_for(1_000, {"absorption": False}) == []
     assert overlays.marks_for(1_000, {"absorption": None}) == []
 
 
-def test_markers_group_into_their_own_overlay_spec():
+def test_markers_group_into_their_own_overlay_spec(markers_on):
     from src.chart import overlays
 
     marks = overlays.marks_for(1_000, {"absorption": True, "absorption_side": "buy"})

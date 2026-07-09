@@ -272,6 +272,11 @@ it — that vocabulary is deliberately independent of any strategy.
 
 ## Traps we have already paid for
 
+- **A client that forgets its own id strands server state.** The chart retired only the
+  session id it still remembered, so a page refresh (or `--reload` restarting the server)
+  left an orphan running until the 5-minute idle reaper noticed. Two replays then existed and
+  the table could not tell which was "the" replay. Fixed with a stable client id in
+  `localStorage`: starting a replay retires everything that owner left behind.
 - **A generator route sends its headers before it runs.** `stream()` returned a generator,
   so `manager.get()` did not execute until the first frame — after a `200 OK` had already
   gone out. A dead session then raised into the handler thread, the client saw a *clean*

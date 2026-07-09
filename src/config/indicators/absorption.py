@@ -22,7 +22,9 @@ MIN_VOLUME = 0.0
 MIN_DELTA_RATIO = 0.0
 
 # --- drawing ----------------------------------------------------------------
-DRAW_MARKERS = True
+# Off by default: a dot on one bar in five is noise on the candles, not signal.
+# The field is still published, so the table shows it and the brain can read it.
+DRAW_MARKERS = False
 
 # Buyers absorbed the sellers: price rose on net selling. Marked below the bar,
 # because the interest is underneath it.
