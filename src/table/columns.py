@@ -36,13 +36,35 @@ BAR_COLUMNS = (
 _SIGNED_FIELDS = {"delta"}
 _VOLUME_FIELDS = {"volume", "buy_volume", "sell_volume", "trades"}
 
+# Named prices that do not end in _price: they are levels on the chart's scale.
+_PRICE_FIELDS = {"extreme_high", "extreme_low", "trigger", "range_scale"}
+
+
+def is_time_field(name: str) -> bool:
+    """A market timestamp, in epoch seconds. Rendered as UTC, never as a number.
+
+    Every indicator that names a bar - the swing that made a high, the level a
+    break took out - publishes its epoch. Printed raw, `1782917100` reads as a
+    price with ten digits, and the column is unusable.
+    """
+    return name.endswith("_time")
+
+
+def is_price_field(name: str) -> bool:
+    return name in _PRICE_FIELDS or name.endswith(("_price", "_level"))
+
+
+def _right_aligned(name: str) -> bool:
+    """Digits line up on the right; words and timestamps read from the left."""
+    return (name in _SIGNED_FIELDS or name in _VOLUME_FIELDS
+            or is_price_field(name) or name == "retrace")
+
 
 def columns_for(fields: list[str]) -> list[tuple[str, str, str]]:
     """(key, label, alignment) per column, bar first then indicator fields."""
     out = list(BAR_COLUMNS)
     for name in fields:
-        align = RIGHT if (name in _SIGNED_FIELDS or name in _VOLUME_FIELDS) else LEFT
-        out.append((name, name.replace("_", " "), align))
+        out.append((name, name.replace("_", " "), RIGHT if _right_aligned(name) else LEFT))
     return out
 
 
@@ -84,10 +106,16 @@ def cell_text(key: str, snapshot: dict) -> str:
         return "-"
     if isinstance(value, bool):
         return "yes" if value else ""
+    if is_time_field(key):
+        return fmt_time(value)
     if key in _SIGNED_FIELDS:
         return fmt_signed(value)
     if key in _VOLUME_FIELDS:
         return fmt_int(value)
+    if is_price_field(key) or isinstance(value, float):
+        # A float printed by repr carries all seventeen digits it was computed
+        # with. `retrace` is a division; nobody wants 1.4814814814814814.
+        return fmt_price(value)
     return str(value)
 
 

@@ -69,6 +69,33 @@ def test_an_unknown_field_type_still_renders():
     assert cols.cell_text("regime", snap({"regime": "consolidation"})) == "consolidation"
 
 
+def test_an_indicators_timestamp_is_a_time_not_a_ten_digit_number():
+    """swing_time, leg_from_time, bos_time - all epoch seconds, all unreadable raw."""
+    assert cols.cell_text("swing_time", snap({"swing_time": 1573573500})) \
+        == "2019-11-12 15:45:00"
+    assert cols.cell_text("bos_time", snap({"bos_time": 1573573500})) \
+        == "2019-11-12 15:45:00"
+    assert cols.cell_text("swing_time", snap({"swing_time": None})) == "-"
+
+
+def test_a_computed_float_is_not_printed_to_seventeen_digits():
+    """retrace is a division. Nobody wants 1.4814814814814814."""
+    assert cols.cell_text("retrace", snap({"retrace": 1.4814814814814814})) == "1.48"
+    assert cols.cell_text("trigger", snap({"trigger": 27309.375})) == "27,309.38"
+    assert cols.cell_text("extreme_high", snap({"extreme_high": 27594.25})) == "27,594.25"
+
+
+def test_prices_and_ratios_line_up_on_the_right_words_on_the_left():
+    by_key = {k: a for k, _, a in cols.columns_for(
+        ["swing", "swing_price", "swing_time", "hunting", "retrace", "bos_level"])}
+    assert by_key["swing_price"] == cols.RIGHT
+    assert by_key["bos_level"] == cols.RIGHT
+    assert by_key["retrace"] == cols.RIGHT
+    assert by_key["swing_time"] == cols.LEFT, "a timestamp reads from the left"
+    assert by_key["hunting"] == cols.LEFT
+    assert by_key["swing"] == cols.LEFT
+
+
 # --- colour -----------------------------------------------------------------
 
 def test_close_is_coloured_by_the_candle_direction():
