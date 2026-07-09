@@ -25,10 +25,10 @@ import logging
 from collections import deque
 
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt, QTimer
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtGui import QColor, QFont, QPen
 from PySide6.QtWidgets import (
     QAbstractItemView, QHBoxLayout, QLabel, QMainWindow, QPushButton,
-    QTableView, QVBoxLayout, QWidget,
+    QStyledItemDelegate, QTableView, QVBoxLayout, QWidget,
 )
 
 from src.config import table as cfg
@@ -73,7 +73,26 @@ class SnapshotModel(QAbstractTableModel):
             return f"{owner}\n{column.label}"
         if role == Qt.ItemDataRole.TextAlignmentRole:
             return _ALIGN[column.align]
+        if role == Qt.ItemDataRole.ForegroundRole:
+            # One hue per indicator. It rides the HEADER, never a cell: a cell's
+            # colour already means green-up, red-down, grey-absent, and two
+            # meanings on one pixel is one meaning too many.
+            return QColor(cfg.GROUP_COLORS.get(column.group, cfg.GROUP_FALLBACK))
         return None
+
+    def group_of(self, section: int) -> str:
+        return self._columns[section].group
+
+    def starts_a_group(self, section: int) -> bool:
+        return self._columns[section].first_in_group
+
+    def groups(self) -> list[str]:
+        """Each block, once, in the order it appears."""
+        seen = []
+        for column in self._columns:
+            if column.group not in seen:
+                seen.append(column.group)
+        return seen
 
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
         if not index.isValid():
@@ -118,8 +137,25 @@ class SnapshotModel(QAbstractTableModel):
         self.endInsertRows()
 
 
+class GroupSeams(QStyledItemDelegate):
+    """A hairline down the left of each block's first column.
+
+    Colour alone cannot separate two adjacent blocks that share a hue, and the
+    block names slide off the top when the header scrolls. The seam does not.
+    """
+
+    def paint(self, painter, option, index):  # noqa: N802
+        super().paint(painter, option, index)
+        model = index.model()
+        if index.column() and model.starts_a_group(index.column()):
+            painter.save()
+            painter.setPen(QPen(QColor(cfg.GROUP_SEPARATOR), 1))
+            painter.drawLine(option.rect.topLeft(), option.rect.bottomLeft())
+            painter.restore()
+
+
 class TableWindow(QMainWindow):
-    """The window: a table, a status line, and a Follow toggle."""
+    """The window: a table, a status line, a legend, and a Follow toggle."""
 
     def __init__(self, stream, session: dict) -> None:
         super().__init__()
@@ -137,6 +173,12 @@ class TableWindow(QMainWindow):
         self.model = SnapshotModel(self._groups(), show_all=self.show_all)
         self.view = self._build_view()
         self.status = QLabel("waiting for the first bar...")
+
+        # Which colour is which indicator. `python -m src.cli.fields` is the same
+        # map in text, with each one's source file and config file beside it.
+        self.legend = QLabel()
+        self.legend.setTextFormat(Qt.TextFormat.RichText)
+        self.legend.setText(self._legend_text())
 
         # The row carries everything a drawing needs. Most of it is timestamps
         # and endpoints, and a reader wants none of them until something looks
@@ -180,12 +222,23 @@ class TableWindow(QMainWindow):
         view.horizontalHeader().setStretchLastSection(False)
         view.horizontalHeader().setHighlightSections(False)
         view.setFont(QFont(cfg.FONT_FAMILY.split(",")[0], cfg.FONT_SIZE_PT))
+        view.setItemDelegate(GroupSeams(view))
         return view
+
+    def _legend_text(self) -> str:
+        """Which colour is which indicator. The chart's own vocabulary, in words."""
+        chips = []
+        for group in self.model.groups():
+            colour = cfg.GROUP_COLORS.get(group, cfg.GROUP_FALLBACK)
+            chips.append(f'<span style="color:{colour}">{group}</span>')
+        return "&nbsp;&nbsp;".join(chips)
 
     def _build_layout(self) -> QWidget:
         bar = QHBoxLayout()
         bar.setContentsMargins(8, 6, 8, 6)
-        bar.addWidget(self.status, 1)
+        bar.addWidget(self.legend, 0)
+        bar.addStretch(1)
+        bar.addWidget(self.status, 0)
         bar.addWidget(self.details_button, 0)
         bar.addWidget(self.follow_button, 0)
 
@@ -259,6 +312,7 @@ class TableWindow(QMainWindow):
         for row in rows:
             self.model.append(row)
         self.view.setModel(self.model)
+        self.legend.setText(self._legend_text())
         self.view.resizeColumnsToContents()
         if self.following:
             self.view.scrollToBottom()
@@ -294,6 +348,9 @@ class TableWindow(QMainWindow):
         self.pending = 0
         self.model = SnapshotModel(self._groups(), show_all=self.show_all)
         self.view.setModel(self.model)
+        # A different session may run different indicators, so the legend moves
+        # with the columns it names.
+        self.legend.setText(self._legend_text())
         self.setWindowTitle(
             f"algo_3  -  {session['symbol']} {session['timeframe']}  snapshots")
         self._set_following(True)

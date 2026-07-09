@@ -43,6 +43,34 @@ SESSION_COLORS = {
 }
 HALT_COLOR = MUTED
 
+# One hue per indicator, so a column always says where its number came from.
+#
+# Columns are grouped by their producer already; the colour makes the grouping
+# survive a horizontal scroll, when the block's name has slid off the screen and
+# a header reading "retrace" tells you nothing about which file computed it.
+# `python -m src.cli.fields` is the same map in text, with the source and the
+# config file beside each name.
+#
+# The colour lives on the HEADER, never on a cell: a cell's colour already means
+# something (green up, red down, grey absent) and two meanings on one pixel is
+# one meaning too many.
+GROUP_COLORS = {
+    "bar": "#7d8590",
+    "sessions": "#58a6ff",
+    "orderflow": "#a371f7",
+    "absorption": "#d29922",
+    "range_scale": "#39c5cf",
+    "swing": "#3fb950",
+    "legs": "#7d8590",
+    "breaks": "#ef5350",
+    "profile": "#db6d28",
+}
+GROUP_FALLBACK = TEXT
+
+# A hairline down the left of each block's first column, so the eye finds the
+# seams even where two blocks happen to share a hue.
+GROUP_SEPARATOR = "#30363d"
+
 FONT_FAMILY = "JetBrains Mono, Consolas, Courier New, monospace"
 FONT_SIZE_PT = 10
 ROW_HEIGHT = 22

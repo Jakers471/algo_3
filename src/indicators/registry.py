@@ -50,6 +50,19 @@ class Registry:
         """Every field the row will carry, in run order. The TUI's columns."""
         return [name for ind in self._order for name in ind.fields]
 
+    def provenance(self) -> list[dict]:
+        """Every running indicator: its fields, its source file, its config file.
+
+        The contract between a column and the code that filled it. Derived from
+        the classes themselves, in dependency order, so it cannot fall out of
+        step with what actually ran.
+        """
+        return [ind.provenance() for ind in self._order]
+
+    def field_source(self) -> dict[str, str]:
+        """field name -> the id of the indicator that publishes it."""
+        return {name: ind.id for ind in self._order for name in ind.fields}
+
     def field_groups(self) -> list[dict]:
         """The same fields, still in run order, but labelled by who published them.
 

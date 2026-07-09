@@ -110,6 +110,7 @@ algo_3/
 │       ├── table.py       desktop snapshot table (python -m src.cli.table)
 │       ├── chart.py       serve the replay chart (python -m src.cli.chart)
 │       ├── vap.py         build volume at price (python -m src.cli.vap)
+│       ├── fields.py      the field contract (python -m src.cli.fields)
 │       └── capture.py     record the live market feed (python -m src.cli.capture)
 ├── frontend/           browser code — never inside the Python src/
 │   └── chart/          the replay chart (plain ES modules, no build step)
@@ -133,6 +134,7 @@ algo_3/
 │               │               re-seeds itself when its session is retired
 │               └── controls.js toolbar -> engine wiring (the thin door)
 ├── BUILD_PLAN.md       the phased road to a live brain (read before a phase)
+├── FIELDS.md           GENERATED: field -> indicator -> source + config file
 ├── cache/              packed bar cache + server pidfile (git-ignored)
 ├── capture/            recorded live sessions, raw JSONL (git-ignored)
 ├── runs/               labeled run outputs (git-ignored): trades, summary, equity.png
@@ -146,6 +148,7 @@ algo_3/
 │   ├── test_orderflow.py   pins the rule that absent is never zero
 │   ├── test_absorption.py  pins the definition + the dependency ordering
 │   ├── test_swing.py       pins scale invariance: 10x the prices, same swings
+│   ├── test_fields.py      pins the contract; fails when FIELDS.md goes stale
 │   ├── test_profile.py     pins the value area: contiguous, grown from the POC
 │   ├── test_profile_indicator.py  pins the freeze: at the bar that MADE the swing
 │   ├── test_structure.py   pins legs + breaks: a level fires once; a swing's
@@ -227,8 +230,16 @@ Trades arrive BATCHED: one ``GatewayTrade`` carried up to 34 of them. Iterate
 ``GatewayLogout`` fires and is currently unhandled; a long-running feed must
 treat it as end-of-session and re-authenticate.
 
-indicators.base      ─► (the Indicator interface + Unavailable)
+indicators.base      ─► (the Indicator interface + Unavailable + provenance())
 indicators.registry  ─► indicators.base         (toposort deps; merged field row)
+cli.fields           ─► chart.overlays, table.columns   (the field contract)
+
+Every field in the snapshot row is published by exactly ONE indicator, and
+`Indicator.provenance()` derives from the class itself where its code and its
+dials live. `python -m src.cli.fields` prints that contract; `--write` regenerates
+FIELDS.md, and `tests/test_fields.py` fails if the file goes stale. The desktop
+table colours each column block by its producing indicator, with a legend - the
+same map, on screen.
 indicators.sessions  ─► config.session, indicators.base   (Asia/London/NY)
 indicators.orderflow ─► indicators.base   (lifts delta off the bar; refuses if absent)
 indicators.absorption ─► indicators.base, config.indicators.absorption

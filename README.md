@@ -140,6 +140,15 @@ Columns are not configured anywhere: the first six describe the bar, the rest ar
 fields the session publishes, **grouped under the indicator that published them**. Add an
 indicator and a block appears.
 
+**Every column says where it came from.** Each block is tinted with its indicator's own
+hue, a hairline marks the seam between blocks, and a legend along the bottom names them.
+The colour rides the *header*, never a cell — a cell's colour already means green-up,
+red-down, grey-absent, and two meanings on one pixel is one meaning too many.
+
+The same map in text is `python -m src.cli.fields`, which prints every field beside the
+indicator that publishes it, that indicator's source file, its config file, and what it is
+allowed to read. `--write` regenerates **`FIELDS.md`**; a test fails if it goes stale.
+
 The row is not the view. A snapshot carries everything a *renderer* needs, which is more
 than a reader wants — there is only one kind of object in the structure layer, a swing
 point, and six fields point at one (`swing_price`, `leg_from_price`, `leg_to_price`,

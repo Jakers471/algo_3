@@ -150,6 +150,8 @@ $root = @{
             Submenu = @{
                 Title = 'Maintenance'
                 Items = @(
+                    @{ Label = 'Field contract  (which indicator publishes which column)'; Run = { python -m src.cli.fields } },
+                    @{ Label = 'Field contract  (regenerate FIELDS.md)'; Run = { python -m src.cli.fields --write } },
                     @{ Label = 'Run tests  (pytest)'; Run = { python -m pytest tests/ -q } },
                     @{ Label = 'Project audit  (docs drift + dead code)'; Run = { python scratch/audit_project.py } }
                 )
