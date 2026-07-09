@@ -29,7 +29,7 @@ algo_3/
 │   │       ├── swing.py     retrace threshold (multiples of range_scale)
 │   │       ├── legs.py      staircase colors (muted: a leg is not news)
 │   │       ├── breaks.py    close-vs-wick definition + break colors
-│   │       └── profile.py   which range (developing/leg/box) + bin width
+│   │       └── profile.py   bin width, how many closed profiles to keep
 │   ├── audit/           read the data-truth facts from DATA_AUDIT.json
 │   │   └── reader.py       front door: specs, handling flags, data end
 │   ├── logging/         the logging job: dials + the setup that applies them
@@ -59,7 +59,7 @@ algo_3/
 │   │   ├── swing.py       confirmed structure points + the live high/low rails
 │   │   ├── legs.py        the staircase from one swing to the next
 │   │   ├── breaks.py      a swing level closed through: break of structure
-│   │   └── profile.py     volume at price over a structure: POC, VAL, VAH
+│   │   └── profile.py     the developing profile; frozen onto each structure
 │   ├── profile/        volume at price - what bars can never carry
 │   │   ├── build.py       ticks -> 1-tick histograms, packed (I/O + fold)
 │   │   ├── store.py       memmap the pack; slice a time range -> histogram
@@ -147,6 +147,7 @@ algo_3/
 │   ├── test_absorption.py  pins the definition + the dependency ordering
 │   ├── test_swing.py       pins scale invariance: 10x the prices, same swings
 │   ├── test_profile.py     pins the value area: contiguous, grown from the POC
+│   ├── test_profile_indicator.py  pins the freeze: at the bar that MADE the swing
 │   ├── test_structure.py   pins legs + breaks: a level fires once; a swing's
 │   │                       own confirming bar can never break it
 │   ├── test_table_columns.py  pins row rendering: absent != zero, colour rules

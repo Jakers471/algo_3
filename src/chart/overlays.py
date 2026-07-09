@@ -48,9 +48,9 @@ logger = logging.getLogger(__name__)
 def build_registry(profile_mode: str | None = None) -> Registry:
     """The indicators that run. Add one here when it earns a place in the row.
 
-    ``profile_mode`` overrides ``config.indicators.profile.MODE`` for one request,
-    which is how the chart's toolbar switches between the developing range, the
-    last leg, and the box without editing a file. "off" runs no profile at all.
+    ``profile_mode`` is "on" or "off" for one request, which is how the chart's
+    toolbar runs the volume profile without editing a file. Off runs no profile
+    indicator at all, and its volume-at-price lookups are never paid for.
     """
     indicators = []
     if sessions_cfg.ENABLED:
@@ -73,9 +73,8 @@ def build_registry(profile_mode: str | None = None) -> Registry:
     if breaks_cfg.ENABLED:
         indicators.append(Breaks())
 
-    mode = profile_mode or profile_cfg.MODE
-    if profile_cfg.ENABLED and mode != "off":
-        indicators.append(Profile(mode))
+    if profile_cfg.ENABLED and (profile_mode or "off") != "off":
+        indicators.append(Profile())
     # The registry topologically sorts by declared dependencies, so the order
     # they are appended in here does not matter.
     return Registry(indicators)
@@ -312,43 +311,74 @@ def marks_for(time: int, row: dict, *, is_first: bool = False,
             breaks_cfg.WIDTH,
         ))
 
-    if profile_cfg.ENABLED and profile_cfg.DRAW and row.get("profile_bins"):
+    if profile_cfg.ENABLED and profile_cfg.DRAW and (
+            row.get("profile_bins") or row.get("profile_closed")):
         marks.extend(_profile_marks(int(time), row))
     return marks
 
 
-def _profile_marks(time: int, row: dict) -> list[dict]:
-    """The histogram, drawn inside the range it describes.
+def _histogram(time: int, bins: list, start: int, end: int, *,
+               max_px: int, buy_color: str, sell_color: str) -> list[dict]:
+    """One profile's bars, anchored at the right edge of its own range.
 
-    Each bin is a horizontal bar anchored at the range's right edge and growing
-    left, its length a share of the range's own width. No new shape is needed -
-    a bin is a segment, and `segments` already exists. That is the point of a
-    shape vocabulary: the fourth indicator to reach the chart adds no frontend.
+    Both ends of a bin name the SAME bar, and the left one is pushed back a
+    number of pixels. An interpolated timestamp has no x coordinate - the chart
+    looks a time up in the series and finds no bar there - so a bin drawn between
+    two moments would never appear at all.
+
+    No new shape is needed: a bin is a segment, and `segments` already exists.
+    That is the point of a shape vocabulary.
     """
-    bins = row["profile_bins"]
-    start, end = int(row["profile_from_time"]), int(row["profile_to_time"])
-    heaviest = max(v for _, v, _ in bins) or 1
-
+    heaviest = max((v for _, v, _ in bins), default=0) or 1
     marks: list[dict] = []
     for price, volume, buy in bins:
-        pixels = profile_cfg.MAX_WIDTH_PX * volume / heaviest
+        pixels = max_px * volume / heaviest
         if pixels < 1:
             continue
-        # Both ends anchor to the SAME bar, and the left one is pushed back a
-        # number of pixels. An interpolated timestamp has no x coordinate - the
-        # chart looks a time up in the series and finds no bar there - so a bin
-        # drawn between two moments would never appear at all.
-        #
-        # A bin is coloured by who crossed the spread inside it, the same green
-        # and red as the delta strip: the same measurement, against price
-        # instead of against time.
+        # Coloured by who crossed the spread inside the bin: the same green and
+        # red as the delta strip, the same measurement against price instead of
+        # against time.
         bought_it = buy * 2 >= volume
         marks.append(_segment(
             "profile", [(end, price), (end, price)],
-            profile_cfg.BUY_COLOR if bought_it else profile_cfg.SELL_COLOR,
+            buy_color if bought_it else sell_color,
             profile_cfg.BIN_HEIGHT, layer="profile", at=time,
             offsets=(-pixels, 0.0),
         ))
+    return marks
+
+
+def _profile_marks(time: int, row: dict) -> list[dict]:
+    """The developing profile, and the finished ones behind it.
+
+    Every one of them lives in the same LAYER, replaced wholesale each bar. A
+    closed profile drawn as an event would accumulate: a 5,000-bar browse window
+    holds about ninety swings, and ninety histograms is nine thousand segments of
+    payload for a picture nobody can read. Only the last few are kept.
+    """
+    marks: list[dict] = []
+
+    if profile_cfg.DRAW_CLOSED:
+        for closed in row.get("profile_closed") or []:
+            start, end = int(closed["from_time"]), int(closed["to_time"])
+            marks.extend(_histogram(time, closed["bins"], start, end,
+                                    max_px=profile_cfg.CLOSED_WIDTH_PX,
+                                    buy_color=profile_cfg.CLOSED_BUY_COLOR,
+                                    sell_color=profile_cfg.CLOSED_SELL_COLOR))
+            # A finished profile keeps its own span, so its point of control is
+            # drawn against the structure it describes, not against the right edge.
+            marks.append(_segment("profile", [(start, closed["poc"]), (end, closed["poc"])],
+                                  profile_cfg.CLOSED_POC_COLOR, 1,
+                                  layer="profile", at=time))
+
+    if not row.get("profile_bins"):
+        return marks
+
+    start, end = int(row["profile_from_time"]), int(row["profile_to_time"])
+    marks.extend(_histogram(time, row["profile_bins"], start, end,
+                            max_px=profile_cfg.MAX_WIDTH_PX,
+                            buy_color=profile_cfg.BUY_COLOR,
+                            sell_color=profile_cfg.SELL_COLOR))
 
     for key, color, width in (("profile_val", profile_cfg.VALUE_AREA_COLOR, 1),
                               ("profile_vah", profile_cfg.VALUE_AREA_COLOR, 1),

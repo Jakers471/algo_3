@@ -113,7 +113,7 @@ def is_detail(name: str) -> bool:
         # `legs` joins two swings with a line. It knows nothing the swings do
         # not; it is a drawing, and five columns of one.
         return True
-    if name.endswith("_bins"):
+    if name.endswith("_bins") or name == "profile_closed":
         # A histogram is not a cell. It rides the row so the chart can draw it.
         return True
     return False

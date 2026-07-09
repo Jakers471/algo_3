@@ -77,17 +77,19 @@ volatility regime and silently wrong for the next. Measured in units of itself, 
 pullback" means the same thing in a quiet August and in April 2025 — multiply every price
 in the data by ten and the identical swings are found.
 
-**The volume profile** is the toolbar's rightmost control, and it offers three ranges so
-you can see how differently they read: **developing** (from the last confirmed swing to
-now — always exists, even right after a break), **last leg** (frozen between two confirmed
-swings), and **box** (the same bars, clipped to the price band between the last confirmed
-high and low). Each bin is coloured by who crossed the spread; the amber line is the point
-of control and the faint pair around it is the value area.
+**The volume profile** is the toolbar's rightmost control. It covers the **developing
+range** — from the last confirmed swing to the current bar. It grows every bar, never looks
+ahead, and always exists, including right after a break of structure, when there is no
+complete high-low box at all.
 
-A leg is an interval in **time**; a box is an interval in **price**. They are not the same
-range — a real leg beginning at a swing low of 27,666.75 has volume ninety points *below*
-it, because once a low confirms, `swing` turns to hunting a high and nothing stops price
-falling under it.
+When a swing confirms, that profile **freezes onto the range it described** and a new one
+begins. So the chart carries a row of profiles, one per structure, each anchored to its own
+span, dimmed behind the live one. The last six are kept.
+
+Each bin is coloured by who crossed the spread; the amber line is the point of control and
+the faint pair around it is the value area. Bins are sized in `range_scale`, never in
+points — otherwise the histogram would be drawing the clock, four times spikier overnight
+than at the New York open.
 
 Volume at price lives only in the ticks: a bar records its total volume, its high and its
 low, never where between them the contracts changed hands. So it is folded once into a
