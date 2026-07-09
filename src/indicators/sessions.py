@@ -1,18 +1,20 @@
-"""Which trading session a bar closed in, and how far into it we are.
+"""Which trading session a bar closed in.
 
 One job: as each event arrives, say what session it belongs to (Asia / London /
-NY), whether that session just changed, and the running extremes of the session
-so far. Pure state machine - it holds only what it has already seen.
+NY) and whether that session just changed. Pure state machine - it holds only
+the session it last saw.
+
+Nothing else. Session highs, lows and opens are *levels*, and levels are a
+different job with a different lifetime (they persist, they get broken, they get
+retested). They will live in their own indicator, which can depend on this one
+for the ``session_new`` boundary. Keeping them out here is what lets that
+indicator exist without this one changing.
 
 Sessions are defined in ``config/session.py`` (Eastern windows; the 17:00-18:00 ET
 gap is the CME maintenance halt). Membership is ``start < minute <= end``, because
 bars are CLOSE-stamped: a bar labelled T covers ``(T - step, T]`` and therefore
 belongs to the session its interval closed in. Getting this wrong orphans the
 17:00 ET bar - NY's last - into no session at all.
-
-The running high/low are the session's extremes UP TO the current event, never
-the session's final extremes. A replay cursor sitting mid-session sees exactly
-what a trader standing there would have seen.
 """
 
 from __future__ import annotations
@@ -63,10 +65,10 @@ def session_for(minute_of_day: int) -> str | None:
 
 
 class Sessions(Indicator):
-    """Publishes the current session, whether it just opened, and its extremes."""
+    """Publishes the current session, and whether this event opened it."""
 
     id = "sessions"
-    fields = ("session", "session_new", "session_high", "session_low", "session_open")
+    fields = ("session", "session_new")
     depends = ()
 
     def __init__(self) -> None:
@@ -74,9 +76,6 @@ class Sessions(Indicator):
 
     def reset(self) -> None:
         self._session: str | None = None
-        self._open: float | None = None
-        self._high: float | None = None
-        self._low: float | None = None
 
     def update(self, event, upstream=None) -> dict:
         ts = getattr(event, "ts", None)
@@ -88,22 +87,6 @@ class Sessions(Indicator):
         # A new session begins whenever the name changes - including into and out
         # of the halt (name None), so the reopen always starts a clean session.
         is_new = name != self._session
-        if is_new:
-            self._session = name
-            self._open = getattr(event, "open", None)
-            self._high = getattr(event, "high", None)
-            self._low = getattr(event, "low", None)
-        else:
-            high, low = getattr(event, "high", None), getattr(event, "low", None)
-            if high is not None:
-                self._high = high if self._high is None else max(self._high, high)
-            if low is not None:
-                self._low = low if self._low is None else min(self._low, low)
+        self._session = name
 
-        return {
-            "session": self._session,
-            "session_new": is_new,
-            "session_high": self._high,
-            "session_low": self._low,
-            "session_open": self._open,
-        }
+        return {"session": self._session, "session_new": is_new}

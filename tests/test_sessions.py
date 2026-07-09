@@ -99,24 +99,27 @@ def test_offset_cache_agrees_over_a_dst_transition_minute_by_minute():
 
 # --- the state machine ------------------------------------------------------
 
-def test_running_extremes_never_see_the_future():
+def test_publishes_only_the_session_clock():
+    """Highs/lows/opens are LEVELS - a different indicator's job, not this one's."""
+    assert Sessions().fields == ("session", "session_new")
+
+
+def test_session_new_only_on_the_boundary():
     s = Sessions()
-    r1 = s.update(bar("2024-07-01 13:35:00", h=110, low=90))   # NY
-    assert r1["session"] == "NY" and r1["session_new"] is True
-    assert r1["session_high"] == 110 and r1["session_low"] == 90
+    r1 = s.update(bar("2024-07-01 13:35:00"))                   # NY
+    assert r1 == {"session": "NY", "session_new": True}
 
-    r2 = s.update(bar("2024-07-01 13:40:00", h=105, low=80))
-    assert r2["session_new"] is False
-    assert r2["session_high"] == 110   # kept
-    assert r2["session_low"] == 80     # extended
+    r2 = s.update(bar("2024-07-01 13:40:00"))                   # still NY
+    assert r2 == {"session": "NY", "session_new": False}
 
 
-def test_extremes_reset_on_a_new_session():
+def test_boundary_across_the_halt():
     s = Sessions()
-    s.update(bar("2024-07-01 20:00:00", h=999, low=1))          # NY (16:00 ET)
-    r = s.update(bar("2024-07-01 22:05:00", h=50, low=40))      # Asia (18:05 ET)
-    assert r["session"] == "Asia" and r["session_new"] is True
-    assert r["session_high"] == 50 and r["session_low"] == 40   # not 999 / 1
+    s.update(bar("2024-07-01 20:00:00"))                        # NY (16:00 ET)
+    halt = s.update(bar("2024-07-01 21:30:00"))                 # 17:30 ET - the halt
+    assert halt == {"session": None, "session_new": True}
+    reopen = s.update(bar("2024-07-01 22:05:00"))               # Asia (18:05 ET)
+    assert reopen == {"session": "Asia", "session_new": True}
 
 
 def test_reset_clears_state():
