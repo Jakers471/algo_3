@@ -20,6 +20,7 @@ algo_3/
 │   │   ├── replay.py      session idle timeout, subscriber queue, speeds
 │   │   ├── table.py       desktop table: server URL, row cap, theme
 │   │   ├── live.py        contract id, which market streams, capture dir
+│   │   ├── profile.py     volume-at-price cache dir, tick size, value-area share
 │   │   └── indicators/    one module per indicator, named for its id
 │   │       ├── sessions.py  enable + line colors for the sessions indicator
 │   │       ├── orderflow.py enable + delta strip colors and placement
@@ -57,6 +58,10 @@ algo_3/
 │   │   ├── swing.py       confirmed structure points + the live high/low rails
 │   │   ├── legs.py        the staircase from one swing to the next
 │   │   └── breaks.py      a swing level closed through: break of structure
+│   ├── profile/        volume at price - what bars can never carry
+│   │   ├── build.py       ticks -> 1-tick histograms, packed (I/O + fold)
+│   │   ├── store.py       memmap the pack; slice a time range -> histogram
+│   │   └── value_area.py  histogram -> POC / VAL / VAH (pure, no I/O)
 │   ├── data/           load the NT8 Parquet store into clean bars — engine
 │   │   ├── loader.py      read a symbol/TF Parquet -> raw UTC OHLCV (I/O)
 │   │   ├── prepare.py     window + gap-mark + zero-vol policy (logic)
@@ -102,6 +107,7 @@ algo_3/
 │       ├── resample.py    rebuild bars from ticks (python -m src.cli.resample)
 │       ├── table.py       desktop snapshot table (python -m src.cli.table)
 │       ├── chart.py       serve the replay chart (python -m src.cli.chart)
+│       ├── vap.py         build volume at price (python -m src.cli.vap)
 │       └── capture.py     record the live market feed (python -m src.cli.capture)
 ├── frontend/           browser code — never inside the Python src/
 │   └── chart/          the replay chart (plain ES modules, no build step)
@@ -138,6 +144,7 @@ algo_3/
 │   ├── test_orderflow.py   pins the rule that absent is never zero
 │   ├── test_absorption.py  pins the definition + the dependency ordering
 │   ├── test_swing.py       pins scale invariance: 10x the prices, same swings
+│   ├── test_profile.py     pins the value area: contiguous, grown from the POC
 │   ├── test_structure.py   pins legs + breaks: a level fires once; a swing's
 │   │                       own confirming bar can never break it
 │   ├── test_table_columns.py  pins row rendering: absent != zero, colour rules
@@ -231,6 +238,22 @@ indicators.swing     ─► indicators.base, config.indicators.swing
 indicators.legs      ─► indicators.base   (depends on `swing`; joins consecutive points)
 indicators.breaks    ─► indicators.base, config.indicators.breaks
                          (depends on `swing`; a level closed through, fired once)
+
+profile.build      ─► data.resample (anchor + aggressor), config.{profile,ticks}
+profile.store      ─► profile.build (the packed dtypes), config.profile, numpy
+profile.value_area ─► config.profile, numpy    (POC/VAL/VAH; pure, no I/O)
+cli.vap            ─► profile.build, profile.store, core.{console,progress}
+
+A bar records total volume, its high and its low - never WHERE inside that range
+the contracts changed hands. Spreading a bar's volume across its range would be a
+fabrication, and the profile drawn from it a picture of the assumption. So volume
+at price is folded from the tick file once (296M ticks -> 35.3M levels across
+1.62M 30s bars, 81s) into a packed store the chart memmaps and slices. Bins are
+ONE TICK wide because that is the finest the market resolves - after
+back-adjustment 100.00% of prices land on the 0.25 grid - and every coarser
+binning is an exact fold of it. `python -m src.cli.vap --verify` checks each
+sampled bar's histogram against that bar's own volume; a single lost contract
+would make every profile quietly wrong and no picture would show it.
 events.types         ─► (BarClose; Trade/Quote arrive with their sources)
 
 Exactly one number in that chain adapts, and it enters once. `swing` confirms at
