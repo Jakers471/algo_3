@@ -16,6 +16,7 @@ algo_3/
 │   │   ├── session.py     UTC + RTH hours (09:30-16:00 ET)
 │   │   ├── backtest.py    slippage, backtest window, gap/hold policy
 │   │   ├── chart.py       chart server host/port, bar cache, replay dials
+│   │   ├── ticks.py       tick file path, rebuilt-bar symbol + timeframes
 │   │   ├── replay.py      session idle timeout, subscriber queue, speeds
 │   │   ├── live.py        contract id, which market streams, capture dir
 │   │   └── indicators/    one module per indicator, named for its id
@@ -41,7 +42,8 @@ algo_3/
 │   │   └── sessions.py    Asia/London/NY + running session extremes
 │   ├── data/           load the NT8 Parquet store into clean bars — engine
 │   │   ├── loader.py      read a symbol/TF Parquet -> raw UTC OHLCV (I/O)
-│   │   └── prepare.py     window + gap-mark + zero-vol policy (logic)
+│   │   ├── prepare.py     window + gap-mark + zero-vol policy (logic)
+│   │   └── resample.py    ticks -> bars + order flow (delta/buy/sell/trades)
 │   ├── backtest/       resolve brackets against bars -> fills, PnL, stats
 │   │   ├── bracket.py     Direction + Bracket (entry stop + SL/TP as absolute levels)
 │   │   ├── fills.py       pure fill model (slippage, gaps, adverse-first flag)
@@ -80,6 +82,7 @@ algo_3/
 │   │   └── autoreload.py  dev: restart the server when Python changes
 │   └── cli/            thin doors: parse input, call an engine, format out
 │       ├── data.py        load & summarize prepared bars (python -m src.cli.data)
+│       ├── resample.py    rebuild bars from ticks (python -m src.cli.resample)
 │       ├── chart.py       serve the replay chart (python -m src.cli.chart)
 │       └── capture.py     record the live market feed (python -m src.cli.capture)
 ├── frontend/           browser code — never inside the Python src/
@@ -110,6 +113,7 @@ algo_3/
 │   ├── test_sessions.py    pins the session windows, the close-stamped
 │   │                       boundary rule, and the indicator registry
 │   ├── test_replay_session.py  pins seek == play-into, fan-out, no lookahead
+│   ├── test_resample.py    pins the tick->bar rebuild: ties, chunk seams, roll
 │   └── test_lifecycle.py   pins per-port pidfiles; the Windows os.kill trap
 ├── conftest.py         puts repo root on sys.path so tests import `src`
 ├── (top level, not code): .env, logs/, data/, projectX_API/
@@ -125,6 +129,7 @@ broker.contracts ─► broker.client
 broker.history   ─► broker.client
 broker.client    ─► requests            (external HTTP library)
 
+data.resample    ─► pyarrow, config.ticks   (296M ticks -> bars, streamed once)
 data.prepare     ─► data.loader         (raw bars to clean)
                  └► config.backtest      (window + zero-vol policy)
 data.loader      ─► pandas               (reads the Parquet store)
@@ -254,6 +259,20 @@ engines' ``build`` callable).
 - **`python -m src.cli.capture --seconds N`** — record the live market feed for one contract to `capture/<stamp>_<contract>.jsonl`, one raw event per line with a local receipt timestamp. It interprets nothing: the ProjectX docs name the hub events but do not document their payloads, so we record first and write the adapter against what the feed really sends. A recording also serves as a test fixture (drives the live code path with no network) and as the only way to check whether TopstepX's stream agrees with the NinjaTrader tick export. Wired into `commands.bat` → Live.
 
 `broker/` is a verified, reusable engine (auth → account → contract → bars) still awaiting its own command (e.g. live trading, health check); when built it adds another thin `cli/` door here, wired into `commands.bat`.
+
+## Two bar datasets, deliberately kept apart
+
+`data/NQ/`, `data/ES/` are the **NT8 bar files**: 2005-01-11 → 2025-01-10, OHLCV only.
+`data/NQT/` are **bars rebuilt from ticks**: 2024-03-12 → 2026-07-03, at 15s/1m/5m/15m/60m/4h,
+and each bar additionally carries `delta`, `buy_volume`, `sell_volume`, `trades`.
+
+They live under different symbols on purpose. The two series are back-adjusted from
+different anchors, so their absolute prices are **not comparable** — `NQT` re-anchors so the
+newest contract keeps its real prices (offset `+2187.00`). Never mix them in one series.
+
+Only `NQT` can carry order flow. A bar file records total volume, not which side was the
+aggressor; that information is destroyed by aggregation and no transformation recovers it.
+`15s` exists only in `NQT` for the same reason — bars cannot be subdivided.
 
 ## Note on API history depth
 

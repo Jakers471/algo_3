@@ -123,6 +123,8 @@ $root = @{
                 Title = 'Data'
                 Items = @(
                     @{ Label = 'Load & summarize bars  (python -m src.cli.data NQ 5m)'; Run = { python -m src.cli.data NQ 5m } },
+                    @{ Label = 'Rebuild bars from ticks  (15s/1m/5m/15m/1h/4h + delta)'; Run = { python -m src.cli.resample } },
+                    @{ Label = 'Rebuild bars from ticks  (15s/1m/5m/15m/1h/4h + delta)'; Run = { python -m src.cli.resample } },
                     @{ Label = 'Audit backtest data  (regenerate DATA_AUDIT.json/.md)'; Run = { python scratch/audit_parquet.py } },
                     @{ Label = 'Compare NT8 Parquet vs ProjectX API'; Run = { python scratch/compare_data.py } }
                 )

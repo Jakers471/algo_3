@@ -19,14 +19,19 @@ logger = logging.getLogger(__name__)
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 
 # Symbols with a per-symbol folder: data/<SYM>/<SYM>_<TF>.parquet.
-SYMBOLS = ("NQ", "ES")
+# NQ/ES are the NT8 bar files. NQT is rebuilt from ticks and is a SEPARATE
+# dataset - different span, different back-adjustment anchor. Never mix them.
+SYMBOLS = ("NQ", "ES", "NQT")
 
 # Bar spacing per timeframe - the base cadence used to detect session gaps.
+# 15s exists only for NQT: bars cannot be subdivided, only ticks can.
 TIMEFRAMES: dict[str, str] = {
+    "15s": "15s",
     "1m": "1min",
     "5m": "5min",
     "15m": "15min",
     "60m": "60min",
+    "4h": "4h",
     "1d": "1D",
 }
 

@@ -218,11 +218,17 @@ it — that vocabulary is deliberately independent of any strategy.
   `GatewayTrade.type` agrees with bid/ask classification where both exist.
 - **RTH live capture** to settle the `type` question. `python -m src.cli.capture --seconds 300`
   between 13:30 and 20:00 UTC.
-- **15s and the rebuilt timeframes.** 15s exists only where ticks exist. The stitched tick
-  file is now **built**: `NQ_continuous_ticks.parquet`, **296,029,228 ticks**, 2.0 GB,
-  2024-03-12 → 2026-07-03, all 10 contracts back-adjusted across roll seams of +212 to
-  +286 points. Next: rebuild 15s/1m/5m/15m/1h/4h from it for the tick window. The 20-year
-  bar history remains its own dataset for bar-expressible work.
+- ~~**15s and the rebuilt timeframes.**~~ **Done.** `NQ_continuous_ticks.parquet` holds
+  **296,029,228 ticks** (2.0 GB, 2024-03-12 → 2026-07-03, 10 contracts). `src/data/resample.py`
+  streams it once into 15s bars and folds every other timeframe up from those — verified
+  exact: 1m derived from 15s equals 1m built straight from ticks, 100% on all nine columns.
+  Output is `data/NQT/`, a **separate dataset** from the NT8 bars (different back-adjustment
+  anchor; never mix). Each bar carries `delta`, `buy_volume`, `sell_volume`, `trades`.
+  The 20-year NT8 bar history remains its own dataset for bar-expressible work.
+
+- **Delta on the chart.** The order-flow columns exist now; the chart's packed wire format
+  still carries only OHLCV. Widening it (or serving delta as a second series) is what puts
+  real order flow on screen.
 
 ---
 
