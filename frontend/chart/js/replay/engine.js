@@ -152,12 +152,14 @@ export class ReplayEngine {
   _drawMarks() {
     this.surface.setVerticalLines(this.marks.filter((m) => m.kind === 'vline'));
     this.surface.setMarkers(this.marks.filter((m) => m.kind === 'marker'));
+    this.surface.setSegments(this.marks.filter((m) => m.kind === 'segment'));
   }
 
   stop() {
     this.marks = [];
     this.surface.setVerticalLines([]);
     this.surface.setMarkers([]);
+    this.surface.setSegments([]);
     return this.stream.stop();
   }
 }
@@ -174,6 +176,7 @@ function flattenOverlays(overlays) {
   for (const overlay of overlays || []) {
     if (overlay.kind === 'vlines') marks.push(...overlay.lines.map((l) => ({ ...l, kind: 'vline' })));
     else if (overlay.kind === 'markers') marks.push(...overlay.markers);
+    else if (overlay.kind === 'segments') marks.push(...overlay.segments);
   }
   return marks;
 }

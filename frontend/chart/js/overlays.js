@@ -41,17 +41,21 @@ export class OverlayLayer {
   draw(overlays) {
     let lines = [];
     let markers = [];
+    let segments = [];
     for (const overlay of overlays) {
       if (overlay.kind === 'vlines') lines = lines.concat(overlay.lines);
       else if (overlay.kind === 'markers') markers = markers.concat(overlay.markers);
+      else if (overlay.kind === 'segments') segments = segments.concat(overlay.segments);
     }
     this.surface.setVerticalLines(lines);
     this.surface.setMarkers(markers);
+    this.surface.setSegments(segments);
   }
 
   clear() {
     this._seq++;
     this.surface.setVerticalLines([]);
     this.surface.setMarkers([]);
+    this.surface.setSegments([]);
   }
 }

@@ -65,11 +65,14 @@ def test_seed_warms_indicators_without_publishing(packed):
     assert q.empty(), "the warmup must not publish - it is not a replay step"
     # The columns are whatever the registry publishes, in dependency order:
     # absorption after the orderflow it reads, swing after the range_scale it
-    # measures its threshold in.
+    # measures its threshold in, legs and breaks after the swings they join up.
     assert info["fields"] == ["session", "session_new",
                              "delta", "buy_volume", "sell_volume", "trades",
                              "absorption", "absorption_side",
-                             "range_scale", "swing", "swing_price", "swing_time"]
+                             "range_scale", "swing", "swing_price", "swing_time",
+                             "leg", "leg_from_price", "leg_from_time",
+                             "leg_to_price", "leg_to_time",
+                             "bos", "bos_level", "bos_time"]
 
 
 def test_seeking_equals_playing_into_the_same_bar(packed):

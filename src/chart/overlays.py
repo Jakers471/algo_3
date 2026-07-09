@@ -23,12 +23,16 @@ import pandas as pd
 
 from src.chart import store
 from src.config.indicators import absorption as absorption_cfg
+from src.config.indicators import breaks as breaks_cfg
+from src.config.indicators import legs as legs_cfg
 from src.config.indicators import orderflow as orderflow_cfg
 from src.config.indicators import range_scale as range_scale_cfg
 from src.config.indicators import sessions as sessions_cfg
 from src.config.indicators import swing as swing_cfg
 from src.events.types import BarClose
 from src.indicators.absorption import Absorption
+from src.indicators.breaks import Breaks
+from src.indicators.legs import Legs
 from src.indicators.orderflow import OrderFlow
 from src.indicators.range_scale import RangeScale
 from src.indicators.registry import Registry
@@ -47,13 +51,19 @@ def build_registry() -> Registry:
         indicators.append(OrderFlow())
     if absorption_cfg.ENABLED:
         indicators.append(Absorption())
-    # swing measures its threshold in multiples of range_scale, so the scale must
-    # run even when nobody asked for it directly. The registry would raise on the
-    # missing dependency; better to satisfy it than to make the dial a trap.
-    if range_scale_cfg.ENABLED or swing_cfg.ENABLED:
+    # A dial that turns something off must not break what depends on it. legs and
+    # breaks are built from swing points; swing measures its threshold in
+    # multiples of range_scale. Enabling a consumer enables what it consumes -
+    # otherwise the registry raises on a missing dependency and the dial is a trap.
+    wants_swing = swing_cfg.ENABLED or legs_cfg.ENABLED or breaks_cfg.ENABLED
+    if range_scale_cfg.ENABLED or wants_swing:
         indicators.append(RangeScale())
-    if swing_cfg.ENABLED:
+    if wants_swing:
         indicators.append(Swing())
+    if legs_cfg.ENABLED:
+        indicators.append(Legs())
+    if breaks_cfg.ENABLED:
+        indicators.append(Breaks())
     # The registry topologically sorts by declared dependencies, so the order
     # they are appended in here does not matter.
     return Registry(indicators)
@@ -82,7 +92,25 @@ def bar_events(bars) -> list[BarClose]:
             for i, t in enumerate(times)]
 
 
-def marks_for(time: int, row: dict, *, is_first: bool = False) -> list[dict]:
+def _segment(source: str, points: list[tuple], color: str, width: int) -> dict:
+    """A polyline in (time, price) space, for the chart to stroke.
+
+    ``time`` is the EARLIEST point, because that is what the replay trim filter
+    compares against: a segment whose left end has scrolled out of the buffer
+    cannot be drawn, so it should be dropped rather than half-drawn.
+    """
+    return {
+        "kind": "segment",
+        "source": source,
+        "time": int(min(t for t, _ in points)),
+        "points": [{"time": int(t), "price": float(p)} for t, p in points],
+        "color": color,
+        "width": width,
+    }
+
+
+def marks_for(time: int, row: dict, *, is_first: bool = False,
+              close: float | None = None) -> list[dict]:
     """The drawings this row produces. One row in, zero or more shapes out.
 
     ``is_first`` suppresses the boundary on the first row of any window. Every
@@ -90,6 +118,10 @@ def marks_for(time: int, row: dict, *, is_first: bool = False) -> list[dict]:
     ``session_new`` - a fact about the indicator waking up, not about the market
     opening a session. Drawing it would put a phantom rule at the left edge of
     every window we ever request.
+
+    ``close`` is this bar's close, needed only to land the vertical stroke of a
+    break on the price that went through the level. Absent, the break is drawn as
+    the horizontal alone.
     """
     marks: list[dict] = []
     if is_first:
@@ -135,6 +167,34 @@ def marks_for(time: int, row: dict, *, is_first: bool = False) -> list[dict]:
             "shape": swing_cfg.HIGH_SHAPE if is_high else swing_cfg.LOW_SHAPE,
             "text": "",
         })
+
+    if legs_cfg.ENABLED and legs_cfg.DRAW and row.get("leg"):
+        up = row["leg"] == "up"
+        # Square corners: run along the price we left, then turn into the price
+        # we arrived at. A diagonal would claim price travelled in a straight
+        # line between the swings. The candles in between already say otherwise.
+        marks.append(_segment(
+            "legs",
+            [(row["leg_from_time"], row["leg_from_price"]),
+             (row["leg_to_time"], row["leg_from_price"]),
+             (row["leg_to_time"], row["leg_to_price"])],
+            legs_cfg.UP_COLOR if up else legs_cfg.DOWN_COLOR,
+            legs_cfg.WIDTH,
+        ))
+
+    if breaks_cfg.ENABLED and breaks_cfg.DRAW and row.get("bos"):
+        up = row["bos"] == "up"
+        level = row["bos_level"]
+        # Along the level from the swing that set it, to the bar that closed
+        # through it - then down (or up) to that close.
+        points = [(row["bos_time"], level), (int(time), level)]
+        if close is not None:
+            points.append((int(time), close))
+        marks.append(_segment(
+            "breaks", points,
+            breaks_cfg.UP_COLOR if up else breaks_cfg.DOWN_COLOR,
+            breaks_cfg.WIDTH,
+        ))
     return marks
 
 
@@ -155,6 +215,11 @@ def group_marks(marks: list[dict]) -> list[dict]:
     for source in dict.fromkeys(m.get("source", "markers") for m in markers):
         group = [m for m in markers if m.get("source", "markers") == source]
         specs.append({"id": source, "kind": "markers", "markers": group})
+
+    segments = [m for m in marks if m["kind"] == "segment"]
+    for source in dict.fromkeys(m["source"] for m in segments):
+        group = [m for m in segments if m["source"] == source]
+        specs.append({"id": source, "kind": "segments", "segments": group})
     return specs
 
 
@@ -174,5 +239,6 @@ def for_range(symbol: str, timeframe: str, start: int, count: int) -> list[dict]
     marks: list[dict] = []
     for i, (bar, event) in enumerate(zip(bars, bar_events(bars))):
         row = registry.update(event)
-        marks.extend(marks_for(int(bar["time"]), row, is_first=(i == 0)))
+        marks.extend(marks_for(int(bar["time"]), row, is_first=(i == 0),
+                               close=float(bar["close"])))
     return group_marks(marks)

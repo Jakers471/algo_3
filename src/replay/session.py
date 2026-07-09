@@ -86,7 +86,8 @@ class ReplaySession:
             marks: list[dict] = []
             for i, (bar, event) in enumerate(zip(bars, overlays.bar_events(bars))):
                 row = self.registry.update(event)
-                marks.extend(overlays.marks_for(int(bar["time"]), row, is_first=(i == 0)))
+                marks.extend(overlays.marks_for(int(bar["time"]), row, is_first=(i == 0),
+                                                close=float(bar["close"])))
 
             self.cursor = index - 1
             logger.info("Replay %s: seeded at %d (warmed %d bars)", self.id, index, len(bars))
@@ -138,7 +139,7 @@ class ReplaySession:
                     "delta": overlays._optional(float(bar["delta"])),
                 },
                 fields=row,
-                marks=overlays.marks_for(int(bar["time"]), row),
+                marks=overlays.marks_for(int(bar["time"]), row, close=float(bar["close"])),
                 at_end=self.at_end,
             )
 

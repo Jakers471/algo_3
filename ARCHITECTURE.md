@@ -25,7 +25,9 @@ algo_3/
 │   │       ├── orderflow.py enable + delta strip colors and placement
 │   │       ├── absorption.py thresholds + marker colors
 │   │       ├── range_scale.py rolling-median window (in BARS, not minutes)
-│   │       └── swing.py     retrace threshold (multiples of range_scale)
+│   │       ├── swing.py     retrace threshold (multiples of range_scale)
+│   │       ├── legs.py      staircase colors (muted: a leg is not news)
+│   │       └── breaks.py    close-vs-wick definition + break colors
 │   ├── audit/           read the data-truth facts from DATA_AUDIT.json
 │   │   └── reader.py       front door: specs, handling flags, data end
 │   ├── logging/         the logging job: dials + the setup that applies them
@@ -52,7 +54,9 @@ algo_3/
 │   │   ├── orderflow.py   delta/buy/sell/trades, or Unavailable on bar files
 │   │   ├── absorption.py  closed against its own flow; depends on orderflow
 │   │   ├── range_scale.py rolling median bar range - the adaptive unit
-│   │   └── swing.py       confirmed structure points; threshold in range_scale
+│   │   ├── swing.py       confirmed structure points; threshold in range_scale
+│   │   ├── legs.py        the staircase from one swing to the next
+│   │   └── breaks.py      a swing level closed through: break of structure
 │   ├── data/           load the NT8 Parquet store into clean bars — engine
 │   │   ├── loader.py      read a symbol/TF Parquet -> raw UTC OHLCV (I/O)
 │   │   ├── prepare.py     window + gap-mark + zero-vol policy (logic)
@@ -111,6 +115,7 @@ algo_3/
 │           ├── browse.js     non-replay view; backfills older bars on scroll
 │           ├── overlays.js   draw the backend's shapes; knows no indicator
 │           ├── vertical_lines.js  chart primitive: dashed rules with labels
+│           ├── segments.js   chart primitive: polylines in (time, price) space
 │           ├── format.js     time/price/volume display strings
 │           └── replay/
 │               ├── stream.js   EventSource + control POSTs; detects a retired
@@ -133,6 +138,8 @@ algo_3/
 │   ├── test_orderflow.py   pins the rule that absent is never zero
 │   ├── test_absorption.py  pins the definition + the dependency ordering
 │   ├── test_swing.py       pins scale invariance: 10x the prices, same swings
+│   ├── test_structure.py   pins legs + breaks: a level fires once; a swing's
+│   │                       own confirming bar can never break it
 │   ├── test_table_columns.py  pins row rendering: absent != zero, colour rules
 │   ├── test_table_client.py   pins the reconnect storm: backoff, adoption
 │   └── test_lifecycle.py   pins per-port pidfiles; the Windows os.kill trap
@@ -215,7 +222,17 @@ indicators.range_scale ─► indicators.base, config.indicators.range_scale
                          (rolling median bar range; refuses until MIN_BARS seen)
 indicators.swing     ─► indicators.base, config.indicators.swing
                          (depends on `range_scale`; retrace measured in it, never in points)
+indicators.legs      ─► indicators.base   (depends on `swing`; joins consecutive points)
+indicators.breaks    ─► indicators.base, config.indicators.breaks
+                         (depends on `swing`; a level closed through, fired once)
 events.types         ─► (BarClose; Trade/Quote arrive with their sources)
+
+Exactly one number in that chain adapts, and it enters once. `swing` confirms at
+`RETRACE x range_scale`; `legs` is pure geometry between two swing points and
+`breaks` is an exact price comparison against one. Neither carries a threshold of
+its own, so scale invariance propagates to them for free - verified on 54,593 real
+15m bars: multiply every price by ten and the same 580 swings, 579 legs and 248
+breaks come out.
 
 `range_scale` is the denominator the rest of the system is meant to grow into.
 NQ's median 30s bar range swung 3.17x across 29 months, so any threshold written
@@ -277,12 +294,21 @@ frontend/chart/js/api.js decodes that layout; tests/test_chart_store.py pins it.
 
 The chart DRAWS; it never computes. There are no indicators in the frontend and
 none may be added: indicators are computed once, in Python, and arrive over
-/api/overlays as drawing instructions. Two shapes exist: "vlines" (a dashed rule
-with a label, drawn by a lightweight-charts primitive onto the chart's own
-canvas) and "markers" (a dot on a bar). overlays.js understands *shapes*, never
-meaning - it drops a labelled rule without knowing what a trading session is and
-a dot without knowing what absorption is, so the next indicator to reuse either
-shape needs no frontend change at all.
+/api/overlays as drawing instructions. Three shapes exist: "vlines" (a dashed rule
+with a label), "markers" (a dot on a bar), and "segments" (a polyline through
+(time, price) corners). The first and third are lightweight-charts primitives
+drawing onto the chart's own canvas, so they track every pan and zoom exactly.
+overlays.js understands *shapes*, never meaning - it drops a labelled rule without
+knowing what a trading session is, a dot without knowing what absorption is, and a
+polyline without knowing what a break of structure is. Both `legs` and `breaks`
+landed on the chart by reusing "segments"; the next indicator to reuse any of the
+three needs no frontend change at all.
+
+A mark carries a `source`, and group_marks emits one spec per source, so a spec
+stays named after one job: "breaks" never carries someone else's lines. A segment
+is stamped with its EARLIEST point, because that is what the replay trim compares
+against - a polyline whose left end has scrolled out of the buffer must be dropped
+rather than half-drawn, and the primitive likewise skips any corner it cannot place.
 
 The overlay request carries the REVEALED bar range, so indicators are fed only
 bars at or before the replay cursor and a drawing cannot leak the future.

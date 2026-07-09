@@ -56,11 +56,19 @@ five is noise on the candles. The NT8 `NQ`/`ES`
 bars have no aggressor recorded, so the strip is simply empty for them — never a flat zero,
 which would claim the buying and selling were balanced.
 
-**Structure points** are marked with an arrow above the swing high or below the swing low
-that price later turned away from. A swing is confirmed only once price has retraced
-`RETRACE x range_scale` from the extreme — so the arrow appears late, on the bar that
-*proved* the turn, but lands on the bar that *made* it. Nothing else is honest: a high
-does not announce itself.
+**Structure** is drawn in two layers. A muted green or red **staircase** connects each
+confirmed swing to the next — square corners, because a diagonal would claim price
+travelled in a straight line between them, and the candles in between already say
+otherwise. Over it, a **break of structure**: when a bar *closes* through a standing swing
+level, a bright line runs from the swing that set the level, along it, to the close that
+took it out. Green when a swing high goes, red when a swing low does. A level fires once
+and is spent.
+
+A swing is confirmed only once price has retraced `RETRACE x range_scale` from the extreme
+— so the structure appears late, drawn from the bar that *proved* the turn back to the bar
+that *made* it. Nothing else is honest: a high does not announce itself. (A wick through a
+level that closes back below it is a rejection, not a break; set `USE_CLOSE = False` in
+`config/indicators/breaks.py` to measure the difference.)
 
 That threshold is measured in **multiples of the current typical bar range**
 (`src/indicators/range_scale.py`), never in points. NQ's median 30s range moved between

@@ -37,12 +37,16 @@ ENABLED = True
 # A swing is confirmed after price retraces this many multiples of the current
 # range_scale from the running extreme. Points would be wrong: NQ's median 30s
 # range moved 4.50 -> 14.25 across 29 months, a 3.17x swing.
-RETRACE = 10.0
+RETRACE = 5.0
 
 # --- drawing ----------------------------------------------------------------
-# The marker sits on the bar that MADE the extreme, not on the later bar that
-# confirmed it - so a swing high appears above the high it names.
-DRAW_MARKERS = True
+# Off: the legs and breaks drawn from these points carry the structure now, and
+# an arrow on every swing as well was two drawings of one fact. The field is
+# still published, so the table shows it and `legs` and `breaks` read it.
+#
+# Turn it back on to see exactly which bar each leg springs from - the arrow
+# lands on the bar that MADE the extreme, not the later one that confirmed it.
+DRAW_MARKERS = False
 
 # Structure is not directional information: a swing high and a swing low are the
 # same kind of thing. Position and shape already say which. One colour.

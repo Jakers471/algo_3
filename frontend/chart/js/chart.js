@@ -7,6 +7,7 @@
  * (append one bar). Replay logic lives in replay/. It draws; it never computes.
  */
 
+import { Segments } from './segments.js';
 import { VerticalLines } from './vertical_lines.js';
 
 const UP = '#26a69a';
@@ -92,7 +93,13 @@ export function createChart(container, cfg = {}) {
   const vlines = new VerticalLines();
   candles.attachPrimitive(vlines);
 
-  return new ChartSurface(chart, candles, volume, delta, vlines, flow);
+  // Polylines bounded in time and priced on the candle scale: the structure
+  // staircase, and the level a break took out. Attached after the rules so the
+  // rules stay legible over them.
+  const segments = new Segments();
+  candles.attachPrimitive(segments);
+
+  return new ChartSurface(chart, candles, volume, delta, vlines, segments, flow);
 }
 
 const volumeBar = (bar) => ({
@@ -102,12 +109,13 @@ const volumeBar = (bar) => ({
 });
 
 class ChartSurface {
-  constructor(chart, candles, volume, delta, vlines, flow) {
+  constructor(chart, candles, volume, delta, vlines, segments, flow) {
     this.chart = chart;
     this.candles = candles;
     this.volume = volume;
     this.delta = delta;
     this.vlines = vlines;
+    this.segments = segments;
     this.flow = flow;
   }
 
@@ -124,6 +132,11 @@ class ChartSurface {
   /** Drop dashed rules with labels. `lines` are {time, label, color, labelColor}. */
   setVerticalLines(lines) {
     this.vlines.setLines(lines);
+  }
+
+  /** Stroke polylines. `segments` are {points: [{time, price}], color, width}. */
+  setSegments(segments) {
+    this.segments.setSegments(segments);
   }
 
   /**
