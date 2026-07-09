@@ -28,7 +28,7 @@ Edits to HTML/CSS/JS take effect on a plain browser refresh — the server sends
 | --- | --- |
 | `index.html` | toolbar, chart stage, OHLC readout |
 | `css/chart.css` | the dark, gridless theme |
-| `js/main.js` | wires the pieces together; **register indicators here** |
+| `js/main.js` | wires the pieces together; decides who talks to whom |
 | `js/api.js` | fetch + decode the binary bar records |
 | `js/chart.js` | the chart surface: zoom-preserving `rebuild()`, cheap `push()` |
 | `js/browse.js` | the non-replay view; backfills older bars as you scroll back |
