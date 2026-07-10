@@ -430,7 +430,10 @@ class TableWindow(QMainWindow):
         state = "playing" if playing else "paused"
         speed = self.session.get("speed", 1)
         follow = "following" if self.following else f"held ({self.pending} new)"
+        # The scale, always, and first. Three of these windows sit side by side
+        # and only the rows tell them apart otherwise.
         self.status.setText(
+            f"{self.session['symbol']} {self.session['timeframe']}   "
             f"session {self.session['id']}   {state} {speed}x   "
             f"rows {self.model.rowCount():,}   {follow}")
 

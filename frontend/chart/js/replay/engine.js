@@ -136,6 +136,11 @@ export class ReplayEngine {
   }
 
   _onSnapshot(snap) {
+    // The session publishes a row per rung of the ladder - the same market at a
+    // coarser scale. This chart draws ONE timeframe, and a 15m bar appended to a
+    // 30s series would be a bar out of order. The tables read the other rungs.
+    if (snap.rung && snap.rung !== this.timeframe) return;
+
     const bar = { time: snap.time, ...snap.bar };
 
     // Replay time only ever moves forward. A snapshot at or before the newest

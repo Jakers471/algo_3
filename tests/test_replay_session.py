@@ -174,6 +174,7 @@ def test_cursor_never_passes_the_last_bar(packed):
 def test_slow_subscriber_drops_its_own_rows_not_everyone_s(packed, monkeypatch):
     """A stalled TUI must not stall the chart, so the queue drops its oldest."""
     monkeypatch.setattr("src.config.replay.SUBSCRIBER_QUEUE_MAX", 4)
+    monkeypatch.setattr("src.config.replay.LADDER", ())   # base rung only
     s = ReplaySession("TT", "5m")
     s.seed(100, history=50)
     slow = s.subscribe()
@@ -273,6 +274,8 @@ def test_snapshot_serializes_flat(packed):
     s = ReplaySession("TT", "5m")
     s.seed(100, history=50)
     d = s.step().to_dict()
-    assert set(d) == {"seq", "index", "total", "time", "bar", "fields", "marks", "at_end"}
+    assert set(d) == {"seq", "index", "total", "time", "bar", "fields", "marks",
+                      "at_end", "rung"}
+    assert d["rung"] == "5m"       # the base rung names itself, like any other
     assert isinstance(d["fields"], dict) and "session" in d["fields"]
     json.dumps(d)   # must survive the wire

@@ -47,6 +47,11 @@ class Snapshot:
     #: True once the cursor has consumed the dataset.
     at_end: bool = False
 
+    #: Which timeframe produced this row. The session's own on a base bar; a
+    #: coarser one on a rung of the ladder. A subscriber that wants one scale
+    #: filters on it, and a subscriber that wants all three does not.
+    rung: str = ""
+
     def to_dict(self) -> dict:
         return {
             "seq": self.seq,
@@ -57,4 +62,5 @@ class Snapshot:
             "fields": self.fields,
             "marks": self.marks,
             "at_end": self.at_end,
+            "rung": self.rung,
         }

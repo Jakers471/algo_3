@@ -26,3 +26,18 @@ SSE_KEEPALIVE_SECONDS = 15.0
 
 # Playback speeds the server will honour.
 SPEEDS = (1, 2, 4)
+
+
+# --- the ladder --------------------------------------------------------------
+# Timeframes to run ALONGSIDE the replay's own, folded from its bars, each with
+# its own indicator state. A rung is only built if it is a whole multiple of the
+# base timeframe: 30s folds into 3m and 15m exactly, and into nothing else.
+#
+# These three are evenly spaced in LOG time, which is the spacing that matters:
+# a bar's range grows as t^0.507, so 30s -> 3m -> 15m are three steps of the same
+# size through volatility, where 30s -> 5m -> 15m are not. See
+# scratch/analysis/timeframe_scaling.html.
+#
+# One cursor drives all of them, so a 15m row lands on the same clock tick as the
+# thirtieth 30s row. Nothing coordinates them; the arithmetic does.
+LADDER = ("30s", "3m", "15m")

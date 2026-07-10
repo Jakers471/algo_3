@@ -31,6 +31,7 @@ import uuid
 from src.chart import overlays, store
 from src.config import chart as chart_cfg
 from src.config import replay as replay_cfg
+from src.replay.ladder import Ladder
 from src.replay.snapshot import Snapshot
 
 logger = logging.getLogger(__name__)
@@ -55,6 +56,10 @@ class ReplaySession:
         self.started = time.time()
 
         self.registry = overlays.build_registry(profile_mode)
+        # The coarser timeframes, folded from this one's bars and carrying their
+        # own indicator state. One cursor drives them all, so a 15m row lands on
+        # the same tick of the clock as the thirtieth 30s row.
+        self.ladder = Ladder(symbol, timeframe, replay_cfg.LADDER, profile_mode)
         self.total = store.count(symbol, timeframe)
 
         self.cursor = -1          # dataset index of the last bar revealed
@@ -84,6 +89,7 @@ class ReplaySession:
             index = max(0, min(int(index), self.total))
             self.first_index = max(0, index - history)
             self.registry.reset()
+            self.ladder.reset()
             self.seq = 0
 
             bars = store.slice_bars(self.symbol, self.timeframe, self.first_index,
@@ -100,6 +106,11 @@ class ReplaySession:
                 row = self.registry.update(event)
                 marks.extend(overlays.marks_for(int(bar["time"]), row, is_first=(i == 0),
                                                 close=float(bar["close"])))
+                # Every rung is warmed by the same bars, silently. A rung whose
+                # bar has not closed by the cut point simply holds a partial one,
+                # exactly as it would have had you played into it.
+                self.ladder.feed(event, index=self.first_index + i, total=self.total,
+                                 quiet=True)
             if profile is not None:
                 profile.quiet = False
 
@@ -115,6 +126,9 @@ class ReplaySession:
                 "overlays": overlays.group_marks(marks),
                 "fields": self.registry.field_names(),
                 "groups": self.registry.field_groups(),
+                # The scales this session publishes. The base is first; a
+                # subscriber picks one and filters the stream on `rung`.
+                "rungs": [self.timeframe, *self.ladder.timeframes],
             }
 
     @property
@@ -145,6 +159,7 @@ class ReplaySession:
                 seq=self.seq,
                 index=index,
                 total=self.total,
+                rung=self.timeframe,
                 time=int(bar["time"]),
                 bar={
                     "open": float(bar["open"]), "high": float(bar["high"]),
@@ -158,8 +173,14 @@ class ReplaySession:
                 marks=overlays.marks_for(int(bar["time"]), row, close=float(bar["close"])),
                 at_end=self.at_end,
             )
+            # A rung bar closes on the same base bar that completes it, so its
+            # row is published on the same tick - never a bar late, and never
+            # before the base bar that made it.
+            rungs = self.ladder.feed(event, index=index, total=self.total)
 
         self._publish(snapshot)
+        for row_snapshot in rungs:
+            self._publish(row_snapshot)
         return snapshot
 
     # --- playback -----------------------------------------------------------

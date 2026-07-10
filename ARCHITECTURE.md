@@ -46,6 +46,7 @@ algo_3/
 │   │   └── window.py      the Qt table: never wraps, follows with escape
 │   ├── replay/         the server-side replay session (one cursor, many views)
 │   │   ├── snapshot.py    one flat row: bar + indicator fields + drawings
+│   │   ├── ladder.py      coarser rungs folded from the base bars; own indicators
 │   │   ├── session.py     owns the cursor and live indicator state; publishes
 │   │   ├── manager.py     sessions by id; reaps abandoned ones
 │   │   └── routes.py      control (POST) + the SSE snapshot stream
@@ -146,6 +147,7 @@ algo_3/
 │   ├── test_sessions.py    pins the session windows, the close-stamped
 │   │                       boundary rule, and the indicator registry
 │   ├── test_replay_session.py  pins seek == play-into, fan-out, no lookahead
+│   ├── test_ladder.py     a rung's bar is the store's bar; seek == play per rung
 │   ├── test_resample.py    pins the tick->bar rebuild: ties, chunk seams, roll
 │   ├── test_orderflow.py   pins the rule that absent is never zero
 │   ├── test_absorption.py  pins the definition + the dependency ordering

@@ -91,6 +91,9 @@ def list_sessions() -> list[dict]:
         "id": s.id,
         "symbol": s.symbol,
         "timeframe": s.timeframe,
+        # The scales it publishes: its own bar first, then the ladder above it.
+        # A table names one of these with --rung.
+        "rungs": [s.timeframe, *s.ladder.timeframes],
         "owner": s.owner,
         "started": s.started,
         "cursor": s.cursor,

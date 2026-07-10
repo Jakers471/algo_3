@@ -78,9 +78,14 @@ class SnapshotStream:
     about everything else.
     """
 
-    def __init__(self, base_url: str, session_id: str) -> None:
+    def __init__(self, base_url: str, session_id: str, rung: str | None = None) -> None:
         self.base_url = base_url
         self.session_id = session_id
+        # Which scale this table reads. The session publishes a row per rung on
+        # one stream; a table takes one of them and ignores the rest. Three
+        # tables on three rungs therefore cannot drift apart - they are three
+        # filters over one cursor, not three replays.
+        self.rung = rung
         self.queue: queue.Queue = queue.Queue()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -129,10 +134,15 @@ class SnapshotStream:
                 if not line.startswith("data: "):
                     continue        # ": keepalive" comments, blank separators
                 try:
-                    self.queue.put(json.loads(line[6:]))
+                    frame = json.loads(line[6:])
                 except ValueError:
                     logger.debug("Skipping unparseable frame")
                     continue
+                # Transport state and session changes belong to every subscriber;
+                # only a snapshot carries a rung, and only ours is ours.
+                if self.rung and frame.get("rung") and frame["rung"] != self.rung:
+                    continue
+                self.queue.put(frame)
                 self._delay = cfg.RECONNECT_DELAY_S   # data flowed: reset backoff
 
     def _backoff(self) -> None:
@@ -151,6 +161,12 @@ class SnapshotStream:
         Switching timeframe on the chart retires one session and starts another.
         Following it is what the user means by "watch the replay". Only adopt
         when exactly one is running: with several, we would be guessing.
+
+        The new session need not publish the rung we were reading - a 30s replay
+        has a 3m rung and a 15m one does not. Following it while filtering for a
+        rung it will never send is a table that sits empty forever and says
+        nothing about why. So the rung is reconciled here, and the window is told
+        which scale it is actually looking at.
         """
         if not cfg.ADOPT_NEW_SESSION:
             return False
@@ -166,8 +182,20 @@ class SnapshotStream:
                     session["id"], session["symbol"], session["timeframe"])
         self.session_id = session["id"]
         self._delay = cfg.RECONNECT_DELAY_S
-        self.queue.put({"session_changed": session})
+        self.queue.put({"session_changed": {**session, "timeframe": self._rung_of(session)}})
         return True
+
+    def _rung_of(self, session: dict) -> str:
+        """Keep our scale if the new session has it; otherwise read its base."""
+        rungs = session.get("rungs") or [session["timeframe"]]
+        if not self.rung or self.rung in rungs:
+            return self.rung or session["timeframe"]
+
+        logger.warning("%s publishes no %s rung (only %s); reading %s instead",
+                       session["timeframe"], self.rung, ", ".join(rungs),
+                       session["timeframe"])
+        self.rung = session["timeframe"]
+        return self.rung
 
 
 def resolve_session(base_url: str, session_id: str | None,

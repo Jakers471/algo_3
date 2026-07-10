@@ -102,7 +102,11 @@ $root = @{
                     @{ Label = 'Serve only  (no browser)'; Run = { python -m src.cli.chart } },
                     @{ Label = 'Rebuild bar cache, then serve  (after new data)'; Run = { python -m src.cli.chart --repack } },
                     @{ Label = 'Stop chart server  (confirm port closed)'; Run = { python -m src.cli.chart --stop } },
-                    @{ Label = 'Snapshot table  (desktop window; attach to the running replay)'; Run = { python -m src.cli.table } }
+                    @{ Label = 'Snapshot table  (desktop window; attach to the running replay)'; Run = { python -m src.cli.table } },
+                    @{ Label = 'Snapshot table  -  30s rung'; Run = { python -m src.cli.table --rung 30s } },
+                    @{ Label = 'Snapshot table  -  3m rung'; Run = { python -m src.cli.table --rung 3m } },
+                    @{ Label = 'Snapshot table  -  15m rung'; Run = { python -m src.cli.table --rung 15m } },
+                    @{ Label = 'Snapshot tables  -  all three rungs at once (30s / 3m / 15m)'; Run = { foreach ($r in '30s','3m','15m') { Start-Process -FilePath 'python' -ArgumentList '-m','src.cli.table','--rung',$r } } }
                 )
             }
         },

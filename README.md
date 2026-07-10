@@ -150,6 +150,32 @@ It never wraps. Columns clip and the view scrolls horizontally. It follows the n
 until you scroll up, then stays where you put it and counts what has landed; click **Follow**
 (or scroll back to the bottom) to resume.
 
+### Three scales at once
+
+A replay publishes a row per **rung** of its ladder — `30s`, `3m`, `15m` (`LADDER` in
+`config/replay.py`). Each rung folds the base bars into a coarser one and runs its **own**
+indicator state over it, so the same code says something different, and equally true, at
+each scale. That is what "the indicators are scale-free" means when you can look at it: a
+swing is `RETRACE x range_scale`, and `range_scale` is measured from the bars in front of it.
+
+```
+python -m src.cli.table --rung 30s     # three windows, one cursor
+python -m src.cli.table --rung 3m
+python -m src.cli.table --rung 15m
+```
+
+**They cannot drift apart.** These are three filters over one stream, not three replays: a
+15m bar closes on the exact base bar that completes it, so its row lands on the same tick of
+the clock as the thirtieth 30s row. Alignment is arithmetic, not coordination. A rung whose
+bar is still forming publishes nothing at all — a bar that has not closed has no close — and
+a rung's bar is, to the tick, the bar the store itself would have built.
+
+The chart draws one timeframe and ignores the other rungs' rows; a 15m bar appended to a 30s
+series would be a bar out of order. The ladder is why three tables cost one warmup.
+
+Only whole multiples of the base timeframe become rungs: 30s folds into 3m and 15m exactly.
+A 2m base gets no 3m rung, because two thirds of a bar is not a bar.
+
 Columns are not configured anywhere: the first six describe the bar, the rest are whatever
 fields the session publishes, **grouped under the indicator that published them**. Add an
 indicator and a block appears. A field never repeats its own group's name — `sessions` over

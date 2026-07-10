@@ -150,3 +150,37 @@ def test_adoption_can_be_turned_off(patched, monkeypatch):
     patched.sessions = [{"id": "s2", "symbol": "NQT", "timeframe": "5m"}]
     stream = client.SnapshotStream("http://test", "s1")
     assert stream._adopt() is False
+
+
+def test_adopting_a_session_without_our_rung_falls_back_to_its_base():
+    """A silent table is the worst failure: it looks like a working one.
+
+    The chart switches from a 30s replay to a 15m one. A 15m replay cannot
+    publish a 30s row - a rung is folded UP, and the bars to fold do not exist -
+    so a table still filtering for 30s would sit empty forever, saying nothing.
+    """
+    from src.table.client import SnapshotStream
+
+    stream = SnapshotStream("http://x", "old", rung="30s")
+    effective = stream._rung_of({"id": "new", "symbol": "NQ", "timeframe": "15m",
+                                 "rungs": ["15m"]})
+    assert effective == "15m"
+    assert stream.rung == "15m", "the filter must follow, or nothing is delivered"
+
+
+def test_adopting_a_session_that_does_have_our_rung_keeps_it():
+    from src.table.client import SnapshotStream
+
+    stream = SnapshotStream("http://x", "old", rung="15m")
+    effective = stream._rung_of({"id": "new", "symbol": "NQT", "timeframe": "30s",
+                                 "rungs": ["30s", "3m", "15m"]})
+    assert effective == "15m" and stream.rung == "15m"
+
+
+def test_a_stream_with_no_rung_reads_every_row():
+    """The default table watches the base rung by name, never by silence."""
+    from src.table.client import SnapshotStream
+
+    stream = SnapshotStream("http://x", "s")
+    assert stream.rung is None
+    assert stream._rung_of({"timeframe": "5m", "rungs": ["5m", "15m"]}) == "5m"
