@@ -150,6 +150,7 @@ $root = @{
                     @{ Label = 'Regime plane  (is regime a thing? every leg as drift x impulse, three PNGs)'; Run = { python -m scratch.analysis.regime_plane } },
                     @{ Label = 'Retracement  (does a leg give back less than the last? does it persist?)'; Run = { python -m scratch.analysis.retracement } },
                     @{ Label = 'Flow edge  (does order flow at a break predict the next break?)'; Run = { python -m scratch.analysis.flow_edge } },
+                    @{ Label = 'Outcomes  (label every bar: which barrier first? the cost wall + always-long)'; Run = { python -m scratch.analysis.outcomes } },
                     @{ Label = 'Structure variants  (six ways to draw swings/legs/breaks)'; Run = { python -m scratch.mockups.structure_variants } }
                 )
             }
