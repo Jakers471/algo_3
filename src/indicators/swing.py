@@ -69,6 +69,38 @@ class Swing(Indicator):
               "hunting", "retrace", "trigger")
     depends = ("range_scale",)
 
+    about = {
+        "swing": ("high | low | None", "A structure point CONFIRMED on this bar. Price "
+                  "retraced RETRACE x range_scale from the running extreme, proving it was "
+                  "a turn. Almost always None: it is an event, not a state."),
+        "swing_price": ("price", "The price of that turn."),
+        "swing_time": ("epoch seconds, UTC", "The EARLIER bar that made the extreme. A high "
+                       "does not announce itself; you learn it was one only after price "
+                       "falls away. That lag is the price of not looking ahead."),
+
+        "extreme_high": ("price", "The highest high since the last confirmed swing low. "
+                         "Live while `hunting` is high; frozen at the confirmed swing "
+                         "otherwise, which is why it can sit unchanged for many rows."),
+        "extreme_high_time": ("epoch seconds, UTC", "The bar that made it."),
+        "extreme_low": ("price", "The lowest low since the last confirmed swing high. "
+                        "The mirror of extreme_high."),
+        "extreme_low_time": ("epoch seconds, UTC", "The bar that made it."),
+
+        "hunting": ("high | low", "Which rail is still PROVISIONAL - the one that could "
+                    "still move, and the kind the next confirmed swing will be. It does "
+                    "not predict direction: hunting a high while price falls is exactly "
+                    "what confirms that high."),
+        "retrace": ("x range_scale", "(live extreme - close) / range_scale, or the mirror. "
+                    "How far price has pulled back from the running extreme, in typical "
+                    "bars. Confirms at RETRACE. Dimensionless: 10x the prices and it does "
+                    "not move. Measured to the CLOSE while the trigger tests the LOW, so a "
+                    "swing can confirm on a bar reading slightly under RETRACE."),
+        "trigger": ("price", "extreme -/+ RETRACE x range_scale. The price at which the "
+                    "provisional extreme becomes a swing. Rides up under a rising high, so "
+                    "it says what has to happen next. Pure arithmetic on columns already "
+                    "here; hidden from the table."),
+    }
+
     def __init__(self) -> None:
         self.reset()
 

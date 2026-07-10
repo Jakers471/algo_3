@@ -53,6 +53,18 @@ class Indicator(ABC):
     #: Ids of indicators this one reads. Empty means it reads only raw events.
     depends: tuple[str, ...] = ()
 
+    #: field name -> (unit, what it is). One entry per published field.
+    #:
+    #: The UNIT is the thing a reader gets wrong first. "price" and "points" and
+    #: "x range_scale" look identical in a table and mean completely different
+    #: things: a price moves with the market, points move with volatility, and a
+    #: multiple of range_scale moves with neither. Say which.
+    #:
+    #: Written here, beside the code that computes the number, so `FIELDS.md` and
+    #: the table's help are generated rather than maintained. A field with no
+    #: entry fails tests/test_fields.py.
+    about: dict[str, tuple[str, str]] = {}
+
     @abstractmethod
     def reset(self) -> None:
         """Drop all state. Called before a replay seed or a fresh run."""
@@ -87,6 +99,8 @@ class Indicator(ABC):
             "config": _repo_path(importlib.import_module(config).__file__)
             if has_config else None,
             "doc": (cls.__doc__ or "").strip().splitlines()[0] if cls.__doc__ else "",
+            "about": {name: {"unit": unit, "means": means}
+                      for name, (unit, means) in cls.about.items()},
         }
 
     def __repr__(self) -> str:

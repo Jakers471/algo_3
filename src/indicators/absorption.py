@@ -39,6 +39,16 @@ class Absorption(Indicator):
     fields = ("absorption", "absorption_side")
     depends = ("orderflow",)
 
+    about = {
+        "absorption": ("boolean", "The bar closed AGAINST its own order flow: green on net "
+                       "selling, or red on net buying. Somebody resting absorbed the "
+                       "aggressors. Happens on 17.9% of bars; the candle explains only 56% "
+                       "of delta. Thresholds in config/indicators/absorption.py."),
+        "absorption_side": ("buy | sell | None", "Who absorbed. `buy` means price rose "
+                            "while sellers were the aggressors - a resting buyer. Marked "
+                            "BELOW the bar, because that is where the interest sat."),
+    }
+
     def reset(self) -> None:
         """Stateless: each bar is judged on itself alone."""
 

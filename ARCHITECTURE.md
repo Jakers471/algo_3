@@ -134,7 +134,7 @@ algo_3/
 │               │               re-seeds itself when its session is retired
 │               └── controls.js toolbar -> engine wiring (the thin door)
 ├── BUILD_PLAN.md       the phased road to a live brain (read before a phase)
-├── FIELDS.md           GENERATED: field -> indicator -> source + config file
+├── FIELDS.md           GENERATED: every field defined - unit, meaning, source, config
 ├── cache/              packed bar cache + server pidfile (git-ignored)
 ├── capture/            recorded live sessions, raw JSONL (git-ignored)
 ├── runs/               labeled run outputs (git-ignored): trades, summary, equity.png

@@ -71,7 +71,14 @@ class Registry:
         that emitted them says which question each answers. A view that groups by
         producer can show that; a flat list cannot.
         """
-        return [{"id": ind.id, "fields": list(ind.fields)} for ind in self._order]
+        return [{
+            "id": ind.id,
+            "fields": list(ind.fields),
+            # Carried to every subscriber, so the table can say what a column
+            # means without importing the indicator that made it.
+            "about": {name: {"unit": unit, "means": means}
+                      for name, (unit, means) in ind.about.items()},
+        } for ind in self._order]
 
     def reset(self) -> None:
         for ind in self._order:

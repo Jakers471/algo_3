@@ -41,6 +41,16 @@ class Breaks(Indicator):
     fields = ("bos", "bos_level", "bos_time")
     depends = ("swing",)
 
+    about = {
+        "bos": ("up | down | None", "Break of structure: this bar CLOSED through a standing "
+                "swing level. Up means a swing high went. The level is then spent and fires "
+                "once - one that re-broke every bar would be a drawing, not an event. A wick "
+                "through that closes back is a rejection, not a break (USE_CLOSE)."),
+        "bos_level": ("price", "The price that broke: an older swing's price."),
+        "bos_time": ("epoch seconds, UTC", "The bar that MADE the swing whose level broke, "
+                     "not the bar that broke it."),
+    }
+
     def __init__(self) -> None:
         self.reset()
 

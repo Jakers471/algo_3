@@ -115,6 +115,50 @@ class Profile(Indicator):
               "price_vs_value", "delta_at_poc")
     depends = ("range_scale", "swing")
 
+    about = {
+        "profile_poc": ("price", "Point of control: the single bin where the most "
+                        "contracts changed hands. The market's own answer to what "
+                        "this is worth. The only absolute number in the block."),
+        "profile_val": ("price", "Value area low. The bottom of the contiguous band "
+                        "around the POC holding 70% of the volume (config/profile.py "
+                        "VALUE_AREA). Drawn on the chart; `value_width` is what it says."),
+        "profile_vah": ("price", "Value area high. The top of that same band."),
+        "profile_from_time": ("epoch seconds, UTC", "Close time of the first bar in "
+                              "this range - the bar after the last confirmed swing."),
+        "profile_to_time": ("epoch seconds, UTC", "Close time of the current bar. The "
+                            "range's right edge, which moves every bar."),
+        "profile_volume": ("contracts", "Total traded in the developing range. Climbs "
+                           "every bar, then resets when a swing confirms and a new "
+                           "range opens. Not comparable between two ranges."),
+        "profile_bins": ("payload", "The histogram: [price, volume, buy_volume] per bin, "
+                         "bins `range_scale / BINS_PER_SCALE` wide. The chart draws it; "
+                         "the brain should never read it - a few hundred mostly-noise "
+                         "numbers where five readings will do."),
+        "profile_closed": ("payload", "The last MAX_CLOSED finished profiles, each with "
+                           "the span it described. Frozen at the bar that MADE its swing."),
+
+        "value_width": ("x range_scale", "(VAH - VAL) / range_scale. How tightly the "
+                        "market agreed on a price. Narrow is balance; wide is a market "
+                        "that kept trading away from itself. NQ 15m: p05 1.62, median "
+                        "4.25, p95 14.13."),
+        "poc_position": ("0..1", "(POC - lowest traded price) / (highest - lowest), over "
+                         "the prices traded IN THIS RANGE - not the bar's high and low. "
+                         "0.5 is value in the middle; near 1 is value at the top with "
+                         "everything below merely traversed. NQ 15m median 0.61."),
+        "poc_distance": ("x range_scale", "(close - POC) / range_scale. How far price is "
+                         "from the fair price, in typical bars. Positive is above. "
+                         "NQ 15m: p05 -4.80, p95 +7.72."),
+        "price_vs_value": ("above | inside | below", "Where the close sits against the "
+                           "value area. Outside it, the market is declining to accept the "
+                           "price it just spent all that volume building."),
+        "delta_at_poc": ("-1..+1", "(buy - sell) / volume, at the POC bin only. +1 means "
+                         "every contract at the fair price lifted the offer. Near zero by "
+                         "construction - the POC is where buyers and sellers AGREE - so "
+                         "the tail is the signal: |x| > 0.10 on 1.0% of bars, > 0.20 on "
+                         "none. Needs volume at price AND aggressor side; only ticks "
+                         "carry both."),
+    }
+
     def __init__(self) -> None:
         # A profile is a reading of the present, and only the newest one is drawn
         # - the chart replaces the whole layer each bar. A caller walking WARMUP

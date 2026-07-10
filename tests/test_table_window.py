@@ -23,6 +23,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 pytest.importorskip("PySide6")
 
+from PySide6.QtCore import Qt                 # noqa: E402
 from PySide6.QtGui import QColor              # noqa: E402
 from PySide6.QtWidgets import QApplication    # noqa: E402
 
@@ -120,3 +121,23 @@ def test_details_adds_blocks_and_keeps_the_rows(window):
     assert window.model.columnCount() > before
     assert window.model.rowCount() == rows
     assert header_colours(window) == set(window.model.groups())
+
+
+def test_a_header_tooltip_names_the_unit_before_the_meaning(app):
+    """`price`, `points` and `x range_scale` look identical in a column."""
+    from src.chart import overlays
+    from src.table.window import SnapshotModel
+
+    groups = overlays.build_registry(profile_mode="on").field_groups()
+    model = SnapshotModel(groups)
+    tips = {}
+    for i in range(model.columnCount()):
+        tip = model.headerData(i, Qt.Orientation.Horizontal, Qt.ItemDataRole.ToolTipRole)
+        assert tip, f"column {i} has no tooltip"
+        tips[model._columns[i].key] = tip
+
+    assert "unit: x range_scale" in tips["retrace"]
+    assert "unit: points" in tips["range_scale"]
+    assert "unit: price" in tips["profile_poc"]
+    assert "unit: contracts" in tips["volume"], "the bar's own columns too"
+    assert "swing.retrace" in tips["retrace"], "and which indicator it came from"

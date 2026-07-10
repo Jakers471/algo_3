@@ -39,6 +39,19 @@ class Legs(Indicator):
     fields = ("leg", "leg_from_price", "leg_from_time", "leg_to_price", "leg_to_time")
     depends = ("swing",)
 
+    about = {
+        "leg": ("up | down | None", "The staircase segment that just closed, on the bar "
+                "its far swing confirmed. Up if it ended above where it began. Swings "
+                "alternate, so legs alternate: this is mechanical, not a market fact."),
+        "leg_from_price": ("price", "The previous confirmed swing. A leg carries no "
+                           "information the swings do not - it is a drawing, and five "
+                           "columns of one. Hidden from the table."),
+        "leg_from_time": ("epoch seconds, UTC", "The bar that MADE that swing."),
+        "leg_to_price": ("price", "The swing that just confirmed. Identical to "
+                         "`swing_price` on the same row."),
+        "leg_to_time": ("epoch seconds, UTC", "The bar that made it, earlier than this one."),
+    }
+
     def __init__(self) -> None:
         self.reset()
 

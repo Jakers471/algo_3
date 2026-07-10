@@ -65,6 +65,44 @@ def test_field_source_maps_a_column_back_to_its_indicator():
     assert source["bos"] == "breaks"
 
 
+# --- every field is defined, and its unit is named ---------------------------
+
+KNOWN_UNITS = {
+    "price", "points", "contracts", "contracts, signed", "count",
+    "x range_scale", "0..1", "-1..+1", "boolean", "payload",
+    "epoch seconds, UTC",
+}
+
+
+def test_every_published_field_is_defined():
+    """A column nobody defined is a column nobody can read six months from now."""
+    for entry in registry().provenance():
+        missing = set(entry["fields"]) - set(entry["about"])
+        assert not missing, f"{entry['id']} publishes {missing} with no definition"
+
+
+def test_every_definition_names_a_unit_we_recognise():
+    """`price`, `points` and `x range_scale` look identical in a table."""
+    for entry in registry().provenance():
+        for name, about in entry["about"].items():
+            unit = about["unit"]
+            enum = "|" in unit
+            assert enum or unit in KNOWN_UNITS, f"{name}: unknown unit {unit!r}"
+            assert about["means"].strip(), f"{name}: empty definition"
+
+
+def test_the_bar_columns_are_defined_too():
+    """The candle comes from the dataset, not an indicator, and still needs saying."""
+    assert set(k for k, _, _ in cols.BAR_COLUMNS) == set(cols.BAR_ABOUT)
+
+
+def test_the_ruler_is_the_only_thing_measured_in_points():
+    """Everything measured IN range_scale is dimensionless. That is the whole point."""
+    in_points = {name for e in registry().provenance()
+                 for name, a in e["about"].items() if a["unit"] == "points"}
+    assert in_points == {"range_scale"}
+
+
 # --- the table's colours are part of the same contract ------------------------
 
 def test_every_running_indicator_has_a_colour():

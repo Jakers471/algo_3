@@ -66,6 +66,16 @@ class RangeScale(Indicator):
     fields = ("range_scale",)
     depends = ()
 
+    about = {
+        "range_scale": ("points", "The median bar range (high - low) over the last "
+                        "WINDOW_MINUTES of market time, floored at MIN_BARS bars. THE "
+                        "UNIT: every threshold and every ratio in the structure layer is "
+                        "measured in multiples of it. NQ's median 30s range moved 4.50 -> "
+                        "14.25 across 29 months, so a number in points is right for one "
+                        "regime and silently wrong for the next. Absent on a dead tape - "
+                        "zero is no unit at all, not a small one."),
+    }
+
     def __init__(self) -> None:
         self.reset()
 

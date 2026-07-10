@@ -61,6 +61,21 @@ BAR_COLUMNS = (
     ("volume", "volume", RIGHT),
 )
 
+# The bar comes from the dataset, not from an indicator, so its definitions live
+# here rather than in an `about` map. Same contract; different source.
+BAR_ABOUT = {
+    "time": ("epoch seconds, UTC", "The bar's CLOSE. A bar labelled T covers (T - step, T], "
+             "so it is fully known at T and revealing it at T leaks nothing."),
+    "open": ("price", "First trade in the bar."),
+    "high": ("price", "Highest trade."),
+    "low": ("price", "Lowest trade."),
+    "close": ("price", "Last trade. Every structure rule that says 'closed through' means "
+              "this one, not a wick."),
+    "volume": ("contracts", "Total traded. On tick-rebuilt bars it equals buy_volume + "
+               "sell_volume, give or take the 0.000474% of prints that land between the "
+               "quotes and join neither side."),
+}
+
 # A field whose name we know how to render specially. Anything else falls back
 # to a plain string, which is exactly what a brand-new indicator should get.
 _SIGNED_FIELDS = {"delta"}

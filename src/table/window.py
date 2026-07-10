@@ -43,6 +43,21 @@ _ALIGN = {
 }
 
 
+def _about_lookup(groups) -> dict:
+    """field -> {unit, means}. The bar's definitions, then every indicator's.
+
+    The session ships them alongside the field names, so the table can say what a
+    column is without importing the indicator that made it - and cannot drift,
+    because both come from the same `about` map that generates FIELDS.md.
+    """
+    about = {name: {"unit": unit, "means": means}
+             for name, (unit, means) in cols.BAR_ABOUT.items()}
+    for group in groups or []:
+        if isinstance(group, dict):
+            about.update(group.get("about") or {})
+    return about
+
+
 class SnapshotModel(QAbstractTableModel):
     """Rows are snapshots; columns come from the session's own field groups."""
 
@@ -50,6 +65,7 @@ class SnapshotModel(QAbstractTableModel):
         super().__init__()
         self._columns = cols.columns_for(groups, show_all=show_all)
         self._rows: deque = deque(maxlen=cfg.MAX_ROWS)
+        self._about = _about_lookup(groups)
 
     # --- Qt plumbing --------------------------------------------------------
 
@@ -78,6 +94,15 @@ class SnapshotModel(QAbstractTableModel):
             # colour already means green-up, red-down, grey-absent, and two
             # meanings on one pixel is one meaning too many.
             return QColor(cfg.GROUP_COLORS.get(column.group, cfg.GROUP_FALLBACK))
+        if role == Qt.ItemDataRole.ToolTipRole:
+            # What the number is, and - first - what unit it is in. `price`,
+            # `points` and `x range_scale` look identical in a column and mean
+            # completely different things. Same text as FIELDS.md, same source.
+            about = self._about.get(column.key)
+            if not about:
+                return None
+            return (f"{column.group}.{column.key}\n"
+                    f"unit: {about['unit']}\n\n{about['means']}")
         return None
 
     def group_of(self, section: int) -> str:

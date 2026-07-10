@@ -71,6 +71,17 @@ class Sessions(Indicator):
     fields = ("session", "session_new")
     depends = ()
 
+    about = {
+        "session": ("Asia | London | NY | None", "Which trading session this bar CLOSED "
+                    "in. None is the CME maintenance halt. Windows are Eastern, in "
+                    "config/session.py; membership is start < minute <= end because bars "
+                    "are close-stamped."),
+        "session_new": ("boolean", "True on the first bar of a session, including into "
+                        "and out of the halt. Derivable from `session` changing between "
+                        "rows - it is published because marks_for() sees one row and must "
+                        "decide whether to draw the rule."),
+    }
+
     def __init__(self) -> None:
         self.reset()
 

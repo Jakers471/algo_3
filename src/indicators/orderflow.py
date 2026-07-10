@@ -38,6 +38,20 @@ class OrderFlow(Indicator):
     fields = ("delta", "buy_volume", "sell_volume", "trades")
     depends = ()
 
+    about = {
+        "delta": ("contracts, signed", "buy_volume - sell_volume. Aggressive buying minus "
+                  "aggressive selling. NOT computed here: it was decided once, exactly, "
+                  "when bars were rebuilt from ticks - a print at the ask is a buyer, at "
+                  "the bid a seller. None on any bar file; never zero, which would claim "
+                  "the sides were balanced."),
+        "buy_volume": ("contracts", "Traded at the ask: someone crossed the spread to buy."),
+        "sell_volume": ("contracts", "Traded at the bid. buy + sell can fall a contract or "
+                        "two short of volume on 0.09% of bars: 0.000474% of prints land "
+                        "strictly between the quotes and join neither side."),
+        "trades": ("count", "Number of prints in the bar. Not contracts - one print can "
+                   "carry many."),
+    }
+
     def reset(self) -> None:
         """Stateless: each bar carries its own flow. Nothing to forget."""
 
