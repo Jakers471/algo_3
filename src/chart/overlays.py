@@ -102,6 +102,16 @@ def _vap_for(symbol: str, timeframe: str, times) -> list:
     profile indicator refuses rather than draws a guess.
     """
     step = step_seconds(timeframe)
+    base = step_seconds(profile_cfg.BASE_TIMEFRAME)
+    if step < base or step % base:
+        # The store holds one row per BASE bar. A 15s bar asking it for 15
+        # seconds gets whatever 30s bars happen to close in that window - none
+        # for the first half of every 30s, both halves' volume for the second.
+        # Neither is that bar's volume at price, and the store cannot be sliced
+        # finer than it was folded. Refuse; the indicator publishes None.
+        logger.debug("%s cannot be profiled from a %s store", timeframe,
+                     profile_cfg.BASE_TIMEFRAME)
+        return [None] * len(times)
     try:
         return [store_vap.histogram(symbol, profile_cfg.BASE_TIMEFRAME, t - step, t)
                 for t in times]

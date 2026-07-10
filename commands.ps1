@@ -147,6 +147,7 @@ $root = @{
                     @{ Label = 'Volatility seasonality  (regenerate + open the report)'; Run = { python -m scratch.analysis.seasonality_report; Start-Process 'scratch/analysis/range_scale_seasonality.html' } },
                     @{ Label = 'Leg zoom  (one 15m leg -> 3m -> 30s, three PNGs)'; Run = { python -m scratch.analysis.leg_zoom } },
                     @{ Label = 'Scale ladder  (is RETRACE tunable? swing count vs threshold, two nulls)'; Run = { python -m scratch.analysis.scale_ladder } },
+                    @{ Label = 'Regime plane  (is regime a thing? every leg as drift x impulse, three PNGs)'; Run = { python -m scratch.analysis.regime_plane } },
                     @{ Label = 'Structure variants  (six ways to draw swings/legs/breaks)'; Run = { python -m scratch.mockups.structure_variants } }
                 )
             }

@@ -108,6 +108,10 @@ def _config() -> dict:
         "trim_chunk_bars": chart_cfg.TRIM_CHUNK_BARS,
         "prefetch_bars": chart_cfg.PREFETCH_BARS,
         "base_step_ms": chart_cfg.BASE_STEP_MS,
+        # The timeframe the volume-at-price store was folded at. A bar finer
+        # than this cannot be profiled from it, and a bar that is not a whole
+        # multiple of it would be attributed volume from bars either side.
+        "profile_base_timeframe": profile_cfg.BASE_TIMEFRAME,
         # Which drawings the Layers panel offers, and which start visible. A
         # layer whose indicator is not drawing is not offered: the checkbox
         # would toggle marks that never arrive.

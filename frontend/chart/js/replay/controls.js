@@ -65,22 +65,38 @@ export class Controls {
   /**
    * A profile needs volume at price, and only the ticks have it.
    *
-   * The NT8 bar files record a bar's total volume, its high and its low - never
-   * where between them the contracts changed hands, and nothing recovers it. So
-   * on those symbols the control is disabled and says why, rather than being
-   * offered and quietly drawing nothing.
+   * Two ways it can be missing. The NT8 bar files record a bar's total volume,
+   * its high and its low - never where between them the contracts changed hands,
+   * and nothing recovers it. And the tick store was folded at one timeframe: a
+   * bar finer than that cannot be sliced out of it, and a bar that is not a whole
+   * multiple of it would be handed volume from the bars either side.
+   *
+   * In both cases the control is disabled and says why, rather than being offered
+   * and quietly drawing nothing.
    */
   _syncProfile() {
     const select = $('profile');
-    const available = (this.profileSymbols || []).includes(this.symbol);
-    select.disabled = !available;
-    select.title = available
-      ? 'Volume profile range'
-      : `${this.symbol} has no volume at price - it is a bar file. Use a tick-built symbol.`;
-    if (!available && select.value !== 'off') {
+    const reason = this._noProfileBecause();
+    select.disabled = Boolean(reason);
+    select.title = reason || 'Volume profile range';
+    if (reason && select.value !== 'off') {
       select.value = 'off';
       this.onProfileChange('off');
     }
+  }
+
+  /** Why this symbol/timeframe cannot be profiled, or '' if it can. */
+  _noProfileBecause() {
+    if (!(this.profileSymbols || []).includes(this.symbol)) {
+      return `${this.symbol} has no volume at price - it is a bar file. `
+           + 'Use a tick-built symbol.';
+    }
+    const base = this.cfg && this.cfg.profileBaseTimeframe;
+    if (base && !divides(base, this.timeframe)) {
+      return `volume at price is stored per ${base} bar, so a ${this.timeframe} bar `
+           + `cannot be sliced out of it. Use ${base} or a whole multiple of it.`;
+    }
+    return '';
   }
 
   _reload() {
@@ -204,4 +220,20 @@ export class Controls {
   _renderSpeed(speed) {
     for (const s of [1, 2, 4]) $(`speed-${s}`).classList.toggle('active', s === speed);
   }
+}
+
+
+const UNIT_SECONDS = { s: 1, m: 60, h: 3600, d: 86400 };
+
+/** Seconds in a timeframe: '15m' -> 900. Mirrors overlays.step_seconds. */
+function seconds(timeframe) {
+  return parseInt(timeframe, 10) * UNIT_SECONDS[timeframe.slice(-1)];
+}
+
+/** Does `base` fold a whole number of times into `timeframe`? */
+function divides(base, timeframe) {
+  if (!timeframe) return true;
+  const a = seconds(base);
+  const b = seconds(timeframe);
+  return b >= a && b % a === 0;
 }

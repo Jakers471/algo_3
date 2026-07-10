@@ -68,6 +68,8 @@ class Ladder:
         return self._lo is not None
 
     def add(self, prices, volume, buy) -> None:
+        if len(prices) == 0:
+            return          # nothing traded: there is no price to attribute it to
         ticks = np.rint(prices / store_cfg.TICK_SIZE).astype(np.int64)
         lo, hi = int(ticks[0]), int(ticks[-1])          # vap prices are ascending
         if self._lo is None:
