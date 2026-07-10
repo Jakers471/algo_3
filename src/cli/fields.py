@@ -88,24 +88,25 @@ def render_text(entries: list[dict]) -> str:
     return "\n".join(out)
 
 
-def _block(lines: list[str], title: str, source: str, config: str | None,
-           doc: str, reads: str, about: dict, names) -> None:
-    lines.append(f"\n### `{title}`\n")
-    if doc:
-        lines.append(f"{doc}\n")
-    lines.append(f"- **reads** — {reads}")
-    lines.append(f"- **source** — `{source}`")
-    lines.append(f"- **config** — {f'`{config}`' if config else 'none'}\n")
-    lines.append("| field | unit | shown | what it is |")
-    lines.append("|---|---|---|---|")
-    for name in names:
+def _rows(lines: list[str], indicator: str, about: dict, names) -> None:
+    """One row per field, and the indicator named once, on its first row.
+
+    The indicator column is left blank on the rows that follow, exactly as the
+    snapshot table's header leaves it blank: the eye needs the block's name once
+    to know where a block starts, and repeating it on every row turns the column
+    that says *where this came from* into wallpaper.
+    """
+    for i, name in enumerate(names):
         unit, means = about.get(name, ("?", "UNDEFINED"))
-        shown = "" if cols.is_detail(name) else "yes"
-        lines.append(f"| `{name}` | {unit} | {shown} | {means} |")
+        owner = f"**`{indicator}`**" if i == 0 else ""
+        shown = "yes" if not cols.is_detail(name) else "detail"
+        lines.append(f"| {owner} | `{name}` | {unit} | {shown} | {means} |")
 
 
 def render_markdown(entries: list[dict]) -> str:
-    lines = [HEADER, "\n## Indicators, in dependency order\n"]
+    lines = [HEADER, "
+## Where each indicator lives
+"]
     lines.append("| indicator | reads | source | config |")
     lines.append("|---|---|---|---|")
     lines.append("| **`bar`** | the dataset | `src/chart/store.py` | `src/config/chart.py` |")
@@ -114,19 +115,32 @@ def render_markdown(entries: list[dict]) -> str:
         config = f"`{e['config']}`" if e["config"] else "—"
         lines.append(f"| **`{e['id']}`** | {deps} | `{e['source']}` | {config} |")
 
-    lines.append("\n## Every field, defined\n")
-    lines.append("The blocks below are the table's blocks, in the order the columns appear.")
+    lines.append("
+## Every field, defined
+")
+    lines.append("Every column of the snapshot table, in the order the columns appear,")
+    lines.append("under the indicator that publishes it. `shown` is what the table does")
+    lines.append("with it: **yes** by default, **detail** only when you click Details.
+")
 
-    _block(lines, "bar", "src/chart/store.py", "src/config/chart.py",
-           "The candle itself, straight from the packed dataset. No indicator computes it.",
-           "the dataset", cols.BAR_ABOUT, [k for k, _, _ in cols.BAR_COLUMNS])
+    lines.append("| indicator | field | unit | shown | what it is |")
+    lines.append("|---|---|---|---|---|")
+    _rows(lines, "bar", cols.BAR_ABOUT, [k for k, _, _ in cols.BAR_COLUMNS])
+    for e in entries:
+        about = {k: (v["unit"], v["means"]) for k, v in (e["about"] or {}).items()}
+        _rows(lines, e["id"], about, e["fields"])
 
+    lines.append("
+## What each indicator is for
+")
     for e in entries:
         reads = ", ".join(f"`{d}`" for d in e["depends"]) or "the bar"
-        _block(lines, e["id"], e["source"], e["config"], e["doc"], reads,
-               e["about"] and {k: (v["unit"], v["means"]) for k, v in e["about"].items()},
-               e["fields"])
-    return "\n".join(lines) + "\n"
+        first = (e["doc"] or "").strip().splitlines()
+        lines.append(f"**`{e['id']}`** — reads {reads}. {first[0] if first else ''}")
+        lines.append("")
+    return "
+".join(lines) + "
+"
 
 
 def main() -> None:
