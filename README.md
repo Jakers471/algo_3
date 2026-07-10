@@ -152,7 +152,9 @@ until you scroll up, then stays where you put it and counts what has landed; cli
 
 Columns are not configured anywhere: the first six describe the bar, the rest are whatever
 fields the session publishes, **grouped under the indicator that published them**. Add an
-indicator and a block appears.
+indicator and a block appears. A field never repeats its own group's name — `sessions` over
+`session`, or `profile` over `profile_poc`, says one thing twice — so the prefix is stripped,
+and where nothing is left the group name *is* the column's name.
 
 **Every column says where it came from.** Each block is tinted with its indicator's own
 hue, a hairline marks the seam between blocks, and a legend along the bottom names them.

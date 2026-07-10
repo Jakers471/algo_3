@@ -214,3 +214,41 @@ def test_a_payload_is_hidden_unless_details_are_asked_for():
     groups = [{"id": "profile", "fields": ["profile_poc", "profile_bins", "profile_closed"]}]
     assert keys_of(groups) == ["time", "open", "high", "low", "close", "volume", "profile_poc"]
     assert "profile_bins" in keys_of(groups, show_all=True)
+
+
+def test_a_field_never_repeats_its_own_group_name():
+    """The header prints the group above the field. Saying it twice is noise."""
+    from src.table.columns import field_label
+
+    # The field IS the group: the group name is the column's name.
+    assert field_label("sessions", "session") == ""
+    assert field_label("absorption", "absorption") == ""
+    assert field_label("range_scale", "range_scale") == ""
+    assert field_label("swing", "swing") == ""
+    assert field_label("breaks", "bos") == ""      # two words, one event
+
+    # The group's name is inside the field's: take it back out.
+    assert field_label("profile", "profile_poc") == "poc"
+    assert field_label("sessions", "session_new") == "new"
+    assert field_label("absorption", "absorption_side") == "side"
+
+    # Everything else is untouched, underscores aside.
+    assert field_label("swing", "extreme_high") == "extreme high"
+    assert field_label("orderflow", "buy_volume") == "buy volume"
+    # A field that merely starts with its group's letters keeps them.
+    assert field_label("legs", "leg") == ""
+    assert field_label("breaks", "break_even_price") == "break even price"
+
+
+def test_every_group_has_exactly_one_namesake_column_at_most():
+    """Two blank field labels in one block would be two unnamed columns."""
+    from src.chart import overlays
+    from src.table.columns import columns_for
+
+    for show_all in (False, True):
+        blank = {}
+        for column in columns_for(overlays.build_registry("on").field_groups(),
+                                  show_all=show_all):
+            if column.label == "":
+                blank[column.group] = blank.get(column.group, 0) + 1
+        assert not [g for g, n in blank.items() if n > 1], blank

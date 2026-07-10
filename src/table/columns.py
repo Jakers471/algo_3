@@ -148,6 +148,38 @@ def is_detail(name: str) -> bool:
     return False
 
 
+# A field that simply restates its group. `breaks` publishes `bos`; the two words
+# name the same event, and a header reading "breaks / bos" stacks one fact twice.
+_NAMESAKE = {"breaks": "bos"}
+
+
+def _singular(group: str) -> str:
+    return group[:-1] if group.endswith("s") else group
+
+
+# A namespace a group prefixes onto its fields, where that prefix is not just the
+# group's own name. DECLARED, never inferred: stripping `break_` off `breaks`
+# would turn a `break_even_price` into an "even price".
+_PREFIX = {"sessions": "session_"}
+
+
+def field_label(group: str, name: str) -> str:
+    """The field's name, with its group's name taken back out of it.
+
+    The header prints the group above the field, so a group of `sessions` over a
+    field of `session` says one thing twice, and `profile.profile_poc` says it in
+    the middle of the word. Strip the prefix; if nothing is left, the group name
+    IS the column's name and the field line stays empty rather than echoing it.
+    """
+    if name in (group, _singular(group), _NAMESAKE.get(group)):
+        return ""
+    for prefix in (f"{group}_", _PREFIX.get(group)):
+        if prefix and name.startswith(prefix) and len(name) > len(prefix):
+            name = name[len(prefix):]
+            break
+    return name.replace("_", " ")
+
+
 def columns_for(groups, *, show_all: bool = False) -> list[Column]:
     """Bar columns, then one block per indicator, in dependency order.
 
@@ -163,7 +195,7 @@ def columns_for(groups, *, show_all: bool = False) -> list[Column]:
     for group in groups or []:
         shown = [f for f in group["fields"] if show_all or not is_detail(f)]
         for i, name in enumerate(shown):
-            out.append(Column(name, name.replace("_", " "),
+            out.append(Column(name, field_label(group["id"], name),
                               RIGHT if _right_aligned(name) else LEFT,
                               group["id"], i == 0))
     return out
