@@ -141,7 +141,8 @@ $root = @{
                     @{ Label = 'Break sequences  (all hours)'; Run = { python -m scratch.analysis.break_sequences --session all } },
                     @{ Label = 'Timeframe scaling  (open the measured chart)'; Run = { Start-Process 'scratch/analysis/timeframe_scaling.html' } },
                     @{ Label = 'Volatility seasonality  (regenerate + open the report)'; Run = { python -m scratch.analysis.seasonality_report; Start-Process 'scratch/analysis/range_scale_seasonality.html' } },
-                    @{ Label = 'Leg zoom  (one 15m leg -> 3m -> 30s, three PNGs)'; Run = { python -m scratch.analysis.leg_zoom } }
+                    @{ Label = 'Leg zoom  (one 15m leg -> 3m -> 30s, three PNGs)'; Run = { python -m scratch.analysis.leg_zoom } },
+                    @{ Label = 'Structure variants  (six ways to draw swings/legs/breaks)'; Run = { python -m scratch.mockups.structure_variants } }
                 )
             }
         },

@@ -19,7 +19,8 @@ See `CLAUDE.md` → "Scratch vs permanent" for the full rule.
 | `analysis/seasonality_report.py` | why `range_scale`'s window is minutes, not bars — writes an HTML report | yes — `commands.bat` → Analysis |
 | `analysis/timeframe_scaling.html` | `range ~ t^0.507`, and why 30s/3m/15m is evenly spaced | yes — open it |
 | `analysis/leg_zoom.py` | one 15m leg, then every 3m leg inside it, then every 30s leg — three PNGs | yes — `commands.bat` → Analysis |
-| `mockups/` | throwaway pane mockups (browser + PySide6) for the snapshot table | yes — open / run directly |
+| `mockups/structure_variants.py` | six ways to draw swings/legs/breaks on real bars — six PNGs | yes — `commands.bat` → Analysis |
+| `mockups/pane/`, `mockups/native/` | throwaway pane mockups (browser + PySide6) for the snapshot table | yes — open / run directly |
 | `va_breakout_demo.py` | decode a VA-breakout signal | **no** — imports the deleted `src/indicators/` and `src/strategy/` |
 | `regime_census.py` | how common is each regime | **no** — imports the deleted `src.data.cache` |
 
