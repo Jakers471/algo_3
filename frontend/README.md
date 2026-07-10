@@ -66,11 +66,26 @@ the view never jumps and your zoom survives a trim.
 **The chart draws; it never computes.** There is no indicator code in this folder, and
 none may be added. Every indicator is computed once, in Python, and arrives over
 `/api/overlays` as drawing instructions that `overlays.js` renders without knowing what
-they mean. It understands *shapes* — today `vlines`, a dashed vertical rule with a label,
-painted by `vertical_lines.js` onto the chart's own canvas (lightweight-charts has no
-vertical-line series, so this uses its primitive API). It marks each trading-session open
-without the word "session" appearing anywhere in its logic, so the next indicator that
-wants a labelled rule needs no change here at all.
+they mean. It understands *shapes*, and there are four:
+
+| shape | what it is | drawn by |
+|---|---|---|
+| `vlines` | a dashed vertical rule with a label | `vertical_lines.js` (a chart primitive) |
+| `markers` | a dot or arrow on a bar | lightweight-charts' own markers |
+| `segments` | a polyline through `(time, price)` corners, optionally offset sideways in pixels | `segments.js` (a chart primitive) |
+| `levels` | a horizontal price line across the pane, labelled on the axis | `createPriceLine` |
+
+Not one of them knows what a session, a swing, a break of structure or a volume profile is.
+`segments` draws the staircase between swings, the break of structure, **and** every bin of
+the volume profile — the profile arrived on the chart without a single line of frontend
+code, because a histogram bin is a segment and that shape already existed. That is what a
+shape vocabulary buys.
+
+Two flags on a mark change what it *is* rather than how it looks. An `id` marks a shape
+re-emitted each bar, one bar longer: the newest replaces the last (the provisional
+high/low rails). A `layer` marks a whole group re-emitted wholesale — the volume profile
+publishes a different number of bins on every bar, so matching them by id would leave ghost
+bins from a range that has since been reset. Everything else is an event, and accumulates.
 
 This is not a style preference. Two implementations of an indicator — one in Python for
 the backtest, one in JavaScript for the chart — *will* drift, and the day they drift is

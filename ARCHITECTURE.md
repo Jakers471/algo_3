@@ -426,6 +426,21 @@ engines' ``build`` callable).
   up, then holds position and counts what has landed. Start a replay on the chart first, or pass
   `--symbol NQT --timeframe 5m` to start one. Wired into `commands.bat` → Chart.
 
+- **`python -m src.cli.vap`** — fold the tick file into volume at price: one 12-byte record
+  per (base bar, price level), packed into `cache/vap/` and memmapped by `profile/store.py`.
+  296M ticks → 35.3M levels across 1.62M 30s bars, ~80s, 429 MB, git-ignored. Bins are one
+  tick wide because that is the finest the market resolves, and every coarser binning is an
+  exact fold of it. `--verify` checks each sampled bar's histogram against that bar's own
+  volume — a single lost contract would make every profile quietly wrong and no picture
+  would show it. Wired into `commands.bat` → Data.
+
+- **`python -m src.cli.fields`** — the field contract. Prints every snapshot field beside the
+  indicator that publishes it, that indicator's source file, its config file, the unit the
+  number is in, and what it means. Derived from the classes themselves (`Indicator.about`
+  and `Indicator.provenance()`), so it cannot drift. `--write` regenerates `FIELDS.md`;
+  `--json` for tooling. `tests/test_fields.py` fails if a field lacks a definition, if a unit
+  is unrecognised, or if the committed doc is stale. Wired into `commands.bat` → Maintenance.
+
 `broker/` is a verified, reusable engine (auth → account → contract → bars) still awaiting its own command (e.g. live trading, health check); when built it adds another thin `cli/` door here, wired into `commands.bat`.
 
 ## Two bar datasets, deliberately kept apart

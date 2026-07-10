@@ -183,10 +183,13 @@ _See `ARCHITECTURE.md` for all entry points. `src/broker/` is a reusable engine 
 - `frontend/` — browser code, self-contained, no build step (`frontend/README.md`)
 - `data/` — market data, git-ignored (quality audit: `DATA_AUDIT.md`)
 - `scratch/` — experiments & one-off tools, git-ignored
-- `cache/` — packed bar cache & server pidfile, git-ignored (rebuild: `--repack`)
+- `cache/` — packed bar cache, volume-at-price store & server pidfile, git-ignored
+  (rebuild: `--repack`, and `python -m src.cli.vap`)
 - `capture/` — recorded live market sessions (raw JSONL), git-ignored
 - `projectX_API/` — ProjectX API reference docs
 - `commands.bat` — the runnable command menu
 - `BUILD_PLAN.md` — the phased build plan (what we decided, what we verified, what's next)
+- `FIELDS.md` — **generated**: every snapshot field, its unit, its meaning, and the
+  indicator, source file and config that produce it. `python -m src.cli.fields --write`
 - `CLAUDE.md` — project rules & conventions
 - `requirements.txt` · `.env` (from `.env.example`) · `venv/` (git-ignored)
