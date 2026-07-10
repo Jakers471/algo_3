@@ -282,3 +282,44 @@ def test_the_readings_are_absent_when_the_profile_is():
     for key in ("value_width", "poc_position", "poc_distance",
                 "price_vs_value", "delta_at_poc"):
         assert row[key] is None, f"{key} must be absent, never a fabricated zero"
+
+
+def test_a_bar_finer_than_the_store_gets_no_volume_at_price(monkeypatch):
+    """The store holds one row per 30s bar. A 15s bar cannot be sliced out of it.
+
+    Asking anyway returns whatever 30s bars close inside the 15-second window:
+    nothing for the first half of every 30s, and BOTH halves' volume for the
+    second. Neither is that bar's volume at price. Refuse, and let the indicator
+    publish None rather than a number built from the bar next door.
+    """
+    from src.chart import overlays
+
+    called = []
+    monkeypatch.setattr("src.profile.store.histogram",
+                        lambda *a: called.append(a) or (1, 2, 3))
+
+    assert overlays._vap_for("NQT", "15s", [100, 200]) == [None, None]
+    assert not called, "the store must not be asked a question it cannot answer"
+
+    # 45s is coarser than 30s but not a multiple: its window would take one 30s
+    # bar sometimes and two others, silently.
+    assert overlays._vap_for("NQT", "45s", [100]) == [None]
+    assert not called
+
+    # A whole multiple is fine, and is asked.
+    assert overlays._vap_for("NQT", "1m", [120]) == [(1, 2, 3)]
+    assert called == [("NQT", "30s", 60, 120)]
+
+
+def test_a_bar_in_which_nothing_traded_has_volume_at_no_price():
+    """An empty histogram is a fact about the bar, not a crash."""
+    import numpy as np
+
+    from src.indicators.profile import Ladder
+
+    ladder = Ladder()
+    ladder.add(np.empty(0), np.empty(0, np.int64), np.empty(0, np.int64))
+    assert not ladder, "nothing traded, so there is no point of control"
+
+    ladder.add(np.array([10.0, 10.25]), np.array([3, 4]), np.array([1, 2]))
+    assert ladder

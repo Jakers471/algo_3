@@ -58,7 +58,12 @@ export class Controls {
   /** Which range the volume profile covers: off / developing / leg / box. */
   _wireProfile() {
     $('profile').addEventListener('change', () => this.onProfileChange(this.profile));
+    // Both selectors, not just the symbol: whether a profile is possible depends
+    // on the symbol (are there ticks?) AND the timeframe (can the store be
+    // sliced that fine?). Watching one of them left 15s offering a profile the
+    // 30s store cannot answer, and the request died in the indicator.
     $('symbol').addEventListener('change', () => this._syncProfile());
+    $('timeframe').addEventListener('change', () => this._syncProfile());
     this._syncProfile();
   }
 
@@ -91,7 +96,7 @@ export class Controls {
       return `${this.symbol} has no volume at price - it is a bar file. `
            + 'Use a tick-built symbol.';
     }
-    const base = this.cfg && this.cfg.profileBaseTimeframe;
+    const base = this.profileBaseTimeframe;
     if (base && !divides(base, this.timeframe)) {
       return `volume at price is stored per ${base} bar, so a ${this.timeframe} bar `
            + `cannot be sliced out of it. Use ${base} or a whole multiple of it.`;

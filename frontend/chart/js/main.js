@@ -54,6 +54,7 @@ async function boot() {
     surface,
     datasets,
     profileSymbols: cfg.profileSymbols || [],
+    profileBaseTimeframe: cfg.profileBaseTimeframe,
 
     /** Cut back to a point in time; the server seeds and starts publishing. */
     async onStart(epochSeconds) {

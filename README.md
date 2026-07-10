@@ -114,8 +114,11 @@ centre. `|delta_at_poc| > 0.10` on 1.0% of bars.
 
 Volume at price lives only in the ticks: a bar records its total volume, its high and its
 low, never where between them the contracts changed hands. So it is folded once into a
-packed store (`python -m src.cli.vap`, ~80s, git-ignored), and the control is **disabled on
-symbols that have no ticks** rather than offered and quietly drawing nothing.
+packed store (`python -m src.cli.vap`, ~80s, git-ignored) at one timeframe — 30s. The
+control is **disabled** rather than offered and quietly drawing nothing, on two counts: a
+symbol with no ticks, and a timeframe the store cannot answer. A 15s bar cannot be sliced
+out of a 30s store (the first half of every 30s traded at no price it knows), and a 45s bar
+would be handed volume from the bars either side. 30s and every whole multiple of it work.
 
 **Layers** in the toolbar hides any drawing you don't want to look at. It is a *visibility*
 switch and never a compute switch: the server still computes every indicator and still
