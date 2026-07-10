@@ -151,8 +151,11 @@ $root = @{
                     @{ Label = 'Retracement  (does a leg give back less than the last? does it persist?)'; Run = { python -m scratch.analysis.retracement } },
                     @{ Label = 'Flow edge  (does order flow at a break predict the next break?)'; Run = { python -m scratch.analysis.flow_edge } },
                     @{ Label = 'Expectancy  (what does a bracket at a break earn, after costs?)'; Run = { python -m scratch.analysis.expectancy } },
+                    @{ Label = 'Magnitude paper  (regenerate + open the HTML paper)'; Run = { python -m scratch.analysis.magnitude_paper; Start-Process 'scratch/analysis/magnitude_paper.html' } },
+                    @{ Label = 'Magnitude  (why the sign is a coin and the size is not - three PNGs)'; Run = { python -m scratch.analysis.magnitude } },
                     @{ Label = 'Profile edge  (does the volume profile beat range_scale?)'; Run = { python -m scratch.analysis.profile_edge } },
                     @{ Label = 'Outcomes  (label every bar: which barrier first? the cost wall + always-long)'; Run = { python -m scratch.analysis.outcomes } },
+                    @{ Label = 'Straddle  (buy the expansion, never the direction: does a coil pay?)'; Run = { python -m scratch.analysis.straddle } },
                     @{ Label = 'Structure variants  (six ways to draw swings/legs/breaks)'; Run = { python -m scratch.mockups.structure_variants } }
                 )
             }

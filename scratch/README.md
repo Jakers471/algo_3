@@ -26,6 +26,9 @@ See `CLAUDE.md` → "Scratch vs permanent" for the full rule.
 | `analysis/outcomes.py` | **the target.** labels every bar with which barrier (`±k × range_scale`) price touched first — no swing machine on the outcome side. Prints the cost wall and the always-long benchmark a signal must beat; writes `outcomes_<sym>_<rung>.parquet` for the experiments after it — one PNG | yes — `commands.bat` → Analysis |
 | `analysis/expectancy.py` | what does a bracket at a break of structure earn, after costs, against a sign-flipped null? picks the grid cell on one half and takes it on the other — one PNG | yes — `commands.bat` → Analysis |
 | `analysis/profile_edge.py` | does the volume profile predict the size of the next leg once `range_scale` **and** the previous leg are divided out? — one PNG | yes — `commands.bat` → Analysis |
+| `analysis/straddle.py` | buy the expansion, never the direction: a buy-stop at the VAH and a sell-stop at the VAL, risk one value width. Does a coil (`value_width / √age`) pick the ones worth taking, against the always-straddle benchmark? non-overlapping trades only — one PNG | yes — `commands.bat` → Analysis |
+| `analysis/magnitude.py` | why the sign of a move is a coin and its size is not: `acf(r)` vs `acf(\|r\|)`, real against both nulls — three PNGs | yes — `commands.bat` → Analysis |
+| `analysis/magnitude_paper.py` | the same result written up from first principles — raw bars, the arithmetic, then the summary. Self-contained HTML, figures embedded | yes — `commands.bat` → Analysis |
 | `mockups/structure_variants.py` | six ways to draw swings/legs/breaks on real bars — six PNGs | yes — `commands.bat` → Analysis |
 | `mockups/pane/`, `mockups/native/` | throwaway pane mockups (browser + PySide6) for the snapshot table | yes — open / run directly |
 | `va_breakout_demo.py` | decode a VA-breakout signal | **no** — imports the deleted `src/indicators/` and `src/strategy/` |
