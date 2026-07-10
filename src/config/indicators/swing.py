@@ -37,7 +37,34 @@ ENABLED = True
 # A swing is confirmed after price retraces this many multiples of the current
 # range_scale from the running extreme. Points would be wrong: NQ's median 30s
 # range moved 4.50 -> 14.25 across 29 months, a 3.17x swing.
-RETRACE = 6.0
+#
+# Why 3.0 and not 6.0. scale_ladder.py measured H = 0.503 - swing count obeys the
+# random-walk law, so there is no scale at which this market is special and no
+# "true" RETRACE to find. That makes this an experimental design choice, and the
+# thing it buys is EVENTS: on NQT, halving it takes the 15m rung from 543 breaks
+# to 1,531 and the 3m rung from 2,408 to 7,207. Power grows with sqrt(n), so every
+# z-score in every experiment gets 1.7x larger for nothing.
+#
+# It also buys freshness. A swing is confirmed on a LATER bar than the one that
+# made the extreme, and that lag is what the dial charges for confidence. Median
+# 30s bars from extreme to confirmation, at 6.0 -> at 3.0:
+#
+#     13:00 UTC (the open)    5 -> 2       15:00 UTC   21 -> 5
+#
+# Twenty-one bars is ten and a half minutes of knowing something the row does not
+# say yet. That, not the swing count, is what a signal downstream actually feels.
+#
+# What it costs is that the structure is smaller: the median 15m leg falls from
+# 11.67 to 5.28 x range_scale. That is a tighter natural stop, and the round trip
+# goes from 0.17% to 0.38% of it - which still rounds to nothing at 15m, and is
+# why the dial can be spent on sample size.
+#
+# The floor is set by the ruler, not by the market. The EFFECTIVE retrace - the true
+# pullback, in bars that were really that size - is 2.32 at the open against the 3.0
+# set here, because range_scale lags the daily volatility cycle. Halve the dial again
+# and the open confirms on a 1.5-bar pullback, which is a bar, not a turn. 3.0 is the
+# floor for that reason and not because it is half of six.
+RETRACE = 3.0
 
 # --- drawing ----------------------------------------------------------------
 # On, as a DOT: it lands on the bar that MADE the extreme, not the later one that

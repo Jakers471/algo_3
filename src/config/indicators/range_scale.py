@@ -13,14 +13,30 @@ open is 4.5x the size of one at 04:00 UTC.
 
 So sixty bars was thirty minutes of memory on the 30s rung and **fifteen hours**
 on the 15m rung, where it averaged most of the daily cycle. At the open the ruler
-still remembered the quiet night and read 20 points when bars were really 57, and
-a configured ``RETRACE`` of 6.0 became an effective 2.1 - while at 04:00 it became
-13.3. Same file, same number, two different systems.
+still remembered the quiet night and read 20 points when bars were really 57 -
+2.9x short - and at 04:00 it read long by 2.2x.
+
+A ruler that reads short shrinks everything measured in it by the same factor, so
+a configured ``RETRACE`` of 6.0 became an effective 2.1 at the open and 13.3 at
+04:00. Same file, same number, two different systems.
+
+**That is the OLD rule's damage, and it is not what the current rule does.** Under
+the 30-minute window below, the effective retrace was measured directly - the true
+pullback at each confirmed 30s swing, divided by the median bar range for that hour
+of the day - and it holds within a fifth of the dial:
+
+    UTC hour        13      15      20     spread
+    effective     2.32    3.06    3.50      1.5x    (configured 3.0)
+
+against the 6.3x spread the 60-bar rule left behind. The ruler does not flatten the
+swing RATE - 106 swings per 1000 bars at 13:00 against 52 at 15:00 - and it was
+never supposed to; seasonality_report.py's fifth panel shows a clairvoyant ruler
+cannot either. Holding the effective retrace steady is the job, and it does it.
 
 What actually drives the error is the window's WALL-CLOCK length; shorter is
 always more accurate and always jitterier. Counted in minutes, every rung
-remembers the same slice of the day. Mean error in effective RETRACE, against the
-6.0 that was set:
+remembers the same slice of the day. Mean error in effective RETRACE, measured
+against the 6.0 that was set at the time; the rows scale with the dial:
 
                      30s        3m       15m     ladder
     60 bars         0.45      1.37      2.62       4.43   (the old rule)

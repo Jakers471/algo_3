@@ -18,9 +18,10 @@ bars are about to be.
 NQ bar at the New York open is 4.5x the size of one at 04:00 UTC. A window of 60
 bars is thirty minutes of memory on the 30s rung and fifteen hours on the 15m
 rung, where it averages most of that daily cycle - so at the open it still
-remembered the quiet night, read 20 points when bars were really 57, and turned a
-configured ``RETRACE`` of 6.0 into an effective 2.1. Counted in minutes, every
-rung remembers the same slice of the day.
+remembered the quiet night and read 20 points when bars were really 57. A ruler
+that reads 2.9x short makes every threshold measured in it 2.9x smaller than the
+number you set. Counted in minutes, every rung remembers the same slice of the
+day.
 
 A bar count remains as a *floor*, because thirty minutes is 60 bars on 30s and
 only two on 15m, and the median of two numbers is their mean. On the coarse rungs
