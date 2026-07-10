@@ -21,11 +21,13 @@ import { ReplayStream } from './stream.js';
 const MAX_RECOVERY_ATTEMPTS = 3;
 
 export class ReplayEngine {
-  constructor(cfg, surface) {
+  constructor(cfg, surface, layers) {
     this.cfg = cfg;
     this.surface = surface;
+    this.layers = layers;
     this.buffer = new BarBuffer(cfg);
     this.stream = new ReplayStream();
+    if (layers) layers.onChange(() => { if (this.marks.length) this._drawMarks(); });
 
     this.marks = [];
     this.playing = false;
@@ -187,12 +189,18 @@ export class ReplayEngine {
     return this.playing ? this.stream.play(speed) : Promise.resolve();
   }
 
-  /** Split the accumulated marks by shape and hand each to its renderer. */
+  /** Split the accumulated marks by shape and hand each to its renderer.
+   *
+   * Hidden layers are dropped here, at the last step, and never from `this.marks`
+   * - so turning a layer back on redraws the history it already accumulated
+   * rather than the fragment that arrived after the click.
+   */
   _drawMarks() {
-    this.surface.setVerticalLines(this.marks.filter((m) => m.kind === 'vline'));
-    this.surface.setMarkers(this.marks.filter((m) => m.kind === 'marker'));
-    this.surface.setSegments(this.marks.filter((m) => m.kind === 'segment'));
-    this.surface.setPriceLines(this.marks.filter((m) => m.kind === 'level'));
+    const drawn = this.layers ? this.layers.filter(this.marks) : this.marks;
+    this.surface.setVerticalLines(drawn.filter((m) => m.kind === 'vline'));
+    this.surface.setMarkers(drawn.filter((m) => m.kind === 'marker'));
+    this.surface.setSegments(drawn.filter((m) => m.kind === 'segment'));
+    this.surface.setPriceLines(drawn.filter((m) => m.kind === 'level'));
   }
 
   stop() {

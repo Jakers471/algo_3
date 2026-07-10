@@ -230,3 +230,29 @@ def test_a_consumer_switches_its_dependency_on():
 
     ids = [i.id for i in overlays.build_registry().order]
     assert legs_cfg.ENABLED and "swing" in ids and "range_scale" in ids
+
+
+def test_every_offered_layer_is_a_layer_that_draws():
+    """A checkbox for a drawing that is off would toggle marks that never come."""
+    from src.chart import api, overlays
+
+    offered = {layer["id"] for layer in api._config()["layers"]}
+    assert offered
+    assert offered <= overlays.drawable()
+
+
+def test_every_drawable_layer_names_a_real_mark_source():
+    """`drawable()` and the marks must agree, or a checkbox hides nothing."""
+    from src.chart import overlays
+
+    row = {"session_new": True, "session": "NY",
+           "swing": "high", "swing_time": 100, "swing_price": 5.0,
+           "leg": "up", "leg_from_time": 90, "leg_from_price": 1.0,
+           "leg_to_time": 100, "leg_to_price": 5.0,
+           "bos": "up", "bos_level": 4.0, "bos_time": 90,
+           "hunting": "high", "extreme_high": 5.0, "extreme_low": 1.0, "trigger": 2.0}
+    sources = {m["source"] for m in overlays.marks_for(100, row, close=4.5)}
+    assert overlays.drawable() <= sources | {"absorption"}
+    # Every mark carries a source, including the session rules - the browser
+    # filters on it and cannot ask what a mark means.
+    assert all(m.get("source") for m in overlays.marks_for(100, row, close=4.5))

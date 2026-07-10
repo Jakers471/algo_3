@@ -108,6 +108,11 @@ def _config() -> dict:
         "trim_chunk_bars": chart_cfg.TRIM_CHUNK_BARS,
         "prefetch_bars": chart_cfg.PREFETCH_BARS,
         "base_step_ms": chart_cfg.BASE_STEP_MS,
+        # Which drawings the Layers panel offers, and which start visible. A
+        # layer whose indicator is not drawing is not offered: the checkbox
+        # would toggle marks that never arrive.
+        "layers": [dict(layer) for layer in chart_cfg.LAYERS
+                   if layer["id"] in overlays.drawable()],
         "max_bars_per_request": chart_cfg.MAX_BARS_PER_REQUEST,
         # Style lives in Python with the indicator, not in the browser.
         "orderflow": {

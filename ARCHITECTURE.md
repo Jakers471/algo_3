@@ -123,6 +123,8 @@ algo_3/
 │           ├── chart.js      the chart surface: rebuild (zoom-safe) / push
 │           ├── browse.js     non-replay view; backfills older bars on scroll
 │           ├── overlays.js   draw the backend's shapes; knows no indicator
+│           ├── layers.js     which layers are visible; filters marks by `source`
+│           ├── layers_panel.js  the Layers checkbox menu (a thin door)
 │           ├── vertical_lines.js  chart primitive: dashed rules with labels
 │           ├── segments.js   chart primitive: polylines in (time, price) space
 │           ├── format.js     time/price/volume display strings

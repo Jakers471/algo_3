@@ -14,10 +14,15 @@
 import { getOverlays } from './api.js';
 
 export class OverlayLayer {
-  constructor(surface) {
+  constructor(surface, layers) {
     this.surface = surface;
     this._seq = 0;   // guards against a slow response overwriting a newer one
     this.profile = 'off';   // which volume-profile range the server should run
+    this.layers = layers;
+    // The last specs the server sent. Hiding a layer must not cost a round trip,
+    // and toggling one back on must show the marks it already had.
+    this._last = [];
+    if (layers) layers.onChange(() => this.draw(this._last));
   }
 
   /**
@@ -40,6 +45,7 @@ export class OverlayLayer {
 
   /** Render each overlay by its shape. Unknown shapes are ignored, not fatal. */
   draw(overlays) {
+    this._last = overlays;
     let lines = [];
     let markers = [];
     let segments = [];
@@ -50,14 +56,16 @@ export class OverlayLayer {
       else if (overlay.kind === 'segments') segments = segments.concat(overlay.segments);
       else if (overlay.kind === 'levels') levels = levels.concat(overlay.levels);
     }
-    this.surface.setVerticalLines(lines);
-    this.surface.setMarkers(markers);
-    this.surface.setSegments(segments);
-    this.surface.setPriceLines(levels);
+    const show = (marks) => (this.layers ? this.layers.filter(marks) : marks);
+    this.surface.setVerticalLines(show(lines));
+    this.surface.setMarkers(show(markers));
+    this.surface.setSegments(show(segments));
+    this.surface.setPriceLines(show(levels));
   }
 
   clear() {
     this._seq++;
+    this._last = [];
     this.surface.setVerticalLines([]);
     this.surface.setMarkers([]);
     this.surface.setSegments([]);

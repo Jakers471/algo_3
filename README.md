@@ -117,9 +117,18 @@ low, never where between them the contracts changed hands. So it is folded once 
 packed store (`python -m src.cli.vap`, ~80s, git-ignored), and the control is **disabled on
 symbols that have no ticks** rather than offered and quietly drawing nothing.
 
+**Layers** in the toolbar hides any drawing you don't want to look at. It is a *visibility*
+switch and never a compute switch: the server still computes every indicator and still
+ships every mark, so a hidden leg is still a leg in the snapshot table, and the two windows
+cannot drift apart about what happened — only about what is on screen. Toggling one back on
+redraws the history it already accumulated, with no round trip. The session rules start
+hidden (`LAYERS` in `config/chart.py`): three dashed verticals a day is a lot of ink for a
+fact the time axis already carries. A layer whose indicator is switched off in config is
+not offered at all, rather than offered as a checkbox that toggles nothing.
+
 The chart draws; it does not compute. Indicators are computed once in Python and arrive
 over `/api/overlays` as drawing instructions — a dashed, labelled rule at each
-trading-session open (Asia / London / NY), and arrows at the swings. Both are shapes the
+trading-session open (Asia / London / NY), and dots at the swings. Both are shapes the
 frontend renders without knowing what a session or a swing is. The profile added no
 frontend at all: a histogram bin is a segment, and that shape already existed.
 Because the overlay request carries only the bars replay has revealed, a drawing can never

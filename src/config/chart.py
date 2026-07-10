@@ -63,3 +63,28 @@ PREFETCH_BARS = 2_000
 # Milliseconds between bars at 1x. 2x and 4x divide this. The SERVER paces
 # playback, so this is the real clock, not a hint to the browser.
 BASE_STEP_MS = 500
+
+
+# --- Overlay layers ----------------------------------------------------------
+# What the chart's Layers panel offers, and what it shows on a fresh browser.
+#
+# This is VISIBILITY, not computation. Each indicator's own `ENABLED`/`DRAW` in
+# config/indicators/ decides whether a mark is produced at all; these decide
+# whether a produced mark is drawn. Hiding a layer costs the server nothing and
+# the table nothing - the row still carries every field - so the chart and the
+# snapshot table can never disagree about what was computed, only about what is
+# on screen.
+#
+# `id` is the mark's `source`, which is how the browser filters without knowing
+# what a leg or a session is. Add an indicator that draws, add a line here.
+LAYERS = (
+    # The session rules are a clock, not a reading. Off by default: three dashed
+    # verticals a day across every pane is a lot of ink for a fact you can read
+    # off the time axis.
+    {"id": "sessions",   "label": "Sessions",   "visible": False},
+    {"id": "swing",      "label": "Swings",     "visible": True},
+    {"id": "legs",       "label": "Legs",       "visible": True},
+    {"id": "breaks",     "label": "Breaks",     "visible": True},
+    {"id": "extremes",   "label": "Rails",      "visible": True},
+    {"id": "absorption", "label": "Absorption", "visible": True},
+)

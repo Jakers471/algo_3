@@ -37,6 +37,8 @@ server restarts itself on any `.py` change.
 | `js/chart.js` | the chart surface: zoom-preserving `rebuild()`, cheap `push()` |
 | `js/browse.js` | the non-replay view; backfills older bars as you scroll back |
 | `js/overlays.js` | renders the backend's shapes; knows no indicator |
+| `js/layers.js` | which layers are visible; filters marks by their `source` |
+| `js/layers_panel.js` | the Layers checkbox menu; a thin door onto `layers.js` |
 | `js/vertical_lines.js` | a chart primitive: dashed vertical rules with labels |
 | `js/format.js` | time / price / volume display strings (UTC, like the bars) |
 | `js/replay/stream.js` | control POSTs + the `EventSource` snapshot stream |
@@ -80,6 +82,12 @@ Not one of them knows what a session, a swing, a break of structure or a volume 
 the volume profile — the profile arrived on the chart without a single line of frontend
 code, because a histogram bin is a segment and that shape already existed. That is what a
 shape vocabulary buys.
+
+Every mark also carries a `source` — the indicator that made it. That is the whole basis of
+the **Layers** panel: `layers.js` compares strings and drops the hidden ones at the last
+step, so this folder can hide a break of structure without ever learning what one is. The
+marks themselves are never discarded, which is why toggling a layer on restores the history
+it accumulated rather than only what arrives next.
 
 Two flags on a mark change what it *is* rather than how it looks. An `id` marks a shape
 re-emitted each bar, one bar longer: the newest replaces the last (the provisional

@@ -18,6 +18,8 @@
 import { getConfig, getDatasets, locate } from './api.js';
 import { Browser } from './browse.js';
 import { createChart } from './chart.js';
+import { Layers } from './layers.js';
+import { LayersPanel } from './layers_panel.js';
 import { OverlayLayer } from './overlays.js';
 import { Controls } from './replay/controls.js';
 import { ReplayEngine } from './replay/engine.js';
@@ -32,9 +34,11 @@ async function boot() {
   }
 
   const surface = createChart(document.getElementById('chart'), cfg);
-  const overlays = new OverlayLayer(surface);
+  const layers = new Layers(cfg.layers || []);
+  LayersPanel(document.getElementById('layers'), layers);
+  const overlays = new OverlayLayer(surface, layers);
   const browser = new Browser(surface, overlays, cfg);
-  const engine = new ReplayEngine(cfg, surface);
+  const engine = new ReplayEngine(cfg, surface, layers);
 
   engine.on('bar', ({ bar, seeded }) => {
     if (bar) {

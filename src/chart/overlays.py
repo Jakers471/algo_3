@@ -139,6 +139,30 @@ def bar_events(bars, symbol: str = None, timeframe: str = None,
             for i, t in enumerate(times)]
 
 
+def drawable() -> set[str]:
+    """The mark sources an indicator is currently configured to emit.
+
+    A Layers checkbox for a drawing that is switched off in config would toggle
+    nothing - the marks never arrive. So the panel is built from the intersection
+    of what the chart offers and what the backend actually draws, and a layer
+    turned off in config simply is not offered.
+    """
+    sources = set()
+    if sessions_cfg.ENABLED and sessions_cfg.DRAW_BOUNDARIES:
+        sources.add("sessions")
+    if absorption_cfg.ENABLED and absorption_cfg.DRAW_MARKERS:
+        sources.add("absorption")
+    if swing_cfg.ENABLED and swing_cfg.DRAW_MARKERS:
+        sources.add("swing")
+    if swing_cfg.ENABLED and swing_cfg.DRAW_RAILS:
+        sources.add("extremes")
+    if legs_cfg.ENABLED and legs_cfg.DRAW:
+        sources.add("legs")
+    if breaks_cfg.ENABLED and breaks_cfg.DRAW:
+        sources.add("breaks")
+    return sources
+
+
 def _segment(source: str, points: list[tuple], color: str, width: int,
              mark_id: str | None = None, layer: str | None = None,
              at: int | None = None, offsets: tuple | None = None,
@@ -231,6 +255,9 @@ def marks_for(time: int, row: dict, *, is_first: bool = False,
         if name is not None:      # entering the halt is not a session open
             marks.append({
                 "kind": "vline",
+                # Every mark names the indicator that made it, so the chart can
+                # hide a layer without knowing what the layer means.
+                "source": "sessions",
                 "time": int(time),
                 "label": name,
                 "color": sessions_cfg.LINE_COLORS.get(name, "rgba(125,133,144,0.6)"),
