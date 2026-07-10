@@ -29,6 +29,9 @@ See `CLAUDE.md` → "Scratch vs permanent" for the full rule.
 | `analysis/straddle.py` | buy the expansion, never the direction: a buy-stop at the VAH and a sell-stop at the VAL, risk one value width. Does a coil (`value_width / √age`) pick the ones worth taking, against the always-straddle benchmark? non-overlapping trades only — one PNG | yes — `commands.bat` → Analysis |
 | `analysis/magnitude.py` | why the sign of a move is a coin and its size is not: `acf(r)` vs `acf(\|r\|)`, real against both nulls — three PNGs | yes — `commands.bat` → Analysis |
 | `analysis/magnitude_paper.py` | the same result written up from first principles — raw bars, the arithmetic, then the summary. Self-contained HTML, figures embedded | yes — `commands.bat` → Analysis |
+| `analysis/forecast_paper.py` | can you actually forecast tomorrow's volatility? HAR-RV, fitted on the first 60% of days and scored on the rest. The identical model on tomorrow's *return* is the control — self-contained HTML | yes — `commands.bat` → Analysis |
+| `analysis/edge_paper.py` | optional stopping, measured: on a martingale every bracket has expectancy zero, so reward:risk cannot beat a coin. What win rate you'd actually need, and your house edge vs roulette — self-contained HTML | yes — `commands.bat` → Analysis |
+| `analysis/discipline_paper.py` | is trading 90% risk management? Sizing multiplies an edge and cannot create one; 10,000 zero-skill traders; how many trades to tell skill from luck — self-contained HTML | yes — `commands.bat` → Analysis |
 | `mockups/structure_variants.py` | six ways to draw swings/legs/breaks on real bars — six PNGs | yes — `commands.bat` → Analysis |
 | `mockups/pane/`, `mockups/native/` | throwaway pane mockups (browser + PySide6) for the snapshot table | yes — open / run directly |
 | `va_breakout_demo.py` | decode a VA-breakout signal | **no** — imports the deleted `src/indicators/` and `src/strategy/` |
