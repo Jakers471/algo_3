@@ -23,7 +23,15 @@ from src.chart import overlays
 from src.core import console
 from src.table import columns as cols
 
-DOC = Path(__file__).resolve().parents[2] / "FIELDS.md"
+_ROOT = Path(__file__).resolve().parents[2]
+
+# Two views of one contract, generated from the same registry so they cannot
+# disagree. FIELDS.md reads as a reference - a section per indicator, with the
+# file and dials that produced it. FIELDS_V2.md reads as a table: every field in
+# one list, each row carrying the indicator that owns it, for scanning across
+# indicators rather than down one.
+DOC = _ROOT / "FIELDS.md"
+DOC_V2 = _ROOT / "FIELDS_V2.md"
 
 HEADER = """# FIELDS.md — the field contract
 
@@ -44,11 +52,6 @@ A field marked **detail** is scaffolding a drawing needs and a reader does not �
 timestamp, an endpoint, or arithmetic on a column already shown. The table hides
 those unless you click **Details**. Nothing is ever dropped from the row itself.
 
-One row per field, in the order the table's columns appear, each carrying the
-indicator that owns it. The indicator is named once, on the first field of its
-block, the same way the table's header names it once — so the blocks stay legible
-and the column that says *where this came from* does not become wallpaper.
-
 ## Read the unit first
 
 It is the thing that goes wrong first, because three of them look identical in a
@@ -68,6 +71,22 @@ table and mean completely different things.
 structure layer that has to be. Everything measured *in* it is dimensionless, which
 is the entire reason the rules survive a change of regime.
 """
+
+# The same contract, one row per field. `FIELDS.md` is the reference you read down
+# one indicator; this is the list you scan across all of them.
+HEADER_V2 = HEADER.replace(
+    "# FIELDS.md — the field contract",
+    "# FIELDS_V2.md — the field contract, as one table",
+).replace(
+    "those unless you click **Details**. Nothing is ever dropped from the row itself.",
+    "those unless you click **Details**. Nothing is ever dropped from the row itself.\n\n"
+    "One row per field, in the order the table's columns appear, each carrying the\n"
+    "indicator that owns it. The indicator is named once, on the first field of its\n"
+    "block, the same way the table's header names it once — so the blocks stay legible\n"
+    "and the column that says *where this came from* does not become wallpaper.\n\n"
+    "`FIELDS.md` is the same contract with a section per indicator, and the source and\n"
+    "config files each one lives in.",
+)
 
 
 def contract() -> list[dict]:
@@ -93,9 +112,26 @@ def render_text(entries: list[dict]) -> str:
     return "\n".join(out)
 
 
+def _block(lines: list[str], title: str, source: str, config: str | None,
+           doc: str, reads: str, about: dict, names) -> None:
+    """One section per indicator: what it reads, where it lives, what it says."""
+    lines.append(f"\n### `{title}`\n")
+    if doc:
+        lines.append(f"{doc}\n")
+    lines.append(f"- **reads** — {reads}")
+    lines.append(f"- **source** — `{source}`")
+    lines.append(f"- **config** — {f'`{config}`' if config else 'none'}\n")
+    lines.append("| field | unit | shown | what it is |")
+    lines.append("|---|---|---|---|")
+    for name in names:
+        unit, means = about.get(name, ("?", "UNDEFINED"))
+        shown = "" if cols.is_detail(name) else "yes"
+        lines.append(f"| `{name}` | {_cell(unit)} | {shown} | {_cell(means)} |")
+
+
 def _cell(text: str) -> str:
     """Markdown table cells are pipe-delimited; a pipe inside one must escape."""
-    return str(text).replace("|", "\|")
+    return str(text).replace("|", "\\|")
 
 
 def _rows(lines: list[str], indicator: str, about: dict, names) -> None:
@@ -117,7 +153,36 @@ def _rows(lines: list[str], indicator: str, about: dict, names) -> None:
 
 
 def render_markdown(entries: list[dict]) -> str:
-    lines = [HEADER, "\n## Where each indicator lives\n"]
+    """A section per indicator: read one indicator top to bottom. The reference."""
+    lines = [HEADER, "\n## Indicators, in dependency order\n"]
+    lines.append("| indicator | reads | source | config |")
+    lines.append("|---|---|---|---|")
+    lines.append("| **`bar`** | the dataset | `src/chart/store.py` | `src/config/chart.py` |")
+    for e in entries:
+        deps = ", ".join(f"`{d}`" for d in e["depends"]) or "the bar"
+        config = f"`{e['config']}`" if e["config"] else "—"
+        lines.append(f"| **`{e['id']}`** | {deps} | `{e['source']}` | {config} |")
+
+    lines.append("\n## Every field, defined\n")
+    lines.append("The blocks below are the table's blocks, in the order the columns appear.")
+    lines.append("\nThe same contract as one flat table - every field in a single list, each")
+    lines.append("row naming its indicator - is in `FIELDS_V2.md`. Both are generated from")
+    lines.append("the same registry, so they cannot disagree.")
+
+    _block(lines, "bar", "src/chart/store.py", "src/config/chart.py",
+           "The candle itself, straight from the packed dataset. No indicator computes it.",
+           "the dataset", cols.BAR_ABOUT, [k for k, _, _ in cols.BAR_COLUMNS])
+
+    for e in entries:
+        reads = ", ".join(f"`{d}`" for d in e["depends"]) or "the bar"
+        about = {k: (v["unit"], v["means"]) for k, v in (e["about"] or {}).items()}
+        _block(lines, e["id"], e["source"], e["config"], e["doc"], reads, about, e["fields"])
+    return "\n".join(lines) + "\n"
+
+
+def render_markdown_v2(entries: list[dict]) -> str:
+    """One table, every field, each row naming the indicator that publishes it."""
+    lines = [HEADER_V2, "\n## Where each indicator lives\n"]
     lines.append("| indicator | reads | source | config |")
     lines.append("|---|---|---|---|")
     lines.append("| **`bar`** | the dataset | `src/chart/store.py` | `src/config/chart.py` |")
@@ -169,7 +234,8 @@ def main() -> None:
 
     if args.write:
         DOC.write_text(render_markdown(entries), encoding="utf-8")
-        print(console.paint(f"  wrote {DOC.name}", console.GREEN))
+        DOC_V2.write_text(render_markdown_v2(entries), encoding="utf-8")
+        print(console.paint(f"  wrote {DOC.name} and {DOC_V2.name}", console.GREEN))
     print()
 
 

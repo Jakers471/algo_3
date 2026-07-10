@@ -58,7 +58,14 @@ def classify(price, bid, ask) -> np.ndarray:
     (0.000474% of volume) but they DO occur, and a 0 contributes to neither side.
     Never guess one into a side: a fabricated aggressor is worse than a missing
     one, because the backtest would trust it. This is why buy_volume +
-    sell_volume can fall a contract or two short of volume on 0.09% of bars.
+    sell_volume can fall short of volume on some bars.
+
+    How MANY bars is a property of the bar, not of the tape: a longer bar has more
+    chances to contain one of those prints. Measured on NQT: 0.024% of 15s bars,
+    0.045% of 30s, 0.086% of 1m, 0.387% of 5m, 1.08% of 15m, 3.88% of 60m - and
+    the worst single bar is short by 120 contracts, not by one or two. The share
+    of CONTRACTS (0.000474%) is the invariant; the share of bars is not, and
+    quoting one figure for it is quoting a timeframe without naming it.
     """
     return np.where(price >= ask, 1, np.where(price <= bid, -1, 0)).astype(np.int8)
 

@@ -130,6 +130,23 @@ def test_fields_md_matches_what_the_code_generates():
         "FIELDS.md is stale - run: python -m src.cli.fields --write")
 
 
+def test_both_documents_are_generated_from_the_same_contract():
+    """FIELDS.md reads down one indicator; FIELDS_V2.md scans across all of them.
+
+    Same registry, so the same fields, or one of them is quietly lying about what
+    the row carries.
+    """
+    import re
+
+    from src.cli.fields import contract, render_markdown, render_markdown_v2
+
+    entries = contract()
+    names = [n for e in entries for n in e["fields"]]
+    for doc in (render_markdown(entries), render_markdown_v2(entries)):
+        found = set(re.findall(r"^\|(?:[^|]*\|)?\s*`(\w+)`\s*\|", doc, re.M))
+        assert set(names) <= found, sorted(set(names) - found)
+
+
 def test_the_generated_table_has_one_row_per_field_and_five_cells_each():
     """A unit like `high | low | None` is pipe-separated, and a pipe is a cell wall.
 
@@ -137,10 +154,10 @@ def test_the_generated_table_has_one_row_per_field_and_five_cells_each():
     as a different field. The document would look fine to the generator and be
     wrong to every reader.
     """
-    from src.cli.fields import contract, render_markdown
+    from src.cli.fields import contract, render_markdown_v2
 
     entries = contract()
-    doc = render_markdown(entries)
+    doc = render_markdown_v2(entries)
 
     # Only the field table: the unit legend above it is two columns by design.
     body = doc.split("## Every field, defined", 1)[1].split("## What each", 1)[0]

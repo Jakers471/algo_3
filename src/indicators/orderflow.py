@@ -45,9 +45,12 @@ class OrderFlow(Indicator):
                   "the bid a seller. None on any bar file; never zero, which would claim "
                   "the sides were balanced."),
         "buy_volume": ("contracts", "Traded at the ask: someone crossed the spread to buy."),
-        "sell_volume": ("contracts", "Traded at the bid. buy + sell can fall a contract or "
-                        "two short of volume on 0.09% of bars: 0.000474% of prints land "
-                        "strictly between the quotes and join neither side."),
+        "sell_volume": ("contracts", "Traded at the bid. buy + sell can fall short of "
+                        "volume: 0.000474% of CONTRACTS print strictly between the quotes "
+                        "and join neither side. How many BARS that touches depends on how "
+                        "long a bar is - 0.045% of 30s bars, 3.9% of 60m bars, up to 120 "
+                        "contracts on one - so the share of contracts is the invariant and "
+                        "the share of bars is not."),
         "trades": ("count", "Number of prints in the bar. Not contracts - one print can "
                    "carry many."),
     }
