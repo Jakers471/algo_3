@@ -262,8 +262,9 @@ def marks_for(time: int, row: dict, *, is_first: bool = False,
             # costs. The mark therefore lands on the high it names.
             "time": int(row["swing_time"]),
             "position": "aboveBar" if is_high else "belowBar",
-            "color": swing_cfg.MARKER_COLOR,
+            "color": swing_cfg.HIGH_COLOR if is_high else swing_cfg.LOW_COLOR,
             "shape": swing_cfg.HIGH_SHAPE if is_high else swing_cfg.LOW_SHAPE,
+            "size": swing_cfg.MARKER_SIZE,
             "text": "",
         })
 

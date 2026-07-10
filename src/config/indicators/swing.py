@@ -45,9 +45,13 @@ RETRACE = 6.0
 # same thing louder - it pointed, and there is nothing for it to point at.
 DRAW_MARKERS = True
 
-# Structure is not directional information: a swing high and a swing low are the
-# same kind of thing. Position and shape already say which. One colour.
-MARKER_COLOR = "#58a6ff"
+# A swing high is where buying ran out; a swing low is where selling did. Colour
+# them like the candles do - green at the top of the move, red at the bottom.
+HIGH_COLOR = "#26a69a"
+LOW_COLOR = "#ef5350"
+
+# A multiplier on the chart's default marker size, not pixels.
+MARKER_SIZE = 0.8
 
 # The same dot either way. Position says which: above the bar for a high, below
 # it for a low. A shape that repeats what position already said is noise.
