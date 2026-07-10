@@ -154,7 +154,7 @@ def test_a_close_below_the_swing_low_is_a_break_down():
 
 # --- drawing -----------------------------------------------------------------
 
-def test_a_leg_is_drawn_with_square_corners():
+def test_a_leg_is_drawn_swing_to_swing_and_solid():
     from src.chart import overlays
 
     row = {"leg": "up", "leg_from_price": 10.0, "leg_from_time": 100,
@@ -162,10 +162,12 @@ def test_a_leg_is_drawn_with_square_corners():
     seg = overlays.marks_for(400, row)[0]
     assert seg["kind"] == "segment" and seg["source"] == "legs"
     assert [(p["time"], p["price"]) for p in seg["points"]] == [
-        (100, 10.0),   # start at the swing we left
-        (400, 10.0),   # run flat to the bar of the swing we reached
-        (400, 20.0),   # then turn into its price
+        (100, 10.0),   # the swing we left
+        (400, 20.0),   # the swing we reached. no corner in between
     ]
+    # Solid, so the dashed break drawn over it is a different shape and not just
+    # a different shade of the same one.
+    assert "dash" not in seg
 
 
 def test_a_break_runs_from_the_level_to_the_close_that_took_it():
@@ -177,6 +179,7 @@ def test_a_break_runs_from_the_level_to_the_close_that_took_it():
     assert seg["color"] == breaks_cfg.UP_COLOR
     assert [(p["time"], p["price"]) for p in seg["points"]] == [
         (100, 20.0), (400, 20.0), (400, 21.5)]
+    assert seg["dash"] == list(breaks_cfg.DASH)
 
 
 def test_without_a_close_the_break_is_just_the_level():

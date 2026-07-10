@@ -40,20 +40,19 @@ ENABLED = True
 RETRACE = 6.0
 
 # --- drawing ----------------------------------------------------------------
-# Off: the legs and breaks drawn from these points carry the structure now, and
-# an arrow on every swing as well was two drawings of one fact. The field is
-# still published, so the table shows it and `legs` and `breaks` read it.
-#
-# Turn it back on to see exactly which bar each leg springs from - the arrow
-# lands on the bar that MADE the extreme, not the later one that confirmed it.
-DRAW_MARKERS = False
+# On, as a DOT: it lands on the bar that MADE the extreme, not the later one that
+# confirmed it, so it says where each leg springs from. An arrowhead said the
+# same thing louder - it pointed, and there is nothing for it to point at.
+DRAW_MARKERS = True
 
 # Structure is not directional information: a swing high and a swing low are the
 # same kind of thing. Position and shape already say which. One colour.
 MARKER_COLOR = "#58a6ff"
 
-HIGH_SHAPE = "arrowDown"   # drawn above the bar
-LOW_SHAPE = "arrowUp"      # drawn below it
+# The same dot either way. Position says which: above the bar for a high, below
+# it for a low. A shape that repeats what position already said is noise.
+HIGH_SHAPE = "circle"
+LOW_SHAPE = "circle"
 
 # --- the provisional rails ---------------------------------------------------
 # The standing high, the standing low, and the price at which the provisional one

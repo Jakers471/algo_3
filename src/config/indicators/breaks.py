@@ -5,9 +5,11 @@ to the bar that closed through it, and then drops (or lifts) to that bar's close
 So the horizontal says "this level stood from here to here" and the vertical says
 "and this is what went through it".
 
-Green means a swing high was taken out; red means a swing low was. These are the
-same green and red as the candles, deliberately: a break up is the same kind of
-news as an up bar, only larger.
+Green means a swing high was taken out; red means a swing low was - brighter than
+the candles and than the legs, because a break is the event and a leg is only the
+context. It is DASHED, and that is what actually separates the two on screen: a
+leg and a break are both a red or green line, and asking hue to carry a second
+meaning makes neither legible.
 """
 
 from __future__ import annotations
@@ -22,7 +24,10 @@ USE_CLOSE = True
 # --- drawing ----------------------------------------------------------------
 DRAW = True
 
-UP_COLOR = "#26a69a"     # a swing high was taken out
-DOWN_COLOR = "#ef5350"   # a swing low was taken out
+UP_COLOR = "#7ee787"     # a swing high was taken out
+DOWN_COLOR = "#ff7b72"   # a swing low was taken out
 
-WIDTH = 2
+WIDTH = 1
+
+# On, off, in CSS pixels. Empty would draw solid, which is the legs' stroke.
+DASH = (5, 4)

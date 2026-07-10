@@ -90,7 +90,6 @@ class SegmentsPaneView {
 
       ctx.save();
       ctx.lineJoin = 'miter';
-      ctx.setLineDash([]);
 
       for (const segment of segments) {
         const pts = [];
@@ -110,6 +109,10 @@ class SegmentsPaneView {
 
         ctx.strokeStyle = segment.color;
         ctx.lineWidth = Math.max(1, Math.round((segment.width || 1) * hr));
+        // `dash` is a pattern in CSS pixels, so it scales with the display like
+        // every other length here. Absent means solid, and the pattern must be
+        // reset per segment or one dashed line leaves every later one dashed.
+        ctx.setLineDash((segment.dash || []).map((n) => n * hr));
         ctx.beginPath();
         ctx.moveTo(pts[0][0], pts[0][1]);
         for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);

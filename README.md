@@ -56,13 +56,18 @@ five is noise on the candles. The NT8 `NQ`/`ES`
 bars have no aggressor recorded, so the strip is simply empty for them — never a flat zero,
 which would claim the buying and selling were balanced.
 
-**Structure** is drawn in two layers. A muted green or red **staircase** connects each
-confirmed swing to the next — square corners, because a diagonal would claim price
-travelled in a straight line between them, and the candles in between already say
-otherwise. Over it, a **break of structure**: when a bar *closes* through a standing swing
-level, a bright line runs from the swing that set the level, along it, to the close that
-took it out. Green when a swing high goes, red when a swing low does. A level fires once
-and is spent.
+**Structure** is drawn in three layers, and they are told apart by *shape*, not by colour.
+A blue **dot** sits on the bar that made each confirmed swing. A muted green or red
+**line** runs from that swing to the next one — one straight stroke, not a claim about the
+path, since the candles under it already say what price did. Over both, a **break of
+structure**: when a bar *closes* through a standing swing level, a bright **dashed** line
+runs from the swing that set the level, along it, to the close that took it out. Green when
+a swing high goes, red when a swing low does. A level fires once and is spent.
+
+A leg and a break are both a red or green line, so hue cannot also carry which-is-which.
+The dash does: solid is context, dashed is the event. All of it lives in
+`config/indicators/{swing,legs,breaks}.py` — the frontend draws four shapes and knows what
+none of them mean.
 
 A swing is confirmed only once price has retraced `RETRACE x range_scale` from the extreme
 — so the structure appears late, drawn from the bar that *proved* the turn back to the bar

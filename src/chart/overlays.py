@@ -141,7 +141,8 @@ def bar_events(bars, symbol: str = None, timeframe: str = None,
 
 def _segment(source: str, points: list[tuple], color: str, width: int,
              mark_id: str | None = None, layer: str | None = None,
-             at: int | None = None, offsets: tuple | None = None) -> dict:
+             at: int | None = None, offsets: tuple | None = None,
+             dash: tuple | None = None) -> dict:
     """A polyline in (time, price) space, for the chart to stroke.
 
     ``time`` is the EARLIEST point, because that is what the replay trim filter
@@ -166,6 +167,11 @@ def _segment(source: str, points: list[tuple], color: str, width: int,
         "color": color,
         "width": width,
     }
+    if dash:
+        # A dash pattern in CSS pixels. It is what separates a break from a leg
+        # at a glance: two shapes in the same two colours, telling them apart by
+        # hue alone, is one meaning too many for one pixel.
+        mark["dash"] = [float(n) for n in dash]
     if mark_id is not None:
         mark["id"] = mark_id
     if layer is not None:
@@ -285,13 +291,14 @@ def marks_for(time: int, row: dict, *, is_first: bool = False,
 
     if legs_cfg.ENABLED and legs_cfg.DRAW and row.get("leg"):
         up = row["leg"] == "up"
-        # Square corners: run along the price we left, then turn into the price
-        # we arrived at. A diagonal would claim price travelled in a straight
-        # line between the swings. The candles in between already say otherwise.
+        # One straight line from the swing it left to the swing it arrived at.
+        # It does not claim price travelled that path - the candles under it say
+        # what price did, and the line only names the two ends and the slope
+        # between them. The square-cornered staircase claimed less and drew more:
+        # a long horizontal run at a price the market had already left.
         marks.append(_segment(
             "legs",
             [(row["leg_from_time"], row["leg_from_price"]),
-             (row["leg_to_time"], row["leg_from_price"]),
              (row["leg_to_time"], row["leg_to_price"])],
             legs_cfg.UP_COLOR if up else legs_cfg.DOWN_COLOR,
             legs_cfg.WIDTH,
@@ -309,6 +316,7 @@ def marks_for(time: int, row: dict, *, is_first: bool = False,
             "breaks", points,
             breaks_cfg.UP_COLOR if up else breaks_cfg.DOWN_COLOR,
             breaks_cfg.WIDTH,
+            dash=breaks_cfg.DASH,
         ))
 
     if profile_cfg.ENABLED and profile_cfg.DRAW and (

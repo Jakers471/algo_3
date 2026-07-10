@@ -72,11 +72,11 @@ they mean. It understands *shapes*, and there are four:
 |---|---|---|
 | `vlines` | a dashed vertical rule with a label | `vertical_lines.js` (a chart primitive) |
 | `markers` | a dot or arrow on a bar | lightweight-charts' own markers |
-| `segments` | a polyline through `(time, price)` corners, optionally offset sideways in pixels | `segments.js` (a chart primitive) |
+| `segments` | a polyline through `(time, price)` corners, optionally dashed, or offset sideways in pixels | `segments.js` (a chart primitive) |
 | `levels` | a horizontal price line across the pane, labelled on the axis | `createPriceLine` |
 
 Not one of them knows what a session, a swing, a break of structure or a volume profile is.
-`segments` draws the staircase between swings, the break of structure, **and** every bin of
+`segments` draws the line between swings, the break of structure, **and** every bin of
 the volume profile — the profile arrived on the chart without a single line of frontend
 code, because a histogram bin is a segment and that shape already existed. That is what a
 shape vocabulary buys.
