@@ -24,6 +24,8 @@ See `CLAUDE.md` → "Scratch vs permanent" for the full rule.
 | `analysis/retracement.py` | `r = \|this leg\| / \|last leg\|` at three rungs: is `r < 1` more common than a random walk manages, and does it persist? — one PNG | yes — `commands.bat` → Analysis |
 | `analysis/flow_edge.py` | does order flow at a break predict the next break? carries a placebo, a confound (`leg_bars`) and a sign-flipped null — one PNG | yes — `commands.bat` → Analysis |
 | `analysis/outcomes.py` | **the target.** labels every bar with which barrier (`±k × range_scale`) price touched first — no swing machine on the outcome side. Prints the cost wall and the always-long benchmark a signal must beat; writes `outcomes_<sym>_<rung>.parquet` for the experiments after it — one PNG | yes — `commands.bat` → Analysis |
+| `analysis/expectancy.py` | what does a bracket at a break of structure earn, after costs, against a sign-flipped null? picks the grid cell on one half and takes it on the other — one PNG | yes — `commands.bat` → Analysis |
+| `analysis/profile_edge.py` | does the volume profile predict the size of the next leg once `range_scale` **and** the previous leg are divided out? — one PNG | yes — `commands.bat` → Analysis |
 | `mockups/structure_variants.py` | six ways to draw swings/legs/breaks on real bars — six PNGs | yes — `commands.bat` → Analysis |
 | `mockups/pane/`, `mockups/native/` | throwaway pane mockups (browser + PySide6) for the snapshot table | yes — open / run directly |
 | `va_breakout_demo.py` | decode a VA-breakout signal | **no** — imports the deleted `src/indicators/` and `src/strategy/` |
