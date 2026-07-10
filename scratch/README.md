@@ -15,13 +15,14 @@ See `CLAUDE.md` → "Scratch vs permanent" for the full rule.
 | `audit_parquet.py` | regenerate `DATA_AUDIT.json` / `.md` from the Parquet store | yes — wired into `commands.bat` → Data |
 | `audit_project.py` | docs-drift + dead-code sweep | yes — `commands.bat` → Maintenance |
 | `compare_data.py` | NT8 Parquet vs the ProjectX API bars | yes — `commands.bat` → Data |
-| `analysis/break_sequences.py` | do breaks continue or alternate? measured against a base-rate and a shuffled null | yes — `commands.bat` → Analysis |
+| `analysis/break_sequences.py` | do breaks continue or alternate? measured against a base-rate and a shuffled null. **Its negative continuation edge is a swing-machine artifact — see `flow_edge.py`** | yes — `commands.bat` → Analysis |
 | `analysis/seasonality_report.py` | why `range_scale`'s window is minutes, not bars — writes an HTML report | yes — `commands.bat` → Analysis |
 | `analysis/timeframe_scaling.html` | `range ~ t^0.507`, and why 30s/3m/15m is evenly spaced | yes — open it |
 | `analysis/leg_zoom.py` | one 15m leg, then every 3m leg inside it, then every 30s leg — three PNGs | yes — `commands.bat` → Analysis |
 | `analysis/scale_ladder.py` | is `RETRACE` tunable? `swing` at eight thresholds at once; swing count vs threshold, log-log, against two nulls — two PNGs | yes — `commands.bat` → Analysis |
 | `analysis/regime_plane.py` | is regime a thing? every leg as `(drift, impulse)`, both scale-free, against sign-flipped bars — three PNGs | yes — `commands.bat` → Analysis |
 | `analysis/retracement.py` | `r = \|this leg\| / \|last leg\|` at three rungs: is `r < 1` more common than a random walk manages, and does it persist? — one PNG | yes — `commands.bat` → Analysis |
+| `analysis/flow_edge.py` | does order flow at a break predict the next break? carries a placebo, a confound (`leg_bars`) and a sign-flipped null — one PNG | yes — `commands.bat` → Analysis |
 | `mockups/structure_variants.py` | six ways to draw swings/legs/breaks on real bars — six PNGs | yes — `commands.bat` → Analysis |
 | `mockups/pane/`, `mockups/native/` | throwaway pane mockups (browser + PySide6) for the snapshot table | yes — open / run directly |
 | `va_breakout_demo.py` | decode a VA-breakout signal | **no** — imports the deleted `src/indicators/` and `src/strategy/` |
