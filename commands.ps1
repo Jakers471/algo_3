@@ -154,6 +154,7 @@ $root = @{
                     @{ Label = 'Forecast paper  (can you forecast tomorrow's volatility? train/test)'; Run = { python -m scratch.analysis.forecast_paper; Start-Process 'scratch/analysis/forecast_paper.html' } },
                     @{ Label = 'Edge paper  (why reward:risk cannot beat a coin - optional stopping)'; Run = { python -m scratch.analysis.edge_paper; Start-Process 'scratch/analysis/edge_paper.html' } },
                     @{ Label = 'Discipline paper  (is trading 90% risk management?)'; Run = { python -m scratch.analysis.discipline_paper; Start-Process 'scratch/analysis/discipline_paper.html' } },
+                    @{ Label = 'HFT paper  (is tick data more predictable? yes - and unreachable)'; Run = { python -m scratch.analysis.hft_paper; Start-Process 'scratch/analysis/hft_paper.html' } },
                     @{ Label = 'Magnitude paper  (regenerate + open the HTML paper)'; Run = { python -m scratch.analysis.magnitude_paper; Start-Process 'scratch/analysis/magnitude_paper.html' } },
                     @{ Label = 'Magnitude  (why the sign is a coin and the size is not - three PNGs)'; Run = { python -m scratch.analysis.magnitude } },
                     @{ Label = 'Profile edge  (does the volume profile beat range_scale?)'; Run = { python -m scratch.analysis.profile_edge } },
