@@ -44,6 +44,11 @@ A field marked **detail** is scaffolding a drawing needs and a reader does not �
 timestamp, an endpoint, or arithmetic on a column already shown. The table hides
 those unless you click **Details**. Nothing is ever dropped from the row itself.
 
+One row per field, in the order the table's columns appear, each carrying the
+indicator that owns it. The indicator is named once, on the first field of its
+block, the same way the table's header names it once — so the blocks stay legible
+and the column that says *where this came from* does not become wallpaper.
+
 ## Read the unit first
 
 It is the thing that goes wrong first, because three of them look identical in a
@@ -88,6 +93,11 @@ def render_text(entries: list[dict]) -> str:
     return "\n".join(out)
 
 
+def _cell(text: str) -> str:
+    """Markdown table cells are pipe-delimited; a pipe inside one must escape."""
+    return str(text).replace("|", "\|")
+
+
 def _rows(lines: list[str], indicator: str, about: dict, names) -> None:
     """One row per field, and the indicator named once, on its first row.
 
@@ -100,13 +110,14 @@ def _rows(lines: list[str], indicator: str, about: dict, names) -> None:
         unit, means = about.get(name, ("?", "UNDEFINED"))
         owner = f"**`{indicator}`**" if i == 0 else ""
         shown = "yes" if not cols.is_detail(name) else "detail"
-        lines.append(f"| {owner} | `{name}` | {unit} | {shown} | {means} |")
+        # A unit like `high | low | None` is a pipe-separated enumeration, and a
+        # pipe is a cell boundary. Unescaped, `swing` silently splits into five
+        # columns and every row after it reads as a different field.
+        lines.append(f"| {owner} | `{name}` | {_cell(unit)} | {shown} | {_cell(means)} |")
 
 
 def render_markdown(entries: list[dict]) -> str:
-    lines = [HEADER, "
-## Where each indicator lives
-"]
+    lines = [HEADER, "\n## Where each indicator lives\n"]
     lines.append("| indicator | reads | source | config |")
     lines.append("|---|---|---|---|")
     lines.append("| **`bar`** | the dataset | `src/chart/store.py` | `src/config/chart.py` |")
@@ -115,13 +126,10 @@ def render_markdown(entries: list[dict]) -> str:
         config = f"`{e['config']}`" if e["config"] else "—"
         lines.append(f"| **`{e['id']}`** | {deps} | `{e['source']}` | {config} |")
 
-    lines.append("
-## Every field, defined
-")
+    lines.append("\n## Every field, defined\n")
     lines.append("Every column of the snapshot table, in the order the columns appear,")
     lines.append("under the indicator that publishes it. `shown` is what the table does")
-    lines.append("with it: **yes** by default, **detail** only when you click Details.
-")
+    lines.append("with it: **yes** by default, **detail** only when you click Details.\n")
 
     lines.append("| indicator | field | unit | shown | what it is |")
     lines.append("|---|---|---|---|---|")
@@ -130,17 +138,13 @@ def render_markdown(entries: list[dict]) -> str:
         about = {k: (v["unit"], v["means"]) for k, v in (e["about"] or {}).items()}
         _rows(lines, e["id"], about, e["fields"])
 
-    lines.append("
-## What each indicator is for
-")
+    lines.append("\n## What each indicator is for\n")
     for e in entries:
         reads = ", ".join(f"`{d}`" for d in e["depends"]) or "the bar"
         first = (e["doc"] or "").strip().splitlines()
         lines.append(f"**`{e['id']}`** — reads {reads}. {first[0] if first else ''}")
         lines.append("")
-    return "
-".join(lines) + "
-"
+    return "\n".join(lines) + "\n"
 
 
 def main() -> None:

@@ -128,3 +128,46 @@ def test_fields_md_matches_what_the_code_generates():
     current = (ROOT / "FIELDS.md").read_text(encoding="utf-8")
     assert current == door.render_markdown(door.contract()), (
         "FIELDS.md is stale - run: python -m src.cli.fields --write")
+
+
+def test_the_generated_table_has_one_row_per_field_and_five_cells_each():
+    """A unit like `high | low | None` is pipe-separated, and a pipe is a cell wall.
+
+    Unescaped, `swing` silently becomes five columns and every row below it reads
+    as a different field. The document would look fine to the generator and be
+    wrong to every reader.
+    """
+    from src.cli.fields import contract, render_markdown
+
+    entries = contract()
+    doc = render_markdown(entries)
+
+    # Only the field table: the unit legend above it is two columns by design.
+    body = doc.split("## Every field, defined", 1)[1].split("## What each", 1)[0]
+    rows = [line for line in body.splitlines()
+            if line.startswith("| ") and "| field |" not in line
+            and set(line) - set("|- ")]
+
+    expected = sum(len(e["fields"]) for e in entries) + 6   # + the bar's six
+    assert len(rows) == expected, "one row per field, and the bar's six"
+
+    for row in rows:
+        assert len(_cells(row)) == 5, row[:80]
+
+
+def _cells(row: str) -> list[str]:
+    """Split on unescaped pipes only."""
+    out, cur, escaped = [], "", False
+    for char in row.strip()[1:-1]:
+        if escaped:
+            cur += char
+            escaped = False
+        elif char == "\\":
+            escaped = True
+        elif char == "|":
+            out.append(cur)
+            cur = ""
+        else:
+            cur += char
+    out.append(cur)
+    return out
