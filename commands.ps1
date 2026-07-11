@@ -155,6 +155,7 @@ $root = @{
                     @{ Label = 'Edge paper  (why reward:risk cannot beat a coin - optional stopping)'; Run = { python -m scratch.analysis.edge_paper; Start-Process 'scratch/analysis/edge_paper.html' } },
                     @{ Label = 'Discipline paper  (is trading 90% risk management?)'; Run = { python -m scratch.analysis.discipline_paper; Start-Process 'scratch/analysis/discipline_paper.html' } },
                     @{ Label = 'Value width  (draw balanced vs imbalanced value areas)'; Run = { python -m scratch.analysis.value_width_draw } },
+                    @{ Label = 'MA scan  (are 10/20/50/100/200 MAs useful? regression + cross study)'; Run = { python -m scratch.analysis.ma_scan; Start-Process 'scratch/analysis/ma_scan.html' } },
                     @{ Label = 'Indicator scan  (regress ALL indicator fields vs next move)'; Run = { python -m scratch.analysis.indicator_scan; Start-Process 'scratch/analysis/indicator_scan.html' } },
                     @{ Label = 'Quant report  (alpha vs beta tearsheet, no candlesticks)'; Run = { python -m scratch.analysis.quant_report; Start-Process 'scratch/analysis/quant_report.html' } },
                     @{ Label = 'HFT paper  (is tick data more predictable? yes - and unreachable)'; Run = { python -m scratch.analysis.hft_paper; Start-Process 'scratch/analysis/hft_paper.html' } },
