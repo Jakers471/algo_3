@@ -124,9 +124,10 @@ would be handed volume from the bars either side. 30s and every whole multiple o
 switch and never a compute switch: the server still computes every indicator and still
 ships every mark, so a hidden leg is still a leg in the snapshot table, and the two windows
 cannot drift apart about what happened — only about what is on screen. Toggling one back on
-redraws the history it already accumulated, with no round trip. The session rules start
-hidden (`LAYERS` in `config/chart.py`): three dashed verticals a day is a lot of ink for a
-fact the time axis already carries. A layer whose indicator is switched off in config is
+redraws the history it already accumulated, with no round trip. The session rules are
+shown by default (`LAYERS` in `config/chart.py`) — a dashed vertical at each Asia/London/NY
+open, on every symbol; toggle them off if three verticals a day is more ink than you want,
+since the time axis carries the same fact. A layer whose indicator is switched off in config is
 not offered at all, rather than offered as a checkbox that toggles nothing.
 
 The chart draws; it does not compute. Indicators are computed once in Python and arrive

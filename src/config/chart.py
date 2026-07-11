@@ -78,10 +78,10 @@ BASE_STEP_MS = 500
 # `id` is the mark's `source`, which is how the browser filters without knowing
 # what a leg or a session is. Add an indicator that draws, add a line here.
 LAYERS = (
-    # The session rules are a clock, not a reading. Off by default: three dashed
-    # verticals a day across every pane is a lot of ink for a fact you can read
-    # off the time axis.
-    {"id": "sessions",   "label": "Sessions",   "visible": False},
+    # The session rules: a dashed vertical at each session open (Asia/London/NY),
+    # on every symbol - pure time, so NQ/ES/NQT all get them. On by default; toggle
+    # off in the Layers panel if three verticals a day is more ink than you want.
+    {"id": "sessions",   "label": "Sessions",   "visible": True},
     {"id": "swing",      "label": "Swings",     "visible": True},
     {"id": "legs",       "label": "Legs",       "visible": True},
     {"id": "breaks",     "label": "Breaks",     "visible": True},
