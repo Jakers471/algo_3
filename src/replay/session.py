@@ -70,6 +70,12 @@ class ReplaySession:
 
         self.last_seen = time.monotonic()
 
+        # The previous revealed bar's close time and session, so a step can draw
+        # the session-close rule on the bar that ended the session, not the one
+        # that opened the next. Set by seed's warmup, carried across steps.
+        self._prev_time: int | None = None
+        self._prev_session: str | None = None
+
         self._subscribers: list[queue.Queue] = []
         self._lock = threading.RLock()
         self._play_thread: threading.Thread | None = None
@@ -99,13 +105,17 @@ class ReplaySession:
                                          with_vap=self.registry.has("profile"))
             profile = self.registry.get("profile")
             last = len(bars) - 1
+            prev_time: int | None = None
+            prev_session: str | None = None
             for i, (bar, event) in enumerate(zip(bars, events)):
                 # The warmup only needs the profile's STATE, never its summary.
                 if profile is not None:
                     profile.quiet = i < last
                 row = self.registry.update(event)
                 marks.extend(overlays.marks_for(int(bar["time"]), row, is_first=(i == 0),
-                                                close=float(bar["close"])))
+                                                close=float(bar["close"]),
+                                                prev_time=prev_time, prev_session=prev_session))
+                prev_time, prev_session = int(bar["time"]), row.get("session")
                 # Every rung is warmed by the same bars, silently. A rung whose
                 # bar has not closed by the cut point simply holds a partial one,
                 # exactly as it would have had you played into it.
@@ -113,6 +123,10 @@ class ReplaySession:
                                  quiet=True)
             if profile is not None:
                 profile.quiet = False
+
+            # Hand the warmup's last bar to the first live step, so its session
+            # close lands correctly rather than being dropped at the seam.
+            self._prev_time, self._prev_session = prev_time, prev_session
 
             self.cursor = index - 1
             logger.info("Replay %s: seeded at %d (warmed %d bars)", self.id, index, len(bars))
@@ -170,9 +184,12 @@ class ReplaySession:
                     "delta": overlays._optional(float(bar["delta"])),
                 },
                 fields=row,
-                marks=overlays.marks_for(int(bar["time"]), row, close=float(bar["close"])),
+                marks=overlays.marks_for(int(bar["time"]), row, close=float(bar["close"]),
+                                         prev_time=self._prev_time,
+                                         prev_session=self._prev_session),
                 at_end=self.at_end,
             )
+            self._prev_time, self._prev_session = int(bar["time"]), row.get("session")
             # A rung bar closes on the same base bar that completes it, so its
             # row is published on the same tick - never a bar late, and never
             # before the base bar that made it.

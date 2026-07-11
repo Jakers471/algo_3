@@ -27,3 +27,23 @@ LABEL_COLORS = {
 }
 
 DRAW_BOUNDARIES = True   # the dashed rule + label at each session open
+
+# The matching rule at each session CLOSE. A session's close is the last bar
+# before the next one opens - so on the back-to-back boundaries it sits one bar
+# left of the next session's open line, and only the NY close (17:00 ET, before
+# the maintenance halt) stands alone. Dimmer than the open, and its label rides a
+# little lower so the two do not print on top of each other where they meet.
+DRAW_CLOSE = True
+
+CLOSE_LINE_COLORS = {
+    "Asia":   "rgba(88, 166, 255, 0.33)",
+    "London": "rgba(210, 153, 34, 0.33)",
+    "NY":     "rgba(63, 185, 80, 0.33)",
+}
+CLOSE_LABEL_COLORS = {
+    "Asia":   "rgba(126, 187, 255, 0.75)",
+    "London": "rgba(227, 179, 65, 0.75)",
+    "NY":     "rgba(86, 211, 100, 0.75)",
+}
+# CSS pixels from the top the close label sits at (the open label sits at ~6).
+CLOSE_LABEL_Y = 22

@@ -108,7 +108,10 @@ class VerticalLinesPaneView {
           ctx.font = `${LABEL_FONT_PX * vr}px 'JetBrains Mono', Consolas, monospace`;
           ctx.textBaseline = 'top';
           ctx.fillStyle = line.labelColor || line.color;
-          ctx.fillText(line.label, px + LABEL_PAD_X * hr, LABEL_TOP_Y * vr);
+          // Close labels ride lower (labelY) so they clear the open label of the
+          // session they abut on the back-to-back boundaries.
+          const labelY = line.labelY ?? LABEL_TOP_Y;
+          ctx.fillText(line.label, px + LABEL_PAD_X * hr, labelY * vr);
         }
       }
       ctx.restore();

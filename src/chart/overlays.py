@@ -243,7 +243,8 @@ def _level(source: str, price: float, color: str, width: int, *,
 
 
 def marks_for(time: int, row: dict, *, is_first: bool = False,
-              close: float | None = None) -> list[dict]:
+              close: float | None = None,
+              prev_time: int | None = None, prev_session: str | None = None) -> list[dict]:
     """The drawings this row produces. One row in, zero or more shapes out.
 
     ``is_first`` suppresses the boundary on the first row of any window. Every
@@ -255,6 +256,12 @@ def marks_for(time: int, row: dict, *, is_first: bool = False,
     ``close`` is this bar's close, needed only to land the vertical stroke of a
     break on the price that went through the level. Absent, the break is drawn as
     the horizontal alone.
+
+    ``prev_time``/``prev_session`` are the previous bar's close time and session.
+    A session's CLOSE is its last bar - the one before the next session opens - so
+    when this row opens a new session, the previous bar closed the old one, and its
+    line is drawn there. The caller threads them; absent (the ladder, the first
+    step) no close is drawn, which only loses the rule, never the open.
     """
     marks: list[dict] = []
     if is_first:
@@ -272,6 +279,21 @@ def marks_for(time: int, row: dict, *, is_first: bool = False,
                 "label": name,
                 "color": sessions_cfg.LINE_COLORS.get(name, "rgba(125,133,144,0.6)"),
                 "labelColor": sessions_cfg.LABEL_COLORS.get(name, "rgba(201,209,217,0.9)"),
+            })
+        # The session that just ended closed on the previous bar. Drawn there, not
+        # here, so the NY close lands at 17:00 ET and not at the 18:00 reopen.
+        if (sessions_cfg.DRAW_CLOSE and prev_time is not None
+                and prev_session is not None):
+            marks.append({
+                "kind": "vline",
+                "source": "sessions",
+                "time": int(prev_time),
+                "label": f"{prev_session} close",
+                "color": sessions_cfg.CLOSE_LINE_COLORS.get(
+                    prev_session, "rgba(125,133,144,0.35)"),
+                "labelColor": sessions_cfg.CLOSE_LABEL_COLORS.get(
+                    prev_session, "rgba(201,209,217,0.7)"),
+                "labelY": sessions_cfg.CLOSE_LABEL_Y,
             })
 
     if absorption_cfg.ENABLED and absorption_cfg.DRAW_MARKERS and row.get("absorption"):
@@ -515,11 +537,15 @@ def for_range(symbol: str, timeframe: str, start: int, count: int,
     profile = registry.get("profile")
     last = len(bars) - 1
 
+    prev_time: int | None = None
+    prev_session: str | None = None
     for i, (bar, event) in enumerate(zip(bars, events)):
         # Only the newest profile is drawn; the rest of the walk is warmup for it.
         if profile is not None:
             profile.quiet = i < last
         row = registry.update(event)
         marks.extend(marks_for(int(bar["time"]), row, is_first=(i == 0),
-                               close=float(bar["close"])))
+                               close=float(bar["close"]),
+                               prev_time=prev_time, prev_session=prev_session))
+        prev_time, prev_session = int(bar["time"]), row.get("session")
     return group_marks(marks)

@@ -128,8 +128,10 @@ ships every mark, so a hidden leg is still a leg in the snapshot table, and the 
 cannot drift apart about what happened — only about what is on screen. Toggling one back on
 redraws the history it already accumulated, with no round trip. The session rules are
 shown by default (`LAYERS` in `config/chart.py`) — a dashed vertical at each Asia/London/NY
-open, on every symbol; toggle them off if three verticals a day is more ink than you want,
-since the time axis carries the same fact. A layer whose indicator is switched off in config is
+**open and close**, on every symbol. The close sits on the session's last bar, so a session's
+end and the next one's open are one bar apart, except the NY close (17:00 ET), which stands
+alone before the maintenance halt. Closes are dimmer, with the label a notch lower; toggle
+the whole layer off if it is more ink than you want, since the time axis carries the same fact. A layer whose indicator is switched off in config is
 not offered at all, rather than offered as a checkbox that toggles nothing.
 
 The chart draws; it does not compute. Indicators are computed once in Python and arrive
