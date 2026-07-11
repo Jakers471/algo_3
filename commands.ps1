@@ -174,6 +174,9 @@ $root = @{
                     @{ Label = 'RQA fingerprint  (the recurrence plot as scalars: RR / DET / LAM / Lmax)'; Run = { python -m scratch.analysis.rqa } },
                     @{ Label = 'Regime overlay  (rolling recurrence rate under the candles, causal)'; Run = { python -m scratch.analysis.regime_overlay } },
                     @{ Label = 'Regime test  (does the RR regime persist / predict past a null?)'; Run = { python -m scratch.analysis.regime_test } },
+                    @{ Label = 'Second break  (draw the break-of-structure long on one day)'; Run = { python -m scratch.analysis.second_break } },
+                    @{ Label = 'Second break test  (grade it full-data: R:R ladder + breakeven vs null)'; Run = { python -m scratch.analysis.second_break_test } },
+                    @{ Label = 'Fractal break  (30s context + 15s entry, 1:3, graded vs null)'; Run = { python -m scratch.analysis.fractal_break } },
                     @{ Label = 'Outcomes  (label every bar: which barrier first? the cost wall + always-long)'; Run = { python -m scratch.analysis.outcomes } },
                     @{ Label = 'Straddle  (buy the expansion, never the direction: does a coil pay?)'; Run = { python -m scratch.analysis.straddle } },
                     @{ Label = 'Structure variants  (six ways to draw swings/legs/breaks)'; Run = { python -m scratch.mockups.structure_variants } }
