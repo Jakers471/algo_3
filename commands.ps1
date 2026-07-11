@@ -165,6 +165,11 @@ $root = @{
                     @{ Label = 'Magnitude  (why the sign is a coin and the size is not - three PNGs)'; Run = { python -m scratch.analysis.magnitude } },
                     @{ Label = 'Profile edge  (does the volume profile beat range_scale?)'; Run = { python -m scratch.analysis.profile_edge } },
                     @{ Label = 'MTF confluence  (do LTF reactions cluster at an HTF value-area edge?)'; Run = { python -m scratch.analysis.mtf_confluence } },
+                    @{ Label = 'Window render  (candles + structure + per-leg profiles, gaps collapsed)'; Run = { python -m scratch.analysis.window_render } },
+                    @{ Label = 'Scale-free structure  (swings stacked in range_scale: 4 windows)'; Run = { python -m scratch.analysis.scale_free_structure } },
+                    @{ Label = 'Week view  (a full week: candles + the dimensionless map)'; Run = { python -m scratch.analysis.week_view } },
+                    @{ Label = 'Structure scales  (the structure profile across timeframes)'; Run = { python -m scratch.analysis.structure_scales } },
+                    @{ Label = 'Recurrence  (price stripped to same-place-or-not, time on both axes)'; Run = { python -m scratch.analysis.recurrence } },
                     @{ Label = 'Outcomes  (label every bar: which barrier first? the cost wall + always-long)'; Run = { python -m scratch.analysis.outcomes } },
                     @{ Label = 'Straddle  (buy the expansion, never the direction: does a coil pay?)'; Run = { python -m scratch.analysis.straddle } },
                     @{ Label = 'Structure variants  (six ways to draw swings/legs/breaks)'; Run = { python -m scratch.mockups.structure_variants } }
