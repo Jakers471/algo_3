@@ -173,6 +173,7 @@ $root = @{
                     @{ Label = 'Geometry zoo  (one week, eight price-free representations)'; Run = { python -m scratch.analysis.geometry_zoo } },
                     @{ Label = 'RQA fingerprint  (the recurrence plot as scalars: RR / DET / LAM / Lmax)'; Run = { python -m scratch.analysis.rqa } },
                     @{ Label = 'Regime overlay  (rolling recurrence rate under the candles, causal)'; Run = { python -m scratch.analysis.regime_overlay } },
+                    @{ Label = 'Regime test  (does the RR regime persist / predict past a null?)'; Run = { python -m scratch.analysis.regime_test } },
                     @{ Label = 'Outcomes  (label every bar: which barrier first? the cost wall + always-long)'; Run = { python -m scratch.analysis.outcomes } },
                     @{ Label = 'Straddle  (buy the expansion, never the direction: does a coil pay?)'; Run = { python -m scratch.analysis.straddle } },
                     @{ Label = 'Structure variants  (six ways to draw swings/legs/breaks)'; Run = { python -m scratch.mockups.structure_variants } }
