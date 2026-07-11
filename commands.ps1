@@ -164,6 +164,7 @@ $root = @{
                     @{ Label = 'Magnitude paper  (regenerate + open the HTML paper)'; Run = { python -m scratch.analysis.magnitude_paper; Start-Process 'scratch/analysis/magnitude_paper.html' } },
                     @{ Label = 'Magnitude  (why the sign is a coin and the size is not - three PNGs)'; Run = { python -m scratch.analysis.magnitude } },
                     @{ Label = 'Profile edge  (does the volume profile beat range_scale?)'; Run = { python -m scratch.analysis.profile_edge } },
+                    @{ Label = 'MTF confluence  (do LTF reactions cluster at an HTF value-area edge?)'; Run = { python -m scratch.analysis.mtf_confluence } },
                     @{ Label = 'Outcomes  (label every bar: which barrier first? the cost wall + always-long)'; Run = { python -m scratch.analysis.outcomes } },
                     @{ Label = 'Straddle  (buy the expansion, never the direction: does a coil pay?)'; Run = { python -m scratch.analysis.straddle } },
                     @{ Label = 'Structure variants  (six ways to draw swings/legs/breaks)'; Run = { python -m scratch.mockups.structure_variants } }
