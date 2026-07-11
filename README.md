@@ -36,7 +36,9 @@ python -m src.cli.capture --seconds 60   # record the live TopstepX market feed
 `python -m src.cli.chart` serves a dark, gridless candle chart of the NQ/ES Parquet
 store at **http://127.0.0.1:8765**. Browse any timeframe, or hit **Replay**, click a
 bar to cut back to that moment, and step forward one bar at a time (play/pause,
-1x/2x/4x, `Space` and `→`). Zoom and pan stay free the whole time.
+1x/2x/4x, `Space` and `→`). Zoom and pan stay free the whole time. Switching
+timeframe keeps your place — it reloads the new bar size centred on the window you
+were viewing, at the same zoom, instead of jumping to the latest bars.
 
 It stays fast by never sending a dataset it does not need: bars are packed into a
 flat 24-byte record file that the server memmaps and slices, they cross the wire as

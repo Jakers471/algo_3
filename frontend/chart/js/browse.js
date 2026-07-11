@@ -8,7 +8,7 @@
  * bars and extend its front on demand, never the whole dataset.
  */
 
-import { getBars } from './api.js';
+import { getBars, locate } from './api.js';
 
 // Start backfilling once the view comes within this many bars of the loaded edge.
 const BACKFILL_TRIGGER_BARS = 100;
@@ -58,6 +58,48 @@ export class Browser {
 
     this.surface.rebuild(this.bars);
     this.surface.fit();
+    this.overlays.refresh(symbol, timeframe, this.firstIndex, this.bars);
+    return this.bars;
+  }
+
+  /**
+   * Load a symbol/timeframe centred on a TIME window, then frame that window.
+   *
+   * This is what keeps a timeframe switch in place. `load` always grabs the tail
+   * and fits it, which throws you to the front; here the caller passes the window
+   * it was looking at, we pull the new timeframe's bars around that time, and set
+   * the visible range back to the same window - so 5m -> 1m at some moment three
+   * weeks back stays at that moment, at that zoom, instead of jumping to now.
+   */
+  async loadAround(symbol, timeframe, timeRange) {
+    this.symbol = symbol;
+    this.timeframe = timeframe;
+    this.active = true;
+
+    const probe = await getBars(symbol, timeframe, 0, 0);
+    const total = probe.total;
+    if (!total) return this.load(symbol, timeframe);
+
+    // Where the window's edges fall in the NEW timeframe's index space.
+    const [a, z] = await Promise.all([
+      locate(symbol, timeframe, timeRange.from),
+      locate(symbol, timeframe, timeRange.to),
+    ]);
+    const span = Math.max(1, z.index - a.index);
+
+    // Load just enough to cover the window plus margin on both sides, capped at
+    // historyBars so a zoomed-out view on a fine timeframe cannot ask for millions.
+    const count = Math.min(this.cfg.historyBars, span + 2 * BACKFILL_TRIGGER_BARS);
+    let start = Math.max(0, a.index - Math.floor((count - span) / 2));
+    start = Math.min(start, Math.max(0, total - count));
+
+    const { bars, start: got, total: t } = await getBars(symbol, timeframe, start, count);
+    this.bars = bars;
+    this.firstIndex = got;
+    this.total = t;
+
+    this.surface.rebuild(this.bars);              // no fit - we set the range ourselves
+    this.surface.setVisibleTimeRange(timeRange);
     this.overlays.refresh(symbol, timeframe, this.firstIndex, this.bars);
     return this.bars;
   }

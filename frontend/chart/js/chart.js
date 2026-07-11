@@ -222,4 +222,19 @@ class ChartSurface {
   onVisibleRangeChange(handler) {
     this.chart.timeScale().subscribeVisibleLogicalRangeChange(handler);
   }
+
+  /**
+   * The visible window as a TIME range ({from, to} in epoch seconds), not a
+   * logical one. Time survives a timeframe switch; a logical index does not - the
+   * same window is a different number of bars once the bar size changes. Null when
+   * nothing is on screen yet.
+   */
+  getVisibleTimeRange() {
+    return this.chart.timeScale().getVisibleRange();
+  }
+
+  /** Restore a window captured with getVisibleTimeRange. */
+  setVisibleTimeRange(range) {
+    if (range) this.chart.timeScale().setVisibleRange(range);
+  }
 }

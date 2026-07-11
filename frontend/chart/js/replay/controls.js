@@ -48,7 +48,9 @@ export class Controls {
     fill();
 
     $('symbol').addEventListener('change', () => { fill(); this._reload(); });
-    $('timeframe').addEventListener('change', () => this._reload());
+    // Changing timeframe keeps your place; changing symbol goes to the tail (the
+    // datasets do not share a time span, so a preserved time can fall off the end).
+    $('timeframe').addEventListener('change', () => this._changeView());
   }
 
   get symbol() { return $('symbol').value; }
@@ -108,6 +110,24 @@ export class Controls {
     this.engine.pause();
     this.setMode('browse');
     this.onExit();
+  }
+
+  /**
+   * Change timeframe without losing your place.
+   *
+   * The old path reloaded the tail and framed it, throwing you to the front.
+   * Instead: capture the visible TIME window, leave replay if we were in it, and
+   * load the new timeframe centred on that same window. Time is the invariant a
+   * bar-size change preserves - a bar index is not, since the same window is a
+   * different number of bars once the bars change size.
+   */
+  async _changeView() {
+    const view = this.surface.getVisibleTimeRange();
+    this.engine.pause();
+    if (this.mode === 'replay') await this.engine.stop();
+    this.setMode('browse');
+    if (!view) { await this.onExit(); return; }   // nothing on screen to preserve
+    await this.browser.loadAround(this.symbol, this.timeframe, view);
   }
 
   // --- transport ------------------------------------------------------------
