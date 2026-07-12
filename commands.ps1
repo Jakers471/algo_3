@@ -169,6 +169,7 @@ $root = @{
                     @{ Label = 'Intraday  (pre-registered: last-30m momentum + overnight-gap, NQ+ES OOS)'; Run = { python -m scratch.intraday.study } },
                     @{ Label = 'ORB / value area  (pre-registered: VA-escape continuation, VA vs range, POC anchor)'; Run = { python -m scratch.orb_va.study } },
                     @{ Label = 'ORB / value area fills  (stage-6: tape-measured slippage + costs on 20y)'; Run = { python -m scratch.orb_va.fills } },
+                    @{ Label = 'ORB / value area revisit  (pullback + failed-breakout fade, both killed)'; Run = { python -m scratch.orb_va.revisit } },
                     @{ Label = 'Pre-FOMC drift  (pre-registered: Lucca-Moench 24h window vs benchmark, NQ+ES)'; Run = { python -m scratch.fomc_drift.study } },
                     @{ Label = 'Pre-FOMC drift tails  (stage-3: tails, concentration, costs, sub-window)'; Run = { python -m scratch.fomc_drift.tails } },
                     @{ Label = 'Pre-FOMC drift day-leg  (09:30->14:00 flat-by-close variant, own kill line)'; Run = { python -m scratch.fomc_drift.dayleg } },
