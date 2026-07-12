@@ -176,6 +176,7 @@ $root = @{
                     @{ Label = 'Pre-FOMC drift vs buy-and-hold  (context: 8 exposed days/yr against 252)'; Run = { python -m scratch.fomc_drift.benchmark_compare } },
                     @{ Label = 'Day-type classifier  (does London sort the NY session? context-only verdict)'; Run = { python -m scratch.daytype.study } },
                     @{ Label = 'Order-flow imbalance  (the last directional door: OFI 15/30m fwd returns)'; Run = { python -m scratch.orderflow.study } },
+                    @{ Label = 'TS momentum  (MOP 2012 on the two-index universe: weekly ensemble, capped)'; Run = { python -m scratch.tsmom.study } },
                     @{ Label = 'Indicator scan  (regress ALL indicator fields vs next move)'; Run = { python -m scratch.analysis.indicator_scan; Start-Process 'scratch/analysis/indicator_scan.html' } },
                     @{ Label = 'Quant report  (alpha vs beta tearsheet, no candlesticks)'; Run = { python -m scratch.analysis.quant_report; Start-Process 'scratch/analysis/quant_report.html' } },
                     @{ Label = 'HFT paper  (is tick data more predictable? yes - and unreachable)'; Run = { python -m scratch.analysis.hft_paper; Start-Process 'scratch/analysis/hft_paper.html' } },
