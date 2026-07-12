@@ -163,6 +163,7 @@ $root = @{
                     @{ Label = 'MTF regime sweep  (b-(a\b) across thresholds 30..70: is the 1d filter noise?)'; Run = { python -m scratch.mtf_regime.sweep } },
                     @{ Label = 'MTF regime fade  (does shorting a high bull-fan pay? swept over threshold)'; Run = { python -m scratch.mtf_regime.fade } },
                     @{ Label = 'MTF regime plots  (the findings as one PNG: state returns, decoration, fade)'; Run = { python -m scratch.mtf_regime.plots } },
+                    @{ Label = 'MTF regime validate  (ES out-of-sample + time-split + episode clustering)'; Run = { python -m scratch.mtf_regime.validate } },
                     @{ Label = 'Indicator scan  (regress ALL indicator fields vs next move)'; Run = { python -m scratch.analysis.indicator_scan; Start-Process 'scratch/analysis/indicator_scan.html' } },
                     @{ Label = 'Quant report  (alpha vs beta tearsheet, no candlesticks)'; Run = { python -m scratch.analysis.quant_report; Start-Process 'scratch/analysis/quant_report.html' } },
                     @{ Label = 'HFT paper  (is tick data more predictable? yes - and unreachable)'; Run = { python -m scratch.analysis.hft_paper; Start-Process 'scratch/analysis/hft_paper.html' } },
