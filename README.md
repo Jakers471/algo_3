@@ -84,6 +84,14 @@ volatility regime and silently wrong for the next. Measured in units of itself, 
 pullback" means the same thing in a quiet August and in April 2025 — multiply every price
 in the data by ten and the identical swings are found.
 
+**The moving-average ribbon** is a fan of 32 simple moving averages of the close, periods 5
+through 160 (`config/indicators/ribbon.py`). Each line is coloured by its *own* slope — green
+where it rose from the previous bar, red where it fell — so a clean trend reads as a fan of
+one colour and a turn shows the fan changing colour from the short end inward. A line
+publishes nothing until it has its full period of closes; it never stands a short average in
+for a long one. It reuses the same **segment** shape the legs and breaks already draw, so it
+added no frontend at all, and it is one Layers toggle ("MA ribbon") like every other drawing.
+
 **The volume profile** is the toolbar's rightmost control. It covers the **developing
 range** — from the last confirmed swing to the current bar. It grows every bar, never looks
 ahead, and always exists, including right after a break of structure, when there is no

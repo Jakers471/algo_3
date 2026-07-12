@@ -49,6 +49,7 @@ is the entire reason the rules survive a change of regime.
 | **`swing`** | `range_scale` | `src/indicators/swing.py` | `src/config/indicators/swing.py` |
 | **`legs`** | `swing` | `src/indicators/legs.py` | `src/config/indicators/legs.py` |
 | **`breaks`** | `swing` | `src/indicators/breaks.py` | `src/config/indicators/breaks.py` |
+| **`ribbon`** | the bar | `src/indicators/ribbon.py` | `src/config/indicators/ribbon.py` |
 | **`profile`** | `range_scale`, `swing` | `src/indicators/profile.py` | `src/config/indicators/profile.py` |
 
 ## Every field, defined
@@ -179,6 +180,19 @@ Publishes a break of structure on the bar that takes a swing level out.
 | `bos` | up \| down \| None | yes | Break of structure: this bar CLOSED through a standing swing level. Up means a swing high went. The level is then spent and fires once - one that re-broke every bar would be a drawing, not an event. A wick through that closes back is a rejection, not a break (USE_CLOSE). |
 | `bos_level` | price |  | The price that broke: an older swing's price. |
 | `bos_time` | epoch seconds, UTC |  | The bar that MADE the swing whose level broke, not the bar that broke it. |
+
+### `ribbon`
+
+Publishes the value of each moving-average line, and its previous value.
+
+- **reads** — the bar
+- **source** — `src/indicators/ribbon.py`
+- **config** — `src/config/indicators/ribbon.py`
+
+| field | unit | shown | what it is |
+|---|---|---|---|
+| `ribbon` | price |  | One value per moving-average line, in the order of config PERIODS (short to long). Each is the simple mean of the last `period` closes, or None while that line still has fewer than `period` closes to average. A drawing, not a reading: the fan is on the chart, not in the table. |
+| `ribbon_prev` | price |  | The same lines' values on the PREVIOUS bar, carried forward so the chart can colour each segment by its slope - green where the line rose, red where it fell. Detail: it is half of a line the chart draws. |
 
 ### `profile`
 

@@ -29,6 +29,7 @@ algo_3/
 │   │       ├── swing.py     retrace threshold (multiples of range_scale)
 │   │       ├── legs.py      staircase colors (muted: a leg is not news)
 │   │       ├── breaks.py    close-vs-wick definition + break colors
+│   │       ├── ribbon.py    MA fan: period spread (count/start/step) + slope colors
 │   │       └── profile.py   bin width, how many closed profiles to keep
 │   ├── audit/           read the data-truth facts from DATA_AUDIT.json
 │   │   └── reader.py       front door: specs, handling flags, data end
@@ -60,6 +61,7 @@ algo_3/
 │   │   ├── swing.py       confirmed structure points + the live high/low rails
 │   │   ├── legs.py        the staircase from one swing to the next
 │   │   ├── breaks.py      a swing level closed through: break of structure
+│   │   ├── ribbon.py      a fan of 32 SMAs of the close; each line coloured by its slope
 │   │   └── profile.py     the developing profile; frozen onto each structure
 │   ├── profile/        volume at price - what bars can never carry
 │   │   ├── build.py       ticks -> 1-tick histograms, packed (I/O + fold)
@@ -159,6 +161,8 @@ algo_3/
 │   ├── test_profile_indicator.py  pins the freeze: at the bar that MADE the swing
 │   ├── test_structure.py   pins legs + breaks: a level fires once; a swing's
 │   │                       own confirming bar can never break it
+│   ├── test_ribbon.py      pins the MA fan: an SMA line is absent until full,
+│   │                       and each segment is coloured by its own slope
 │   ├── test_table_columns.py  pins row rendering: absent != zero, colour rules
 │   ├── test_table_client.py   pins the reconnect storm: backoff, adoption
 │   └── test_lifecycle.py   pins per-port pidfiles; the Windows os.kill trap
@@ -259,6 +263,10 @@ indicators.legs      ─► indicators.base   (depends on `swing`; joins consecu
 indicators.breaks    ─► indicators.base, config.indicators.breaks
                          (depends on `swing`; a level closed through, fired once)
 
+indicators.ribbon    ─► indicators.base, config.indicators.ribbon
+                         (32 rolling means of the close; publishes each line's value
+                          and its previous value, so the chart colours a segment by slope)
+
 indicators.profile ─► profile.{store,value_area}, config.indicators.profile
                       (depends on `range_scale` for its bin width and on `swing`
                        for the range; refuses on a bar with no volume at price)
@@ -299,7 +307,7 @@ the market is. Multiply every price by ten and the same swings appear - pinned b
 chart.packer     ─► data.loader, numpy  (Parquet -> flat bar records)
 chart.store      ─► chart.packer, numpy (memmap the cache; slice + binary-search)
 chart.overlays   ─► chart.store, indicators.{registry,sessions,orderflow,absorption,
-                    range_scale,swing}, config.indicators.*
+                    range_scale,swing,legs,breaks,ribbon,profile}, config.indicators.*
 chart.api        ─► chart.store, chart.overlays, config.chart   (routes -> bytes)
 
 replay.session   ─► chart.{overlays,store}, config.{chart,replay}, replay.snapshot
@@ -353,9 +361,10 @@ with a label), "markers" (a dot on a bar), "segments" (a polyline through
 drawing onto the chart's own canvas, so they track every pan and zoom exactly.
 overlays.js understands *shapes*, never meaning - it drops a labelled rule without
 knowing what a trading session is, a dot without knowing what absorption is, and a
-polyline without knowing what a break of structure is. Both `legs` and `breaks`
-landed on the chart by reusing "segments"; the next indicator to reuse any of the
-three needs no frontend change at all.
+polyline without knowing what a break of structure is. `legs`, `breaks` and the 32-line
+`ribbon` all landed on the chart by reusing "segments" - the ribbon draws one short segment
+per line per bar, coloured by that line's slope, and added no frontend at all. The next
+indicator to reuse any of the three needs no frontend change either.
 
 A mark carries a `source`, and group_marks emits one spec per source, so a spec
 stays named after one job: "breaks" never carries someone else's lines. A segment

@@ -142,6 +142,11 @@ def is_detail(name: str) -> bool:
         # `legs` joins two swings with a line. It knows nothing the swings do
         # not; it is a drawing, and five columns of one.
         return True
+    if name == "ribbon" or name.startswith("ribbon"):
+        # The fan of moving averages is a drawing, not a reading. Thirty-two
+        # numbers in one cell says nothing a reader can use; the picture is on
+        # the chart.
+        return True
     if name.endswith("_bins") or name == "profile_closed":
         # A histogram is not a cell. It rides the row so the chart can draw it.
         return True
@@ -251,7 +256,8 @@ def cell_text(key: str, snapshot: dict) -> str:
         # A histogram is a payload the chart draws, not a cell. Printed, one
         # profile is three thousand characters and six closed ones are thirteen
         # thousand - in a single cell, on every row. Say what it is instead.
-        noun = "bins" if key.endswith("_bins") else "profiles"
+        noun = ("bins" if key.endswith("_bins")
+                else "lines" if key.startswith("ribbon") else "profiles")
         return f"{len(value)} {noun}"
     if is_time_field(key):
         return fmt_time(value)

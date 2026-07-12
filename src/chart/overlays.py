@@ -28,6 +28,7 @@ from src.config.indicators import legs as legs_cfg
 from src.config.indicators import orderflow as orderflow_cfg
 from src.config.indicators import profile as profile_cfg
 from src.config.indicators import range_scale as range_scale_cfg
+from src.config.indicators import ribbon as ribbon_cfg
 from src.config.indicators import sessions as sessions_cfg
 from src.config.indicators import swing as swing_cfg
 from src.events.types import BarClose
@@ -38,6 +39,7 @@ from src.indicators.orderflow import OrderFlow
 from src.indicators.profile import Profile
 from src.indicators.range_scale import RangeScale
 from src.indicators.registry import Registry
+from src.indicators.ribbon import Ribbon
 from src.indicators.sessions import Sessions
 from src.indicators.swing import Swing
 from src.profile import store as store_vap
@@ -72,6 +74,8 @@ def build_registry(profile_mode: str | None = None) -> Registry:
         indicators.append(Legs())
     if breaks_cfg.ENABLED:
         indicators.append(Breaks())
+    if ribbon_cfg.ENABLED:
+        indicators.append(Ribbon())
 
     if profile_cfg.ENABLED and (profile_mode or "off") != "off":
         indicators.append(Profile())
@@ -170,6 +174,8 @@ def drawable() -> set[str]:
         sources.add("legs")
     if breaks_cfg.ENABLED and breaks_cfg.DRAW:
         sources.add("breaks")
+    if ribbon_cfg.ENABLED and ribbon_cfg.DRAW:
+        sources.add("ribbon")
     return sources
 
 
@@ -378,6 +384,23 @@ def marks_for(time: int, row: dict, *, is_first: bool = False,
             breaks_cfg.WIDTH,
             dash=breaks_cfg.DASH,
         ))
+
+    if (ribbon_cfg.ENABLED and ribbon_cfg.DRAW and prev_time is not None
+            and row.get("ribbon") and row.get("ribbon_prev")):
+        # One short line per moving average, from where it sat on the previous bar
+        # to where it sits now, coloured by which way it went. A line still warming
+        # up (or warming up on the previous bar) has a None slot and is skipped -
+        # a segment with no start is a line that begins nowhere.
+        for now, before in zip(row["ribbon"], row["ribbon_prev"]):
+            if now is None or before is None:
+                continue
+            up = now >= before
+            marks.append(_segment(
+                "ribbon",
+                [(prev_time, before), (int(time), now)],
+                ribbon_cfg.UP_COLOR if up else ribbon_cfg.DOWN_COLOR,
+                ribbon_cfg.WIDTH,
+            ))
 
     if profile_cfg.ENABLED and profile_cfg.DRAW and (
             row.get("profile_bins") or row.get("profile_closed")):
