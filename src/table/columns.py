@@ -102,7 +102,7 @@ def is_price_field(name: str) -> bool:
 # Dimensionless readings: a ratio, or a count of typical bars. They are numbers,
 # so they line up on the right, and they never carry a currency or a point value.
 _RATIO_FIELDS = {"retrace", "value_width", "poc_position", "poc_distance",
-                 "delta_at_poc"}
+                 "delta_at_poc", "ribbon_align", "ribbon_agree", "ribbon_width"}
 
 
 def _right_aligned(name: str) -> bool:
@@ -142,11 +142,14 @@ def is_detail(name: str) -> bool:
         # `legs` joins two swings with a line. It knows nothing the swings do
         # not; it is a drawing, and five columns of one.
         return True
-    if name == "ribbon" or name.startswith("ribbon"):
+    if name in ("ribbon", "ribbon_prev"):
         # The fan of moving averages is a drawing, not a reading. Thirty-two
         # numbers in one cell says nothing a reader can use; the picture is on
-        # the chart.
+        # the chart. (Its READINGS - ribbon_align/agree/width - are shown; they
+        # are what the regime indicator distils the fan down to.)
         return True
+    if name == "regime_new":
+        return True                      # a transition flag the chart draws a rule on
     if name.endswith("_bins") or name == "profile_closed":
         # A histogram is not a cell. It rides the row so the chart can draw it.
         return True
@@ -309,6 +312,18 @@ def cell_color(key: str, snapshot: dict) -> str | None:
         if where == "below":
             return cfg.DOWN
         return None
+
+    if key == "regime":
+        # The same language the chart's rule uses: green trend up, red down, amber
+        # the coiled squeeze, grey the directionless chop.
+        name = fields.get(key)
+        if name == "up":
+            return cfg.UP
+        if name == "down":
+            return cfg.DOWN
+        if name == "transition":
+            return cfg.ABSORPTION
+        return cfg.MUTED
 
     if key == "session":
         name = fields.get(key)

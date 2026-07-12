@@ -50,6 +50,7 @@ is the entire reason the rules survive a change of regime.
 | **`legs`** | `swing` | `src/indicators/legs.py` | `src/config/indicators/legs.py` |
 | **`breaks`** | `swing` | `src/indicators/breaks.py` | `src/config/indicators/breaks.py` |
 | **`ribbon`** | the bar | `src/indicators/ribbon.py` | `src/config/indicators/ribbon.py` |
+| **`regime`** | `ribbon`, `range_scale` | `src/indicators/regime.py` | `src/config/indicators/regime.py` |
 | **`profile`** | `range_scale`, `swing` | `src/indicators/profile.py` | `src/config/indicators/profile.py` |
 
 ## Every field, defined
@@ -193,6 +194,22 @@ Publishes the value of each moving-average line, and its previous value.
 |---|---|---|---|
 | `ribbon` | price |  | One value per moving-average line, in the order of config PERIODS (short to long). Each is the simple mean of the last `period` closes, or None while that line still has fewer than `period` closes to average. A drawing, not a reading: the fan is on the chart, not in the table. |
 | `ribbon_prev` | price |  | The same lines' values on the PREVIOUS bar, carried forward so the chart can colour each segment by its slope - green where the line rose, red where it fell. Detail: it is half of a line the chart draws. |
+
+### `regime`
+
+Publishes the ribbon's alignment, agreement, width, and a regime label.
+
+- **reads** — `ribbon`, `range_scale`
+- **source** — `src/indicators/regime.py`
+- **config** — `src/config/indicators/regime.py`
+
+| field | unit | shown | what it is |
+|---|---|---|---|
+| `ribbon_align` | -1..+1 | yes | How well the ribbon is stacked in period order, over its 31 adjacent pairs. +1 short-over-long throughout (a clean up-trend), -1 fully inverted (a clean down-trend), 0 a scrambled fan. The sortedness of the fan: zero inversions is a trend. |
+| `ribbon_agree` | -1..+1 | yes | The share of ribbon lines rising this bar minus the share falling. +1 all rising, -1 all falling. It leads alignment - a line's slope turns before its position in the stack does. |
+| `ribbon_width` | x range_scale | yes | The fan's flare: (highest line - lowest line) over range_scale. By the (N-1)/2 lag geometry it is proportional to price velocity - wide is a trend with conviction, near zero is a squeeze. In range_scale so a cutoff survives a change of regime. |
+| `regime` | up \| down \| chop \| transition \| None | yes | The market's state read off the fan: a trend (up/down) when the lines are stacked and flared, a transition when the fan has pinched shut, chop otherwise. Absent until the fan is fully warm. |
+| `regime_new` | boolean |  | True on the bar the regime CHANGED - what the chart draws a rule on. Detail: scaffolding for the drawing, not a reading. |
 
 ### `profile`
 

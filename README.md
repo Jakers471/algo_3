@@ -92,6 +92,19 @@ publishes nothing until it has its full period of closes; it never stands a shor
 for a long one. It reuses the same **segment** shape the legs and breaks already draw, so it
 added no frontend at all, and it is one Layers toggle ("MA ribbon") like every other drawing.
 
+**Regime** reads the ribbon's shape (`src/indicators/regime.py`). The 32 lines collapse to three
+dimensionless numbers — **alignment** (are the lines stacked in period order? +1 a clean
+up-trend, −1 down, 0 a scrambled fan — the sortedness of the permutation), **agreement** (are
+they all sloping the same way this bar? it turns before alignment does), and **width** (how
+flared the fan is, in `range_scale`, which by the `(N−1)/2` lag geometry is proportional to
+price velocity). From those it labels each bar **up / down** (stacked *and* flared),
+**transition** (the fan pinched shut — a coiled squeeze), or **chop**, and drops a dashed
+rule where the regime turns. A new label must hold `CONFIRM_BARS` before it is adopted, so it
+does not chatter. The cutoffs are measured, not guessed — on 163k NQT 5m bars the tape runs
+~30% trend, ~60% chop, ~10% squeeze, median regime 17 bars (`scratch/analysis/ribbon_regime.py`
+prints the distributions; run it from `commands.bat` → Analysis). The three readings ride the
+snapshot table whether or not the rule is drawn.
+
 **The volume profile** is the toolbar's rightmost control. It covers the **developing
 range** — from the last confirmed swing to the current bar. It grows every bar, never looks
 ahead, and always exists, including right after a break of structure, when there is no

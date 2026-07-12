@@ -28,6 +28,7 @@ from src.config.indicators import legs as legs_cfg
 from src.config.indicators import orderflow as orderflow_cfg
 from src.config.indicators import profile as profile_cfg
 from src.config.indicators import range_scale as range_scale_cfg
+from src.config.indicators import regime as regime_cfg
 from src.config.indicators import ribbon as ribbon_cfg
 from src.config.indicators import sessions as sessions_cfg
 from src.config.indicators import swing as swing_cfg
@@ -38,6 +39,7 @@ from src.indicators.legs import Legs
 from src.indicators.orderflow import OrderFlow
 from src.indicators.profile import Profile
 from src.indicators.range_scale import RangeScale
+from src.indicators.regime import Regime
 from src.indicators.registry import Registry
 from src.indicators.ribbon import Ribbon
 from src.indicators.sessions import Sessions
@@ -66,7 +68,10 @@ def build_registry(profile_mode: str | None = None) -> Registry:
     # multiples of range_scale. Enabling a consumer enables what it consumes -
     # otherwise the registry raises on a missing dependency and the dial is a trap.
     wants_swing = swing_cfg.ENABLED or legs_cfg.ENABLED or breaks_cfg.ENABLED
-    if range_scale_cfg.ENABLED or wants_swing:
+    # regime reads the ribbon and range_scale, so enabling it enables both -
+    # otherwise the registry raises on a missing dependency and the dial is a trap.
+    wants_ribbon = ribbon_cfg.ENABLED or regime_cfg.ENABLED
+    if range_scale_cfg.ENABLED or wants_swing or regime_cfg.ENABLED:
         indicators.append(RangeScale())
     if wants_swing:
         indicators.append(Swing())
@@ -74,8 +79,10 @@ def build_registry(profile_mode: str | None = None) -> Registry:
         indicators.append(Legs())
     if breaks_cfg.ENABLED:
         indicators.append(Breaks())
-    if ribbon_cfg.ENABLED:
+    if wants_ribbon:
         indicators.append(Ribbon())
+    if regime_cfg.ENABLED:
+        indicators.append(Regime())
 
     if profile_cfg.ENABLED and (profile_mode or "off") != "off":
         indicators.append(Profile())
@@ -176,6 +183,8 @@ def drawable() -> set[str]:
         sources.add("breaks")
     if ribbon_cfg.ENABLED and ribbon_cfg.DRAW:
         sources.add("ribbon")
+    if regime_cfg.ENABLED and regime_cfg.DRAW:
+        sources.add("regime")
     return sources
 
 
@@ -401,6 +410,22 @@ def marks_for(time: int, row: dict, *, is_first: bool = False,
                 ribbon_cfg.UP_COLOR if up else ribbon_cfg.DOWN_COLOR,
                 ribbon_cfg.WIDTH,
             ))
+
+    if regime_cfg.ENABLED and regime_cfg.DRAW and row.get("regime_new"):
+        # A dashed rule where the regime turned, coloured by the regime it turned
+        # INTO - the same vline shape the session boundaries use, told apart by a
+        # label a notch lower so the two never print on top of each other.
+        name = row.get("regime")
+        if name is not None:
+            marks.append({
+                "kind": "vline",
+                "source": "regime",
+                "time": int(time),
+                "label": name,
+                "color": regime_cfg.LINE_COLORS.get(name, "rgba(125,133,144,0.6)"),
+                "labelColor": regime_cfg.LABEL_COLORS.get(name, "rgba(201,209,217,0.9)"),
+                "labelY": regime_cfg.LABEL_Y,
+            })
 
     if profile_cfg.ENABLED and profile_cfg.DRAW and (
             row.get("profile_bins") or row.get("profile_closed")):

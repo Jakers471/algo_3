@@ -158,6 +158,7 @@ $root = @{
                     @{ Label = 'Stack scan  (does profile + MA squeeze stacked beat either alone?)'; Run = { python -m scratch.analysis.stack_scan; Start-Process 'scratch/analysis/stack_scan.html' } },
                     @{ Label = 'MA squeeze  (does the coiled spring exist? composite + real examples)'; Run = { python -m scratch.analysis.ma_squeeze; Start-Process 'scratch/analysis/ma_squeeze.html' } },
                     @{ Label = 'MA scan  (are 10/20/50/100/200 MAs useful? regression + cross study)'; Run = { python -m scratch.analysis.ma_scan; Start-Process 'scratch/analysis/ma_scan.html' } },
+                    @{ Label = 'Ribbon regime  (calibrate the regime cutoffs: align/width/agree over NQT)'; Run = { python -m scratch.analysis.ribbon_regime } },
                     @{ Label = 'Indicator scan  (regress ALL indicator fields vs next move)'; Run = { python -m scratch.analysis.indicator_scan; Start-Process 'scratch/analysis/indicator_scan.html' } },
                     @{ Label = 'Quant report  (alpha vs beta tearsheet, no candlesticks)'; Run = { python -m scratch.analysis.quant_report; Start-Process 'scratch/analysis/quant_report.html' } },
                     @{ Label = 'HFT paper  (is tick data more predictable? yes - and unreachable)'; Run = { python -m scratch.analysis.hft_paper; Start-Process 'scratch/analysis/hft_paper.html' } },

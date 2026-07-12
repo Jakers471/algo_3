@@ -65,6 +65,7 @@ GROUP_COLORS = {
     "breaks": "#ef5350",
     "profile": "#db6d28",
     "ribbon": "#5691c8",
+    "regime": "#c8a45b",
 }
 GROUP_FALLBACK = TEXT
 

@@ -88,4 +88,5 @@ LAYERS = (
     {"id": "extremes",   "label": "Rails",      "visible": True},
     {"id": "absorption", "label": "Absorption", "visible": True},
     {"id": "ribbon",     "label": "MA ribbon",  "visible": True},
+    {"id": "regime",     "label": "Regime",     "visible": True},
 )

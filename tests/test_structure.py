@@ -251,7 +251,8 @@ def test_every_drawable_layer_names_a_real_mark_source():
            "leg_to_time": 100, "leg_to_price": 5.0,
            "bos": "up", "bos_level": 4.0, "bos_time": 90,
            "hunting": "high", "extreme_high": 5.0, "extreme_low": 1.0, "trigger": 2.0,
-           "ribbon": [5.0], "ribbon_prev": [4.0]}
+           "ribbon": [5.0], "ribbon_prev": [4.0],
+           "regime": "up", "regime_new": True}
     # A previous bar is needed for the ribbon's slope and the session close.
     kw = {"close": 4.5, "prev_time": 90, "prev_session": "NY"}
     sources = {m["source"] for m in overlays.marks_for(100, row, **kw)}
