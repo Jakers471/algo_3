@@ -169,6 +169,7 @@ $root = @{
                     @{ Label = 'Intraday  (pre-registered: last-30m momentum + overnight-gap, NQ+ES OOS)'; Run = { python -m scratch.intraday.study } },
                     @{ Label = 'ORB / value area  (pre-registered: VA-escape continuation, VA vs range, POC anchor)'; Run = { python -m scratch.orb_va.study } },
                     @{ Label = 'ORB / value area fills  (stage-6: tape-measured slippage + costs on 20y)'; Run = { python -m scratch.orb_va.fills } },
+                    @{ Label = 'Pre-FOMC drift  (pre-registered: Lucca-Moench 24h window vs benchmark, NQ+ES)'; Run = { python -m scratch.fomc_drift.study } },
                     @{ Label = 'Indicator scan  (regress ALL indicator fields vs next move)'; Run = { python -m scratch.analysis.indicator_scan; Start-Process 'scratch/analysis/indicator_scan.html' } },
                     @{ Label = 'Quant report  (alpha vs beta tearsheet, no candlesticks)'; Run = { python -m scratch.analysis.quant_report; Start-Process 'scratch/analysis/quant_report.html' } },
                     @{ Label = 'HFT paper  (is tick data more predictable? yes - and unreachable)'; Run = { python -m scratch.analysis.hft_paper; Start-Process 'scratch/analysis/hft_paper.html' } },
