@@ -141,14 +141,37 @@ def test_a_transition_draws_a_vline_coloured_by_the_new_regime():
     from src.chart import overlays
 
     marks = overlays.marks_for(500, {"regime": "up", "regime_new": True})
-    assert len(marks) == 1
-    assert marks[0]["kind"] == "vline" and marks[0]["source"] == "regime"
-    assert marks[0]["label"] == "up"
-    assert marks[0]["color"] == cfg.LINE_COLORS["up"]
+    lines = [m for m in marks if m["kind"] == "vline"]
+    assert len(lines) == 1
+    assert lines[0]["source"] == "regime"
+    assert lines[0]["label"] == "up"
+    assert lines[0]["color"] == cfg.LINE_COLORS["up"]
 
 
 def test_no_line_without_a_change():
     from src.chart import overlays
+
+    marks = overlays.marks_for(500, {"regime": "up", "regime_new": False})
+    assert [m for m in marks if m["kind"] == "vline"] == []
+
+
+def test_every_warm_bar_gets_a_band_in_its_regimes_colour():
+    """The shading is per bar, not per turn - a run of bars IS the band."""
+    from src.chart import overlays
+
+    marks = overlays.marks_for(500, {"regime": "up", "regime_new": False})
+    bands = [m for m in marks if m["kind"] == "band"]
+    assert len(bands) == 1
+    assert bands[0]["source"] == "regime" and bands[0]["time"] == 500
+    assert bands[0]["color"] == cfg.BAND_COLORS["up"]
+
+
+def test_no_band_before_the_regime_is_warm(monkeypatch):
+    """An absent label must tint nothing - warmup is not a regime."""
+    from src.chart import overlays
+
+    assert overlays.marks_for(500, {"regime": None, "regime_new": False}) == []
+    monkeypatch.setattr(cfg, "DRAW_BANDS", False)
     assert overlays.marks_for(500, {"regime": "up", "regime_new": False}) == []
 
 
@@ -156,5 +179,6 @@ def test_the_readings_are_published_even_when_the_drawing_is_off(monkeypatch):
     from src.chart import overlays
 
     monkeypatch.setattr(cfg, "DRAW", False)
+    monkeypatch.setattr(cfg, "DRAW_BANDS", False)
     assert overlays.marks_for(500, {"regime": "up", "regime_new": True}) == []
     assert feed([5.0, 4.0, 1.0], [5, 4, 1], 2.0)["ribbon_width"] == 2.0

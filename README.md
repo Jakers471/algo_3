@@ -98,8 +98,10 @@ up-trend, −1 down, 0 a scrambled fan — the sortedness of the permutation), *
 they all sloping the same way this bar? it turns before alignment does), and **width** (how
 flared the fan is, in `range_scale`, which by the `(N−1)/2` lag geometry is proportional to
 price velocity). From those it labels each bar **up / down** (stacked *and* flared),
-**transition** (the fan pinched shut — a coiled squeeze), or **chop**, and drops a dashed
-rule where the regime turns. A new label must hold `CONFIRM_BARS` before it is adopted, so it
+**transition** (the fan pinched shut — a coiled squeeze), or **chop**. On the chart it draws
+two things on the one "Regime" layer: a dashed rule where the regime turns, and a faint
+background tint on every warm bar (`BAND_COLORS`), so runs of one regime read as continuous
+shaded bands behind the candles. A new label must hold `CONFIRM_BARS` before it is adopted, so it
 does not chatter. The cutoffs are measured, not guessed — on 163k NQT 5m bars the tape runs
 ~30% trend, ~60% chop, ~10% squeeze, median regime 17 bars (`scratch/analysis/ribbon_regime.py`
 prints the distributions; run it from `commands.bat` → Analysis). The three readings ride the

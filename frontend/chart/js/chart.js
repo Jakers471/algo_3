@@ -7,6 +7,7 @@
  * (append one bar). Replay logic lives in replay/. It draws; it never computes.
  */
 
+import { Bands } from './bands.js';
 import { Segments } from './segments.js';
 import { VerticalLines } from './vertical_lines.js';
 
@@ -88,6 +89,11 @@ export function createChart(container, cfg = {}) {
   });
   volume.priceScale().applyOptions({ scaleMargins: { top: 0.85, bottom: 0 } });
 
+  // Background shading (regime bands) drawn beneath the candles - its pane
+  // view declares zOrder 'bottom', so attach order does not decide stacking.
+  const bands = new Bands();
+  candles.attachPrimitive(bands);
+
   // Dashed rules (session opens today) drawn onto the chart's own canvas, so
   // they track every pan and zoom exactly. No vertical-line series exists.
   const vlines = new VerticalLines();
@@ -99,7 +105,7 @@ export function createChart(container, cfg = {}) {
   const segments = new Segments();
   candles.attachPrimitive(segments);
 
-  return new ChartSurface(chart, candles, volume, delta, vlines, segments, flow);
+  return new ChartSurface(chart, candles, volume, delta, vlines, segments, flow, bands);
 }
 
 const volumeBar = (bar) => ({
@@ -109,7 +115,7 @@ const volumeBar = (bar) => ({
 });
 
 class ChartSurface {
-  constructor(chart, candles, volume, delta, vlines, segments, flow) {
+  constructor(chart, candles, volume, delta, vlines, segments, flow, bands) {
     this.chart = chart;
     this.candles = candles;
     this.volume = volume;
@@ -117,6 +123,7 @@ class ChartSurface {
     this.vlines = vlines;
     this.segments = segments;
     this.flow = flow;
+    this.bands = bands;
     this._priceLines = [];
   }
 
@@ -133,6 +140,11 @@ class ChartSurface {
   /** Drop dashed rules with labels. `lines` are {time, label, color, labelColor}. */
   setVerticalLines(lines) {
     this.vlines.setLines(lines);
+  }
+
+  /** Tint bar slots from pane top to bottom. `bands` are {time, color}. */
+  setBands(bands) {
+    this.bands.setBands(bands);
   }
 
   /** Stroke polylines. `segments` are {points: [{time, price}], color, width}. */

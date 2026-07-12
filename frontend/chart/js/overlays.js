@@ -50,17 +50,20 @@ export class OverlayLayer {
     let markers = [];
     let segments = [];
     let levels = [];
+    let bands = [];
     for (const overlay of overlays) {
       if (overlay.kind === 'vlines') lines = lines.concat(overlay.lines);
       else if (overlay.kind === 'markers') markers = markers.concat(overlay.markers);
       else if (overlay.kind === 'segments') segments = segments.concat(overlay.segments);
       else if (overlay.kind === 'levels') levels = levels.concat(overlay.levels);
+      else if (overlay.kind === 'bands') bands = bands.concat(overlay.bands);
     }
     const show = (marks) => (this.layers ? this.layers.filter(marks) : marks);
     this.surface.setVerticalLines(show(lines));
     this.surface.setMarkers(show(markers));
     this.surface.setSegments(show(segments));
     this.surface.setPriceLines(show(levels));
+    this.surface.setBands(show(bands));
   }
 
   clear() {
@@ -70,5 +73,6 @@ export class OverlayLayer {
     this.surface.setMarkers([]);
     this.surface.setSegments([]);
     this.surface.setPriceLines([]);
+    this.surface.setBands([]);
   }
 }

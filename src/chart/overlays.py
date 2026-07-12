@@ -12,6 +12,7 @@ which is the whole point of computing indicators once, in Python.
 Overlay kinds (only what has a producer; more arrive with their indicators):
     vlines   - dashed rules with labels:  [{time, label, color, labelColor}]
     markers  - a dot on a bar:            [{time, position, color, shape, text}]
+    bands    - a bar slot's background:   [{time, color}]
 """
 
 from __future__ import annotations
@@ -183,7 +184,7 @@ def drawable() -> set[str]:
         sources.add("breaks")
     if ribbon_cfg.ENABLED and ribbon_cfg.DRAW:
         sources.add("ribbon")
-    if regime_cfg.ENABLED and regime_cfg.DRAW:
+    if regime_cfg.ENABLED and (regime_cfg.DRAW or regime_cfg.DRAW_BANDS):
         sources.add("regime")
     return sources
 
@@ -411,6 +412,20 @@ def marks_for(time: int, row: dict, *, is_first: bool = False,
                 ribbon_cfg.WIDTH,
             ))
 
+    if regime_cfg.ENABLED and regime_cfg.DRAW_BANDS:
+        # One band per bar, tinted by the regime it closed in. The frontend
+        # shades the bar's slot; runs of one regime read as a continuous band.
+        # Emitted per bar - not per run - so replay needs no run state and a
+        # browse window never starts inside a band it cannot see the head of.
+        color = regime_cfg.BAND_COLORS.get(row.get("regime"))
+        if color:
+            marks.append({
+                "kind": "band",
+                "source": "regime",
+                "time": int(time),
+                "color": color,
+            })
+
     if regime_cfg.ENABLED and regime_cfg.DRAW and row.get("regime_new"):
         # A dashed rule where the regime turned, coloured by the regime it turned
         # INTO - the same vline shape the session boundaries use, told apart by a
@@ -563,6 +578,11 @@ def group_marks(marks: list[dict]) -> list[dict]:
     levels = [m for m in marks if m["kind"] == "level"]
     if levels:
         specs.append({"id": "levels", "kind": "levels", "levels": levels})
+
+    bands = [m for m in marks if m["kind"] == "band"]
+    for source in dict.fromkeys(m["source"] for m in bands):
+        group = [m for m in bands if m["source"] == source]
+        specs.append({"id": source, "kind": "bands", "bands": group})
     return specs
 
 

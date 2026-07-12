@@ -206,6 +206,7 @@ export class ReplayEngine {
     this.surface.setMarkers(drawn.filter((m) => m.kind === 'marker'));
     this.surface.setSegments(drawn.filter((m) => m.kind === 'segment'));
     this.surface.setPriceLines(drawn.filter((m) => m.kind === 'level'));
+    this.surface.setBands(drawn.filter((m) => m.kind === 'band'));
   }
 
   stop() {
@@ -214,6 +215,7 @@ export class ReplayEngine {
     this.surface.setMarkers([]);
     this.surface.setSegments([]);
     this.surface.setPriceLines([]);
+    this.surface.setBands([]);
     return this.stream.stop();
   }
 }
@@ -231,6 +233,7 @@ function flattenOverlays(overlays) {
     if (overlay.kind === 'vlines') marks.push(...overlay.lines.map((l) => ({ ...l, kind: 'vline' })));
     else if (overlay.kind === 'markers') marks.push(...overlay.markers);
     else if (overlay.kind === 'segments') marks.push(...overlay.segments);
+    else if (overlay.kind === 'bands') marks.push(...overlay.bands);
   }
   return marks;
 }

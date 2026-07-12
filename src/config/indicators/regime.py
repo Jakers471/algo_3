@@ -42,6 +42,11 @@ CONFIRM_BARS = 3
 # whether it is drawn or not.
 DRAW = True
 
+# Background shading: every bar's slot is tinted by the regime it closed in, so
+# the regime reads as bands behind the candles instead of only rules at the
+# turns. Same "Regime" layer toggle as the rules; this dial kills the tint alone.
+DRAW_BANDS = True
+
 # Colour per regime: green up-trend, red down, amber the coiled squeeze, grey the
 # directionless chop - the same language the rest of the chart already speaks.
 LINE_COLORS = {
@@ -59,3 +64,13 @@ LABEL_COLORS = {
 # CSS pixels from the top the regime label sits at. Below the session labels
 # (~6) and their close labels (~22), so three kinds of rule never collide.
 LABEL_Y = 38
+
+# The band tints, one per regime. Deliberately faint - the shading is context
+# behind the candles, never a color the eye has to fight - and chop faintest of
+# all, because directionless is the background state, not an event.
+BAND_COLORS = {
+    "up":         "rgba(63, 185, 80, 0.10)",
+    "down":       "rgba(239, 83, 80, 0.10)",
+    "transition": "rgba(210, 153, 34, 0.10)",
+    "chop":       "rgba(125, 133, 144, 0.05)",
+}

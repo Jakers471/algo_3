@@ -132,6 +132,8 @@ algo_3/
 │           ├── layers_panel.js  the Layers checkbox menu (a thin door)
 │           ├── vertical_lines.js  chart primitive: dashed rules with labels
 │           ├── segments.js   chart primitive: polylines in (time, price) space
+│           ├── bands.js      chart primitive: full-height background tints
+│           │                 (regime shading), drawn beneath the candles
 │           ├── format.js     time/price/volume display strings
 │           └── replay/
 │               ├── stream.js   EventSource + control POSTs; detects a retired
@@ -364,10 +366,15 @@ frontend/chart/js/api.js decodes that layout; tests/test_chart_store.py pins it.
 
 The chart DRAWS; it never computes. There are no indicators in the frontend and
 none may be added: indicators are computed once, in Python, and arrive over
-/api/overlays as drawing instructions. Four shapes exist: "vlines" (a dashed rule
+/api/overlays as drawing instructions. Five shapes exist: "vlines" (a dashed rule
 with a label), "markers" (a dot on a bar), "segments" (a polyline through
-(time, price) corners), and "levels" (a price line across the pane). The first and third are lightweight-charts primitives
-drawing onto the chart's own canvas, so they track every pan and zoom exactly.
+(time, price) corners), "levels" (a price line across the pane), and "bands" (a
+bar slot's background tint, pane top to bottom - how the regime shades the chart;
+one band per bar, so runs of one regime read as a continuous band and replay needs
+no run state). vlines, segments and bands are lightweight-charts primitives
+drawing onto the chart's own canvas, so they track every pan and zoom exactly;
+bands declares zOrder 'bottom', beneath the candles, because context must never
+sit on top of price.
 overlays.js understands *shapes*, never meaning - it drops a labelled rule without
 knowing what a trading session is, a dot without knowing what absorption is, and a
 polyline without knowing what a break of structure is. `legs`, `breaks` and the 32-line
