@@ -30,7 +30,6 @@ secrets.json
 /capture/
 
 # Scratch — disposable spikes & experiments (README is force-added)
-scratch/
 
 # OS / editor
 .DS_Store
