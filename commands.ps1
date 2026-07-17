@@ -107,7 +107,9 @@ $root = @{
                     @{ Label = 'Snapshot table  -  3m rung'; Run = { python -m src.cli.table --rung 3m } },
                     @{ Label = 'Snapshot table  -  15m rung'; Run = { python -m src.cli.table --rung 15m } },
                     @{ Label = 'Snapshot tables  -  all three rungs at once (30s / 3m / 15m)'; Run = { foreach ($r in '30s','3m','15m') { Start-Process -FilePath 'python' -ArgumentList '-m','src.cli.table','--rung',$r } } },
-                    @{ Label = 'Snapshot table  -  session card only  (the session_stats block, nothing else)'; Run = { python -m src.cli.table --group session_stats } }
+                    @{ Label = 'Snapshot table  -  session card only  (the session_stats block, nothing else)'; Run = { python -m src.cli.table --group session_stats } },
+                    @{ Label = 'Pick a session to study  (random, explore-side only - never the vault)'; Run = { python -m src.cli.explore_session --count 5 } },
+                    @{ Label = 'Pick a session to study  -  NY only'; Run = { python -m src.cli.explore_session --name NY --count 5 } }
                 )
             }
         },

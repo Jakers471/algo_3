@@ -9,6 +9,7 @@ discipline that keeps those answers honest.
 | file | job |
 |---|---|
 | `split.py` | read the committed seal (`SESSION_SPLIT.json`, repo root) and label any session `explore` or `sealed`. The ONE place the boundary is enforced. |
+| `pick.py` | list the explore sessions; draw one at RANDOM. Choosing by hand picks the memorable ones — a biased sample nothing records. |
 | `catalog.py` | walk a dataset once through the real indicators and write one parquet row per bar of every London/NY session — the card as a population, not an anecdote. |
 | `build.py` | reduce cumulative range/travel/volume per elapsed bar to percentile breakpoints — the compact table `session_stats`' percentile fields read live. |
 | `store.py` | load that table; answer `percentile_rank()` / `travel_budget()` at runtime. |
