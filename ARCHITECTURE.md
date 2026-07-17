@@ -31,7 +31,8 @@ algo_3/
 │   │       ├── breaks.py    close-vs-wick definition + break colors
 │   │       ├── ribbon.py    MA fan: period spread (count/start/step) + slope colors
 │   │       ├── regime.py    align/width cutoffs + confirm bars + per-regime colors
-│   │       └── profile.py   bin width, how many closed profiles to keep
+│   │       ├── profile.py   bin width, how many closed profiles to keep
+│   │       └── ma.py        named MAs: period/enabled/color per line
 │   ├── audit/           read the data-truth facts from DATA_AUDIT.json
 │   │   └── reader.py       front door: specs, handling flags, data end
 │   ├── logging/         the logging job: dials + the setup that applies them
@@ -64,7 +65,8 @@ algo_3/
 │   │   ├── breaks.py      a swing level closed through: break of structure
 │   │   ├── ribbon.py      a fan of 32 SMAs of the close; each line coloured by its slope
 │   │   ├── regime.py      reads the ribbon: alignment/width/agreement -> a regime label
-│   │   └── profile.py     the developing profile; frozen onto each structure
+│   │   ├── profile.py     the developing profile; frozen onto each structure
+│   │   └── ma.py          a short list of named SMAs, each its own line and colour
 │   ├── profile/        volume at price - what bars can never carry
 │   │   ├── build.py       ticks -> 1-tick histograms, packed (I/O + fold)
 │   │   ├── store.py       memmap the pack; slice a time range -> histogram
@@ -282,6 +284,14 @@ indicators.profile ─► profile.{store,value_area}, config.indicators.profile
                       (depends on `range_scale` for its bin width and on `swing`
                        for the range; refuses on a bar with no volume at price)
 
+indicators.ma       ─► indicators.base, config.indicators.ma
+                       (a short explicit list of named SMAs - "the 50", "the 200" -
+                        each independently switchable in config and drawn in its own
+                        fixed colour. Where `ribbon` is a fan of 32 lines coloured by
+                        slope and meant to be read as one shape, `ma` is a handful of
+                        named lines meant to be read individually. No dependency on
+                        `ribbon`; the two coexist as separate indicators.)
+
 profile.build      ─► data.resample (anchor + aggressor), config.{profile,ticks}
 profile.store      ─► profile.build (the packed dtypes), config.profile, numpy
 profile.value_area ─► config.profile, numpy    (POC/VAL/VAH; pure, no I/O)
@@ -318,7 +328,7 @@ the market is. Multiply every price by ten and the same swings appear - pinned b
 chart.packer     ─► data.loader, numpy  (Parquet -> flat bar records)
 chart.store      ─► chart.packer, numpy (memmap the cache; slice + binary-search)
 chart.overlays   ─► chart.store, indicators.{registry,sessions,orderflow,absorption,
-                    range_scale,swing,legs,breaks,ribbon,regime,profile}, config.indicators.*
+                    range_scale,swing,legs,breaks,ribbon,regime,profile,ma}, config.indicators.*
 chart.api        ─► chart.store, chart.overlays, config.chart   (routes -> bytes)
 
 replay.session   ─► chart.{overlays,store}, config.{chart,replay}, replay.snapshot

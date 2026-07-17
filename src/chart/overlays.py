@@ -26,6 +26,7 @@ from src.chart import store
 from src.config.indicators import absorption as absorption_cfg
 from src.config.indicators import breaks as breaks_cfg
 from src.config.indicators import legs as legs_cfg
+from src.config.indicators import ma as ma_cfg
 from src.config.indicators import orderflow as orderflow_cfg
 from src.config.indicators import profile as profile_cfg
 from src.config.indicators import range_scale as range_scale_cfg
@@ -37,6 +38,7 @@ from src.events.types import BarClose
 from src.indicators.absorption import Absorption
 from src.indicators.breaks import Breaks
 from src.indicators.legs import Legs
+from src.indicators.ma import MA
 from src.indicators.orderflow import OrderFlow
 from src.indicators.profile import Profile
 from src.indicators.range_scale import RangeScale
@@ -84,6 +86,8 @@ def build_registry(profile_mode: str | None = None) -> Registry:
         indicators.append(Ribbon())
     if regime_cfg.ENABLED:
         indicators.append(Regime())
+    if ma_cfg.ENABLED and ma_cfg.ACTIVE:
+        indicators.append(MA())
 
     if profile_cfg.ENABLED and (profile_mode or "off") != "off":
         indicators.append(Profile())
@@ -186,6 +190,8 @@ def drawable() -> set[str]:
         sources.add("ribbon")
     if regime_cfg.ENABLED and (regime_cfg.DRAW or regime_cfg.DRAW_BANDS):
         sources.add("regime")
+    if ma_cfg.ENABLED and ma_cfg.DRAW and ma_cfg.ACTIVE:
+        sources.add("ma")
     return sources
 
 
@@ -410,6 +416,22 @@ def marks_for(time: int, row: dict, *, is_first: bool = False,
                 [(prev_time, before), (int(time), now)],
                 ribbon_cfg.UP_COLOR if up else ribbon_cfg.DOWN_COLOR,
                 ribbon_cfg.WIDTH,
+            ))
+
+    if (ma_cfg.ENABLED and ma_cfg.DRAW and prev_time is not None
+            and row.get("ma") and row.get("ma_prev")):
+        # One line per config LINE that is ENABLED, each its own fixed colour -
+        # unlike ribbon, which colours every segment by its own slope. The
+        # row's ma/ma_prev lists and config ACTIVE are the same length, in the
+        # same order, by construction: MA.reset() derives its periods from
+        # this exact list.
+        for (now, before), line in zip(zip(row["ma"], row["ma_prev"]), ma_cfg.ACTIVE):
+            if now is None or before is None:
+                continue
+            marks.append(_segment(
+                "ma",
+                [(prev_time, before), (int(time), now)],
+                line["color"], ma_cfg.WIDTH,
             ))
 
     if regime_cfg.ENABLED and regime_cfg.DRAW_BANDS:

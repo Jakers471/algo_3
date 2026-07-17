@@ -92,6 +92,14 @@ publishes nothing until it has its full period of closes; it never stands a shor
 for a long one. It reuses the same **segment** shape the legs and breaks already draw, so it
 added no frontend at all, and it is one Layers toggle ("MA ribbon") like every other drawing.
 
+**Named moving averages** (`src/indicators/ma.py`, `config/indicators/ma.py`) are a short,
+explicit list — "the 50", or "the 50 and the 200" — each independently switched on or off and
+drawn in its own fixed colour, unlike the ribbon's fan which is coloured by slope. Add a line
+by adding an entry to `LINES` in config; no change to the indicator or the chart is needed
+either way, since it reuses the same **segment** shape the ribbon and legs already draw. It
+ships with the 50-period line on. One Layers toggle ("Moving averages") like every other
+drawing.
+
 **Regime** reads the ribbon's shape (`src/indicators/regime.py`). The 32 lines collapse to three
 dimensionless numbers — **alignment** (are the lines stacked in period order? +1 a clean
 up-trend, −1 down, 0 a scrambled fan — the sortedness of the permutation), **agreement** (are

@@ -59,6 +59,7 @@ is the entire reason the rules survive a change of regime.
 | **`breaks`** | `swing` | `src/indicators/breaks.py` | `src/config/indicators/breaks.py` |
 | **`ribbon`** | the bar | `src/indicators/ribbon.py` | `src/config/indicators/ribbon.py` |
 | **`regime`** | `ribbon`, `range_scale` | `src/indicators/regime.py` | `src/config/indicators/regime.py` |
+| **`ma`** | the bar | `src/indicators/ma.py` | `src/config/indicators/ma.py` |
 | **`profile`** | `range_scale`, `swing` | `src/indicators/profile.py` | `src/config/indicators/profile.py` |
 
 ## Every field, defined
@@ -109,6 +110,8 @@ with it: **yes** by default, **detail** only when you click Details.
 |  | `ribbon_width` | x range_scale | yes | The fan's flare: (highest line - lowest line) over range_scale. By the (N-1)/2 lag geometry it is proportional to price velocity - wide is a trend with conviction, near zero is a squeeze. In range_scale so a cutoff survives a change of regime. |
 |  | `regime` | up \| down \| chop \| transition \| None | yes | The market's state read off the fan: a trend (up/down) when the lines are stacked and flared, a transition when the fan has pinched shut, chop otherwise. Absent until the fan is fully warm. |
 |  | `regime_new` | boolean | detail | True on the bar the regime CHANGED - what the chart draws a rule on. Detail: scaffolding for the drawing, not a reading. |
+| **`ma`** | `ma` | price | yes | One value per line in config ACTIVE (the ENABLED entries of LINES, in order). Each is the simple mean of the last `period` closes, or None while that line still has fewer than `period` closes to average. A drawing, not a reading: the lines are on the chart, not in the table. |
+|  | `ma_prev` | price | yes | The same lines' values on the PREVIOUS bar, carried forward so the chart can draw a segment from the last bar to this one without keeping its own state. |
 | **`profile`** | `profile_poc` | price | yes | Point of control: the single bin where the most contracts changed hands. The market's own answer to what this is worth. The only absolute number in the block. |
 |  | `profile_val` | price | detail | Value area low. The bottom of the contiguous band around the POC holding 70% of the volume (config/profile.py VALUE_AREA). Drawn on the chart; `value_width` is what it says. |
 |  | `profile_vah` | price | detail | Value area high. The top of that same band. |
@@ -142,6 +145,8 @@ with it: **yes** by default, **detail** only when you click Details.
 **`ribbon`** — reads the bar. Publishes the value of each moving-average line, and its previous value.
 
 **`regime`** — reads `ribbon`, `range_scale`. Publishes the ribbon's alignment, agreement, width, and a regime label.
+
+**`ma`** — reads the bar. Publishes the value of each enabled named moving average, and its previous value.
 
 **`profile`** — reads `range_scale`, `swing`. The developing volume profile, and the finished ones behind it.
 

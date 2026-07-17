@@ -51,6 +51,7 @@ is the entire reason the rules survive a change of regime.
 | **`breaks`** | `swing` | `src/indicators/breaks.py` | `src/config/indicators/breaks.py` |
 | **`ribbon`** | the bar | `src/indicators/ribbon.py` | `src/config/indicators/ribbon.py` |
 | **`regime`** | `ribbon`, `range_scale` | `src/indicators/regime.py` | `src/config/indicators/regime.py` |
+| **`ma`** | the bar | `src/indicators/ma.py` | `src/config/indicators/ma.py` |
 | **`profile`** | `range_scale`, `swing` | `src/indicators/profile.py` | `src/config/indicators/profile.py` |
 
 ## Every field, defined
@@ -210,6 +211,19 @@ Publishes the ribbon's alignment, agreement, width, and a regime label.
 | `ribbon_width` | x range_scale | yes | The fan's flare: (highest line - lowest line) over range_scale. By the (N-1)/2 lag geometry it is proportional to price velocity - wide is a trend with conviction, near zero is a squeeze. In range_scale so a cutoff survives a change of regime. |
 | `regime` | up \| down \| chop \| transition \| None | yes | The market's state read off the fan: a trend (up/down) when the lines are stacked and flared, a transition when the fan has pinched shut, chop otherwise. Absent until the fan is fully warm. |
 | `regime_new` | boolean |  | True on the bar the regime CHANGED - what the chart draws a rule on. Detail: scaffolding for the drawing, not a reading. |
+
+### `ma`
+
+Publishes the value of each enabled named moving average, and its previous value.
+
+- **reads** — the bar
+- **source** — `src/indicators/ma.py`
+- **config** — `src/config/indicators/ma.py`
+
+| field | unit | shown | what it is |
+|---|---|---|---|
+| `ma` | price | yes | One value per line in config ACTIVE (the ENABLED entries of LINES, in order). Each is the simple mean of the last `period` closes, or None while that line still has fewer than `period` closes to average. A drawing, not a reading: the lines are on the chart, not in the table. |
+| `ma_prev` | price | yes | The same lines' values on the PREVIOUS bar, carried forward so the chart can draw a segment from the last bar to this one without keeping its own state. |
 
 ### `profile`
 
