@@ -143,69 +143,149 @@ $root = @{
         @{
             Label = 'Analysis'
             Submenu = @{
-                Title = 'Analysis'
+                Title = 'Analysis  -  studies, calibration, and the papers'
                 Items = @(
-                    @{ Label = 'Break sequences  (continuation / consolidation, NY session)'; Run = { python -m scratch.analysis.break_sequences --session ny } },
-                    @{ Label = 'Break sequences  (sweep the retrace dial)'; Run = { python -m scratch.analysis.break_sequences --session ny --retrace 1.5 3.0 5.0 } },
-                    @{ Label = 'Break sequences  (all hours)'; Run = { python -m scratch.analysis.break_sequences --session all } },
-                    @{ Label = 'Timeframe scaling  (open the measured chart)'; Run = { Start-Process 'scratch/analysis/timeframe_scaling.html' } },
-                    @{ Label = 'Volatility seasonality  (regenerate + open the report)'; Run = { python -m scratch.analysis.seasonality_report; Start-Process 'scratch/analysis/range_scale_seasonality.html' } },
-                    @{ Label = 'Leg zoom  (one 15m leg -> 3m -> 30s, three PNGs)'; Run = { python -m scratch.analysis.leg_zoom } },
-                    @{ Label = 'Scale ladder  (is RETRACE tunable? swing count vs threshold, two nulls)'; Run = { python -m scratch.analysis.scale_ladder } },
-                    @{ Label = 'Regime plane  (is regime a thing? every leg as drift x impulse, three PNGs)'; Run = { python -m scratch.analysis.regime_plane } },
-                    @{ Label = 'Retracement  (does a leg give back less than the last? does it persist?)'; Run = { python -m scratch.analysis.retracement } },
-                    @{ Label = 'Flow edge  (does order flow at a break predict the next break?)'; Run = { python -m scratch.analysis.flow_edge } },
-                    @{ Label = 'Expectancy  (what does a bracket at a break earn, after costs?)'; Run = { python -m scratch.analysis.expectancy } },
-                    @{ Label = 'Forecast paper  (can you forecast tomorrow''s volatility? train/test)'; Run = { python -m scratch.analysis.forecast_paper; Start-Process 'scratch/analysis/forecast_paper.html' } },
-                    @{ Label = 'Edge paper  (why reward:risk cannot beat a coin - optional stopping)'; Run = { python -m scratch.analysis.edge_paper; Start-Process 'scratch/analysis/edge_paper.html' } },
-                    @{ Label = 'Discipline paper  (is trading 90% risk management?)'; Run = { python -m scratch.analysis.discipline_paper; Start-Process 'scratch/analysis/discipline_paper.html' } },
-                    @{ Label = 'Value width  (draw balanced vs imbalanced value areas)'; Run = { python -m scratch.analysis.value_width_draw } },
-                    @{ Label = 'Stack scan  (does profile + MA squeeze stacked beat either alone?)'; Run = { python -m scratch.analysis.stack_scan; Start-Process 'scratch/analysis/stack_scan.html' } },
-                    @{ Label = 'MA squeeze  (does the coiled spring exist? composite + real examples)'; Run = { python -m scratch.analysis.ma_squeeze; Start-Process 'scratch/analysis/ma_squeeze.html' } },
-                    @{ Label = 'MA scan  (are 10/20/50/100/200 MAs useful? regression + cross study)'; Run = { python -m scratch.analysis.ma_scan; Start-Process 'scratch/analysis/ma_scan.html' } },
-                    @{ Label = 'Ribbon regime  (calibrate the regime cutoffs: align/width/agree over NQT)'; Run = { python -m scratch.analysis.ribbon_regime } },
-                    @{ Label = 'Session window study  (choose N for session_stats'' recent/prior phase detector)'; Run = { python -m scratch.session_research.session_window_study } },
-                    @{ Label = 'Session interrogation  (explore population: clock artifact, distributions, breaks vs traps)'; Run = { python -m scratch.session_research.session_interrogation } },
-                    @{ Label = 'MTF regime returns  (does 1h+1d bull>70 beat 1h alone? conditional fwd returns)'; Run = { python -m scratch.mtf_regime.forward_returns } },
-                    @{ Label = 'MTF regime sweep  (b-(a\b) across thresholds 30..70: is the 1d filter noise?)'; Run = { python -m scratch.mtf_regime.sweep } },
-                    @{ Label = 'MTF regime fade  (does shorting a high bull-fan pay? swept over threshold)'; Run = { python -m scratch.mtf_regime.fade } },
-                    @{ Label = 'MTF regime plots  (the findings as one PNG: state returns, decoration, fade)'; Run = { python -m scratch.mtf_regime.plots } },
-                    @{ Label = 'MTF regime validate  (ES out-of-sample + time-split + episode clustering)'; Run = { python -m scratch.mtf_regime.validate } },
-                    @{ Label = 'Vol regime  (does realized-vol level condition returns? full harness, NQ+ES)'; Run = { python -m scratch.vol_regime.study } },
-                    @{ Label = 'Seasonality  (pre-registered: overnight vs intraday, turn-of-month, dow)'; Run = { python -m scratch.seasonality.study } },
-                    @{ Label = 'Intraday  (pre-registered: last-30m momentum + overnight-gap, NQ+ES OOS)'; Run = { python -m scratch.intraday.study } },
-                    @{ Label = 'ORB / value area  (pre-registered: VA-escape continuation, VA vs range, POC anchor)'; Run = { python -m scratch.orb_va.study } },
-                    @{ Label = 'ORB / value area fills  (stage-6: tape-measured slippage + costs on 20y)'; Run = { python -m scratch.orb_va.fills } },
-                    @{ Label = 'ORB / value area revisit  (pullback + failed-breakout fade, both killed)'; Run = { python -m scratch.orb_va.revisit } },
-                    @{ Label = 'Pre-FOMC drift  (pre-registered: Lucca-Moench 24h window vs benchmark, NQ+ES)'; Run = { python -m scratch.fomc_drift.study } },
-                    @{ Label = 'Pre-FOMC drift tails  (stage-3: tails, concentration, costs, sub-window)'; Run = { python -m scratch.fomc_drift.tails } },
-                    @{ Label = 'Pre-FOMC drift day-leg  (09:30->14:00 flat-by-close variant, own kill line)'; Run = { python -m scratch.fomc_drift.dayleg } },
-                    @{ Label = 'Pre-FOMC drift vs buy-and-hold  (context: 8 exposed days/yr against 252)'; Run = { python -m scratch.fomc_drift.benchmark_compare } },
-                    @{ Label = 'Day-type classifier  (does London sort the NY session? context-only verdict)'; Run = { python -m scratch.daytype.study } },
-                    @{ Label = 'Order-flow imbalance  (the last directional door: OFI 15/30m fwd returns)'; Run = { python -m scratch.orderflow.study } },
-                    @{ Label = 'TS momentum  (MOP 2012 on the two-index universe: weekly ensemble, capped)'; Run = { python -m scratch.tsmom.study } },
-                    @{ Label = 'Indicator scan  (regress ALL indicator fields vs next move)'; Run = { python -m scratch.analysis.indicator_scan; Start-Process 'scratch/analysis/indicator_scan.html' } },
-                    @{ Label = 'Quant report  (alpha vs beta tearsheet, no candlesticks)'; Run = { python -m scratch.analysis.quant_report; Start-Process 'scratch/analysis/quant_report.html' } },
-                    @{ Label = 'HFT paper  (is tick data more predictable? yes - and unreachable)'; Run = { python -m scratch.analysis.hft_paper; Start-Process 'scratch/analysis/hft_paper.html' } },
-                    @{ Label = 'Magnitude paper  (regenerate + open the HTML paper)'; Run = { python -m scratch.analysis.magnitude_paper; Start-Process 'scratch/analysis/magnitude_paper.html' } },
-                    @{ Label = 'Magnitude  (why the sign is a coin and the size is not - three PNGs)'; Run = { python -m scratch.analysis.magnitude } },
-                    @{ Label = 'Profile edge  (does the volume profile beat range_scale?)'; Run = { python -m scratch.analysis.profile_edge } },
-                    @{ Label = 'MTF confluence  (do LTF reactions cluster at an HTF value-area edge?)'; Run = { python -m scratch.analysis.mtf_confluence } },
-                    @{ Label = 'Window render  (candles + structure + per-leg profiles, gaps collapsed)'; Run = { python -m scratch.analysis.window_render } },
-                    @{ Label = 'Scale-free structure  (swings stacked in range_scale: 4 windows)'; Run = { python -m scratch.analysis.scale_free_structure } },
-                    @{ Label = 'Week view  (a full week: candles + the dimensionless map)'; Run = { python -m scratch.analysis.week_view } },
-                    @{ Label = 'Structure scales  (the structure profile across timeframes)'; Run = { python -m scratch.analysis.structure_scales } },
-                    @{ Label = 'Recurrence  (price stripped to same-place-or-not, time on both axes)'; Run = { python -m scratch.analysis.recurrence } },
-                    @{ Label = 'Geometry zoo  (one week, eight price-free representations)'; Run = { python -m scratch.analysis.geometry_zoo } },
-                    @{ Label = 'RQA fingerprint  (the recurrence plot as scalars: RR / DET / LAM / Lmax)'; Run = { python -m scratch.analysis.rqa } },
-                    @{ Label = 'Regime overlay  (rolling recurrence rate under the candles, causal)'; Run = { python -m scratch.analysis.regime_overlay } },
-                    @{ Label = 'Regime test  (does the RR regime persist / predict past a null?)'; Run = { python -m scratch.analysis.regime_test } },
-                    @{ Label = 'Second break  (draw the break-of-structure long on one day)'; Run = { python -m scratch.analysis.second_break } },
-                    @{ Label = 'Second break test  (grade it full-data: R:R ladder + breakeven vs null)'; Run = { python -m scratch.analysis.second_break_test } },
-                    @{ Label = 'Fractal break  (30s context + 15s entry, 1:3, graded vs null)'; Run = { python -m scratch.analysis.fractal_break } },
-                    @{ Label = 'Outcomes  (label every bar: which barrier first? the cost wall + always-long)'; Run = { python -m scratch.analysis.outcomes } },
-                    @{ Label = 'Straddle  (buy the expansion, never the direction: does a coil pay?)'; Run = { python -m scratch.analysis.straddle } },
-                    @{ Label = 'Structure variants  (six ways to draw swings/legs/breaks)'; Run = { python -m scratch.mockups.structure_variants } }
+                    @{
+                        Label = 'Session research'
+                        Submenu = @{
+                            Title = 'Session research  -  the VPbreakout workflow (current)'
+                            Items = @(
+                                @{ Label = 'Session interrogation  (explore population: clock artifact, distributions, breaks vs traps)'; Run = { python -m scratch.session_research.session_interrogation } },
+                                @{ Label = 'Session window study  (choose N for session_stats'' recent/prior phase detector)'; Run = { python -m scratch.session_research.session_window_study } }
+                            )
+                        }
+                    },
+                    @{
+                        Label = 'Calibration'
+                        Submenu = @{
+                            Title = 'Calibration  -  why a live dial is the number it is'
+                            Items = @(
+                                @{ Label = 'Scale ladder  (is RETRACE tunable? swing count vs threshold, two nulls)'; Run = { python -m scratch.analysis.scale_ladder } },
+                                @{ Label = 'Volatility seasonality  (regenerate + open the report)'; Run = { python -m scratch.analysis.seasonality_report; Start-Process 'scratch/analysis/range_scale_seasonality.html' } },
+                                @{ Label = 'Ribbon regime  (calibrate the regime cutoffs: align/width/agree over NQT)'; Run = { python -m scratch.analysis.ribbon_regime } },
+                                @{ Label = 'Indicator scan  (regress ALL indicator fields vs next move)'; Run = { python -m scratch.analysis.indicator_scan; Start-Process 'scratch/analysis/indicator_scan.html' } }
+                            )
+                        }
+                    },
+                    @{
+                        Label = 'Structure'
+                        Submenu = @{
+                            Title = 'Structure  -  swings, legs, breaks'
+                            Items = @(
+                                @{ Label = 'Break sequences  (continuation / consolidation, NY session)'; Run = { python -m scratch.analysis.break_sequences --session ny } },
+                                @{ Label = 'Break sequences  (sweep the retrace dial)'; Run = { python -m scratch.analysis.break_sequences --session ny --retrace 1.5 3.0 5.0 } },
+                                @{ Label = 'Break sequences  (all hours)'; Run = { python -m scratch.analysis.break_sequences --session all } },
+                                @{ Label = 'Retracement  (does a leg give back less than the last? does it persist?)'; Run = { python -m scratch.analysis.retracement } },
+                                @{ Label = 'Leg zoom  (one 15m leg -> 3m -> 30s, three PNGs)'; Run = { python -m scratch.analysis.leg_zoom } },
+                                @{ Label = 'Second break  (draw the break-of-structure long on one day)'; Run = { python -m scratch.analysis.second_break } },
+                                @{ Label = 'Second break test  (grade it full-data: R:R ladder + breakeven vs null)'; Run = { python -m scratch.analysis.second_break_test } },
+                                @{ Label = 'Fractal break  (30s context + 15s entry, 1:3, graded vs null)'; Run = { python -m scratch.analysis.fractal_break } },
+                                @{ Label = 'Structure variants  (six ways to draw swings/legs/breaks)'; Run = { python -m scratch.mockups.structure_variants } },
+                                @{ Label = 'Scale-free structure  (swings stacked in range_scale: 4 windows)'; Run = { python -m scratch.analysis.scale_free_structure } },
+                                @{ Label = 'Structure scales  (the structure profile across timeframes)'; Run = { python -m scratch.analysis.structure_scales } }
+                            )
+                        }
+                    },
+                    @{
+                        Label = 'Profile & value area'
+                        Submenu = @{
+                            Title = 'Profile & value area'
+                            Items = @(
+                                @{ Label = 'Value width  (draw balanced vs imbalanced value areas)'; Run = { python -m scratch.analysis.value_width_draw } },
+                                @{ Label = 'Profile edge  (does the volume profile beat range_scale?)'; Run = { python -m scratch.analysis.profile_edge } },
+                                @{ Label = 'MTF confluence  (do LTF reactions cluster at an HTF value-area edge?)'; Run = { python -m scratch.analysis.mtf_confluence } },
+                                @{ Label = 'ORB / value area  (pre-registered: VA-escape continuation, VA vs range, POC anchor)'; Run = { python -m scratch.orb_va.study } },
+                                @{ Label = 'ORB / value area fills  (stage-6: tape-measured slippage + costs on 20y)'; Run = { python -m scratch.orb_va.fills } },
+                                @{ Label = 'ORB / value area revisit  (pullback + failed-breakout fade, both killed)'; Run = { python -m scratch.orb_va.revisit } }
+                            )
+                        }
+                    },
+                    @{
+                        Label = 'Moving averages & regime'
+                        Submenu = @{
+                            Title = 'Moving averages & regime'
+                            Items = @(
+                                @{ Label = 'MA squeeze  (does the coiled spring exist? composite + real examples)'; Run = { python -m scratch.analysis.ma_squeeze; Start-Process 'scratch/analysis/ma_squeeze.html' } },
+                                @{ Label = 'MA scan  (are 10/20/50/100/200 MAs useful? regression + cross study)'; Run = { python -m scratch.analysis.ma_scan; Start-Process 'scratch/analysis/ma_scan.html' } },
+                                @{ Label = 'Stack scan  (does profile + MA squeeze stacked beat either alone?)'; Run = { python -m scratch.analysis.stack_scan; Start-Process 'scratch/analysis/stack_scan.html' } },
+                                @{ Label = 'Regime plane  (is regime a thing? every leg as drift x impulse, three PNGs)'; Run = { python -m scratch.analysis.regime_plane } },
+                                @{ Label = 'MTF regime returns  (does 1h+1d bull>70 beat 1h alone? conditional fwd returns)'; Run = { python -m scratch.mtf_regime.forward_returns } },
+                                @{ Label = 'MTF regime sweep  (b-(a\b) across thresholds 30..70: is the 1d filter noise?)'; Run = { python -m scratch.mtf_regime.sweep } },
+                                @{ Label = 'MTF regime fade  (does shorting a high bull-fan pay? swept over threshold)'; Run = { python -m scratch.mtf_regime.fade } },
+                                @{ Label = 'MTF regime plots  (the findings as one PNG: state returns, decoration, fade)'; Run = { python -m scratch.mtf_regime.plots } },
+                                @{ Label = 'MTF regime validate  (ES out-of-sample + time-split + episode clustering)'; Run = { python -m scratch.mtf_regime.validate } },
+                                @{ Label = 'Vol regime  (does realized-vol level condition returns? full harness, NQ+ES)'; Run = { python -m scratch.vol_regime.study } }
+                            )
+                        }
+                    },
+                    @{
+                        Label = 'Order flow'
+                        Submenu = @{
+                            Title = 'Order flow'
+                            Items = @(
+                                @{ Label = 'Flow edge  (does order flow at a break predict the next break?)'; Run = { python -m scratch.analysis.flow_edge } },
+                                @{ Label = 'Order-flow imbalance  (the last directional door: OFI 15/30m fwd returns)'; Run = { python -m scratch.orderflow.study } }
+                            )
+                        }
+                    },
+                    @{
+                        Label = 'Edges tested'
+                        Submenu = @{
+                            Title = 'Edges tested  -  pre-registered studies'
+                            Items = @(
+                                @{ Label = 'Seasonality  (pre-registered: overnight vs intraday, turn-of-month, dow)'; Run = { python -m scratch.seasonality.study } },
+                                @{ Label = 'Intraday  (pre-registered: last-30m momentum + overnight-gap, NQ+ES OOS)'; Run = { python -m scratch.intraday.study } },
+                                @{ Label = 'Pre-FOMC drift  (pre-registered: Lucca-Moench 24h window vs benchmark, NQ+ES)'; Run = { python -m scratch.fomc_drift.study } },
+                                @{ Label = 'Pre-FOMC drift tails  (stage-3: tails, concentration, costs, sub-window)'; Run = { python -m scratch.fomc_drift.tails } },
+                                @{ Label = 'Pre-FOMC drift day-leg  (09:30->14:00 flat-by-close variant, own kill line)'; Run = { python -m scratch.fomc_drift.dayleg } },
+                                @{ Label = 'Pre-FOMC drift vs buy-and-hold  (context: 8 exposed days/yr against 252)'; Run = { python -m scratch.fomc_drift.benchmark_compare } },
+                                @{ Label = 'Day-type classifier  (does London sort the NY session? context-only verdict)'; Run = { python -m scratch.daytype.study } },
+                                @{ Label = 'TS momentum  (MOP 2012 on the two-index universe: weekly ensemble, capped)'; Run = { python -m scratch.tsmom.study } },
+                                @{ Label = 'Straddle  (buy the expansion, never the direction: does a coil pay?)'; Run = { python -m scratch.analysis.straddle } },
+                                @{ Label = 'Outcomes  (label every bar: which barrier first? the cost wall + always-long)'; Run = { python -m scratch.analysis.outcomes } },
+                                @{ Label = 'Expectancy  (what does a bracket at a break earn, after costs?)'; Run = { python -m scratch.analysis.expectancy } }
+                            )
+                        }
+                    },
+                    @{
+                        Label = 'Papers'
+                        Submenu = @{
+                            Title = 'Papers  -  the written-up findings'
+                            Items = @(
+                                @{ Label = 'Forecast paper  (can you forecast tomorrow''s volatility? train/test)'; Run = { python -m scratch.analysis.forecast_paper; Start-Process 'scratch/analysis/forecast_paper.html' } },
+                                @{ Label = 'Edge paper  (why reward:risk cannot beat a coin - optional stopping)'; Run = { python -m scratch.analysis.edge_paper; Start-Process 'scratch/analysis/edge_paper.html' } },
+                                @{ Label = 'Discipline paper  (is trading 90% risk management?)'; Run = { python -m scratch.analysis.discipline_paper; Start-Process 'scratch/analysis/discipline_paper.html' } },
+                                @{ Label = 'HFT paper  (is tick data more predictable? yes - and unreachable)'; Run = { python -m scratch.analysis.hft_paper; Start-Process 'scratch/analysis/hft_paper.html' } },
+                                @{ Label = 'Magnitude paper  (regenerate + open the HTML paper)'; Run = { python -m scratch.analysis.magnitude_paper; Start-Process 'scratch/analysis/magnitude_paper.html' } },
+                                @{ Label = 'Magnitude  (why the sign is a coin and the size is not - three PNGs)'; Run = { python -m scratch.analysis.magnitude } },
+                                @{ Label = 'Quant report  (alpha vs beta tearsheet, no candlesticks)'; Run = { python -m scratch.analysis.quant_report; Start-Process 'scratch/analysis/quant_report.html' } }
+                            )
+                        }
+                    },
+                    @{
+                        Label = 'Recurrence & geometry'
+                        Submenu = @{
+                            Title = 'Recurrence & geometry'
+                            Items = @(
+                                @{ Label = 'Recurrence  (price stripped to same-place-or-not, time on both axes)'; Run = { python -m scratch.analysis.recurrence } },
+                                @{ Label = 'Geometry zoo  (one week, eight price-free representations)'; Run = { python -m scratch.analysis.geometry_zoo } },
+                                @{ Label = 'RQA fingerprint  (the recurrence plot as scalars: RR / DET / LAM / Lmax)'; Run = { python -m scratch.analysis.rqa } },
+                                @{ Label = 'Regime overlay  (rolling recurrence rate under the candles, causal)'; Run = { python -m scratch.analysis.regime_overlay } },
+                                @{ Label = 'Regime test  (does the RR regime persist / predict past a null?)'; Run = { python -m scratch.analysis.regime_test } }
+                            )
+                        }
+                    },
+                    @{
+                        Label = 'Views'
+                        Submenu = @{
+                            Title = 'Views  -  drawings, not findings'
+                            Items = @(
+                                @{ Label = 'Timeframe scaling  (open the measured chart)'; Run = { Start-Process 'scratch/analysis/timeframe_scaling.html' } },
+                                @{ Label = 'Window render  (candles + structure + per-leg profiles, gaps collapsed)'; Run = { python -m scratch.analysis.window_render } },
+                                @{ Label = 'Week view  (a full week: candles + the dimensionless map)'; Run = { python -m scratch.analysis.week_view } }
+                            )
+                        }
+                    }
                 )
             }
         },

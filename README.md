@@ -112,8 +112,8 @@ background tint on every warm bar (`BAND_COLORS`), so runs of one regime read as
 shaded bands behind the candles. A new label must hold `CONFIRM_BARS` before it is adopted, so it
 does not chatter. The cutoffs are measured, not guessed — on 163k NQT 5m bars the tape runs
 ~30% trend, ~60% chop, ~10% squeeze, median regime 17 bars (`scratch/analysis/ribbon_regime.py`
-prints the distributions; run it from `commands.bat` → Analysis). The three readings ride the
-snapshot table whether or not the rule is drawn.
+prints the distributions; run it from `commands.bat` → Analysis → Calibration). The three
+readings ride the snapshot table whether or not the rule is drawn.
 
 **The volume profile** is the toolbar's rightmost control. It covers the **developing
 range** — from the last confirmed swing to the current bar. It grows every bar, never looks
