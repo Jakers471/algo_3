@@ -242,6 +242,30 @@ It never wraps. Columns clip and the view scrolls horizontally. It follows the n
 until you scroll up, then stays where you put it and counts what has landed; click **Follow**
 (or scroll back to the bottom) to resume.
 
+### One block at a time
+
+Thirteen indicators publish a column each per field, which is a lot of table to hunt one
+block through. `--group` narrows it to the blocks you name:
+
+```
+python -m src.cli.table --group session_stats          # the session card, alone
+python -m src.cli.table --group session_stats,profile  # repeat or comma-separate
+```
+
+The **bar** columns always survive — they are the time and price every other number is
+located against. The window titles itself with the filter, so a narrowed table and a full
+one are told apart at a glance, and the filter holds when the chart retires one replay for
+another.
+
+### Copying rows out
+
+Select rows and press **Ctrl+C** (or click **Copy**). They land on the clipboard as a
+markdown table, with a context line naming the symbol, rung and session — so a row that
+looks wrong can be pasted into a chat or an issue and still say what it said, which a
+screenshot cannot. It copies the columns **as shown**, filter and **Details** included, and
+uses raw field keys (`session_efficiency`, not the header's shortened `efficiency`) because
+those are what [`FIELDS.md`](FIELDS.md) defines.
+
 ### Three scales at once
 
 A replay publishes a row per **rung** of its ladder — `30s`, `3m`, `15m` (`LADDER` in

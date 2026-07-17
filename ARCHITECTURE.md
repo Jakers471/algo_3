@@ -47,6 +47,7 @@ algo_3/
 │   ├── table/          a desktop window of snapshot rows (second subscriber)
 │   │   ├── client.py      find/attach a session; read its SSE stream (no Qt)
 │   │   ├── columns.py     snapshot -> cells, grouped by producer; facts vs detail
+│   │   ├── export.py      selected rows -> pasteable markdown (no Qt)
 │   │   └── window.py      the Qt table: never wraps, follows with escape
 │   ├── replay/         the server-side replay session (one cursor, many views)
 │   │   ├── snapshot.py    one flat row: bar + indicator fields + drawings

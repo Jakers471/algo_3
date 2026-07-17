@@ -25,14 +25,15 @@ import logging
 from collections import deque
 
 from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt, QTimer
-from PySide6.QtGui import QColor, QFont, QPen
+from PySide6.QtGui import QColor, QFont, QKeySequence, QPen, QShortcut
 from PySide6.QtWidgets import (
-    QAbstractItemView, QHBoxLayout, QLabel, QMainWindow, QPushButton,
-    QStyledItemDelegate, QTableView, QVBoxLayout, QWidget,
+    QAbstractItemView, QApplication, QHBoxLayout, QLabel, QMainWindow,
+    QPushButton, QStyledItemDelegate, QTableView, QVBoxLayout, QWidget,
 )
 
 from src.config import table as cfg
 from src.table import columns as cols
+from src.table import export
 
 logger = logging.getLogger(__name__)
 
@@ -209,6 +210,16 @@ class TableWindow(QMainWindow):
         # The row carries everything a drawing needs. Most of it is timestamps
         # and endpoints, and a reader wants none of them until something looks
         # wrong. Off by default; one click brings them all back.
+        # A screenshot of a row cannot be read back, searched or diffed. This can.
+        self.copy_button = QPushButton("Copy")
+        self.copy_button.setToolTip(
+            "Selected rows to the clipboard as a markdown table (Ctrl+C).\n"
+            "Copies the columns as shown - filter and Details included.")
+        self.copy_button.clicked.connect(self._copy_selection)
+
+        copy_shortcut = QShortcut(QKeySequence.StandardKey.Copy, self)
+        copy_shortcut.activated.connect(self._copy_selection)
+
         self.details_button = QPushButton("Details")
         self.details_button.setCheckable(True)
         self.details_button.clicked.connect(self._toggle_details)
@@ -273,6 +284,7 @@ class TableWindow(QMainWindow):
         bar.addWidget(self.legend, 0)
         bar.addStretch(1)
         bar.addWidget(self.status, 0)
+        bar.addWidget(self.copy_button, 0)
         bar.addWidget(self.details_button, 0)
         bar.addWidget(self.follow_button, 0)
 
@@ -341,6 +353,32 @@ class TableWindow(QMainWindow):
     def _groups(self):
         """The session's field groups, or its flat field list from an older server."""
         return self.session.get("groups") or self.session.get("fields", [])
+
+    def _selected_rows(self) -> list[dict]:
+        """The snapshots behind the selected rows, oldest first.
+
+        Selection is by row already, so a click anywhere in a row takes it whole.
+        """
+        rows = sorted(index.row() for index
+                      in self.view.selectionModel().selectedRows())
+        return [self.model._rows[r] for r in rows]   # noqa: SLF001 - same module
+
+    def _copy_selection(self) -> None:
+        """Selected rows to the clipboard as markdown, columns exactly as shown."""
+        rows = self._selected_rows()
+        if not rows:
+            # Ctrl+C with nothing selected is a question, not a mistake. Say what
+            # would have happened rather than silently clearing their clipboard.
+            self.status.setText("select rows first, then Copy  (click, shift-click)")
+            return
+
+        text = export.as_markdown(self.model._columns, rows,  # noqa: SLF001
+                                  self.session)
+        QApplication.clipboard().setText(text)
+        logger.info("Copied %d row(s), %d column(s) to the clipboard",
+                    len(rows), self.model.columnCount())
+        self.status.setText(f"copied {len(rows)} row(s) x "
+                            f"{self.model.columnCount()} column(s) as markdown")
 
     def _title(self) -> str:
         """One place, because both the first session and every later one need it.
