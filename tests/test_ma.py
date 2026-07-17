@@ -36,6 +36,9 @@ def two_lines(monkeypatch):
     )
     monkeypatch.setattr(cfg, "LINES", lines)
     monkeypatch.setattr(cfg, "ACTIVE", tuple(line for line in lines if line["enabled"]))
+    # DRAW ships off by default now (see config/indicators/ma.py); the drawing
+    # tests below still need it on to exercise the mechanism.
+    monkeypatch.setattr(cfg, "DRAW", True)
 
 
 # --- the averages -------------------------------------------------------------

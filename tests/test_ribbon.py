@@ -31,6 +31,10 @@ def bar(i: int, close: float) -> BarClose:
 def small_fan(monkeypatch):
     """A three-line fan, periods 2/3/4, so a test can fill it by hand."""
     monkeypatch.setattr(cfg, "PERIODS", (2, 3, 4))
+    # DRAW ships off by default (32 lines x one segment per bar was 157K marks
+    # over a 5,000-bar warmup); the drawing tests below still need it on to
+    # exercise the mechanism.
+    monkeypatch.setattr(cfg, "DRAW", True)
 
 
 # --- the averages ------------------------------------------------------------

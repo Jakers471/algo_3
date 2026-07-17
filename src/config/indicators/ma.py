@@ -26,6 +26,9 @@ LINES = (
 ACTIVE = tuple(line for line in LINES if line["enabled"])
 
 # --- drawing ----------------------------------------------------------------
-DRAW = True
+# Off by default for the same reason as ribbon.py: three lines x one segment
+# per bar was 14,650 marks over a 5,000-bar warmup, and the Layers checkbox
+# does not gate this cost - only DRAW does.
+DRAW = False
 
 WIDTH = 1

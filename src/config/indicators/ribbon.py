@@ -32,7 +32,14 @@ STEP = 5
 PERIODS = tuple(START + i * STEP for i in range(COUNT))
 
 # --- drawing ----------------------------------------------------------------
-DRAW = True
+# Off by default: 32 lines x one segment per bar is 157K marks over a
+# 5,000-bar warmup - measured at 1.25s of JSON alone, dominating a replay
+# seed's payload (41 MB total). The Layers checkbox does NOT gate this - it
+# is visibility only (config/chart.py), so hiding the layer in the browser
+# still pays this cost. This is the dial that actually stops it. `regime`
+# still reads the fan's numbers regardless (ENABLED stays True); only the
+# drawing is off.
+DRAW = False
 
 # A line coloured by the sign of its slope since the previous bar. Green up, red
 # down - the same green and red as the candles and the delta strip, so the whole
