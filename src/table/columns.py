@@ -125,7 +125,9 @@ _DERIVED = {"trigger"}          # = extreme -/+ RETRACE * range_scale
 # of them tells you nothing you can compare across two hours. What the profile
 # SAYS is `value_width`, `poc_position`, `poc_distance`, `price_vs_value` and
 # `delta_at_poc` - dimensionless, and shown. The levels are drawn on the chart.
-_CHART_LEVELS = {"profile_val", "profile_vah"}
+# session_stats' own value area is the same idea at a session's scope:
+# session_poc_ratio is the reading; session_val/session_vah are the drawing.
+_CHART_LEVELS = {"profile_val", "profile_vah", "session_val", "session_vah"}
 
 
 def is_detail(name: str) -> bool:
@@ -168,7 +170,7 @@ def _singular(group: str) -> str:
 # A namespace a group prefixes onto its fields, where that prefix is not just the
 # group's own name. DECLARED, never inferred: stripping `break_` off `breaks`
 # would turn a `break_even_price` into an "even price".
-_PREFIX = {"sessions": "session_"}
+_PREFIX = {"sessions": "session_", "session_stats": "session_"}
 
 
 def field_label(group: str, name: str) -> str:

@@ -102,7 +102,7 @@ class ReplaySession:
                                     index - self.first_index)
             marks: list[dict] = []
             events = overlays.bar_events(bars, self.symbol, self.timeframe,
-                                         with_vap=self.registry.has("profile"))
+                                         with_vap=overlays.wants_vap(self.registry, self.profile_mode))
             profile = self.registry.get("profile")
             last = len(bars) - 1
             prev_time: int | None = None
@@ -164,7 +164,7 @@ class ReplaySession:
 
             bar = bars[0]
             event = overlays.bar_events(bars, self.symbol, self.timeframe,
-                                        with_vap=self.registry.has("profile"))[0]
+                                        with_vap=overlays.wants_vap(self.registry, self.profile_mode))[0]
             row = self.registry.update(event)
 
             self.cursor = index

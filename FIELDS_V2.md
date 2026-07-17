@@ -95,8 +95,13 @@ with it: **yes** by default, **detail** only when you click Details.
 |  | `session_low_at_ratio` | 0..1 | yes | The same, for the running low. |
 |  | `session_volume` | contracts | yes | Total volume since the session opened. None on a bar file - use a tick-rebuilt dataset (NQT). |
 |  | `session_delta` | contracts, signed | yes | Sum of buy_volume - sell_volume since the session opened. None on a bar file, never a proxy zero. |
-|  | `session_poc` | price | yes | The session's own point of control: the single price with the most volume traded at it since the open. None without volume at price (NQT + python -m src.cli.vap). |
+|  | `session_poc` | price | yes | The session's own point of control: the single price with the most volume traded at it since the open. None without volume at price (NQT + python -m src.cli.vap); None until range_scale has warmed up - the bins it sizes; and None while the chart's Profile toggle is off, the same switch `profile` itself uses - volume at price is a per-bar store lookup, and the switch exists so a plain browse never pays for it unasked. |
 |  | `session_poc_ratio` | 0..1 | yes | (session_poc - session_low) / session_range. Where the market's fair price sits inside the range it built to find it. |
+|  | `session_val` | price | detail | Value area low: the bottom of the contiguous band around the POC holding config.profile.VALUE_AREA of the session's volume so far. |
+|  | `session_vah` | price | detail | Value area high: the top of that same band. |
+|  | `session_bins` | payload | detail | The session's own histogram so far: [price, volume, buy_volume] per bin, bins range_scale / BINS_PER_SCALE wide. The chart draws it; nothing else should read it - five readings already say what it says. |
+|  | `session_from_time` | epoch seconds, UTC | detail | Close time of the session's first bar - where the profile drawing anchors. |
+|  | `session_to_time` | epoch seconds, UTC | detail | Close time of the current bar - the profile's right edge, moving every bar. |
 | **`orderflow`** | `delta` | contracts, signed | yes | buy_volume - sell_volume. Aggressive buying minus aggressive selling. NOT computed here: it was decided once, exactly, when bars were rebuilt from ticks - a print at the ask is a buyer, at the bid a seller. None on any bar file; never zero, which would claim the sides were balanced. |
 |  | `buy_volume` | contracts | yes | Traded at the ask: someone crossed the spread to buy. |
 |  | `sell_volume` | contracts | yes | Traded at the bid. buy + sell can fall short of volume: 0.000474% of CONTRACTS print strictly between the quotes and join neither side. How many BARS that touches depends on how long a bar is - 0.045% of 30s bars, 3.9% of 60m bars, up to 120 contracts on one - so the share of contracts is the invariant and the share of bars is not. |

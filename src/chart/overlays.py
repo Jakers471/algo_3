@@ -101,6 +101,30 @@ def build_registry(profile_mode: str | None = None) -> Registry:
     return Registry(indicators)
 
 
+def wants_vap(registry: Registry, profile_mode: str | None = None) -> bool:
+    """Does anything running in this registry read a bar's volume at price?
+
+    A store lookup per bar is not free - fetching it for every request made a
+    5,000-bar browse window take minutes, which is what the toolbar's
+    Profile on/off switch exists to gate. `profile` only ever runs when that
+    switch is on (`build_registry` never builds it otherwise), so checking for
+    it is enough on its own.
+
+    `session_stats` is different: it runs unconditionally (its range/net/
+    travel/volume/delta fields need no volume at price at all), so it cannot
+    be used the same way `profile.has(...)` is - that would force the fetch on
+    every request, on every symbol, whether or not anyone ever opens the
+    session panel. Its OWN volume-at-price fields (POC/VAL/VAH/bins) are
+    therefore gated by the SAME toolbar switch `profile` uses, not a second
+    one: "Profile: on" means "fetch volume at price for whatever wants it
+    this request," a single meaning rather than two switches a user has to
+    learn are related.
+    """
+    if registry.has("profile"):
+        return True
+    return registry.has("session_stats") and (profile_mode or "off") != "off"
+
+
 def _optional(value) -> float | None:
     """NaN on the wire means ABSENT. Never let it become a number downstream."""
     return None if value is None or math.isnan(value) else float(value)
@@ -197,6 +221,8 @@ def drawable() -> set[str]:
         sources.add("regime")
     if ma_cfg.ENABLED and ma_cfg.DRAW and ma_cfg.ACTIVE:
         sources.add("ma")
+    if session_stats_cfg.ENABLED and session_stats_cfg.DRAW:
+        sources.add("session_stats")
     return sources
 
 
@@ -472,11 +498,16 @@ def marks_for(time: int, row: dict, *, is_first: bool = False,
     if profile_cfg.ENABLED and profile_cfg.DRAW and (
             row.get("profile_bins") or row.get("profile_closed")):
         marks.extend(_profile_marks(int(time), row))
+
+    if session_stats_cfg.ENABLED and session_stats_cfg.DRAW and row.get("session_bins"):
+        marks.extend(_session_marks(int(time), row))
     return marks
 
 
 def _histogram(time: int, bins: list, start: int, end: int, *,
-               max_px: int, buy_color: str, sell_color: str) -> list[dict]:
+               max_px: int, buy_color: str, sell_color: str,
+               source: str = "profile", layer: str = "profile",
+               bin_height: int = 1) -> list[dict]:
     """One profile's bars, anchored at the right edge of its own range.
 
     Both ends of a bin name the SAME bar, and the left one is pushed back a
@@ -486,6 +517,12 @@ def _histogram(time: int, bins: list, start: int, end: int, *,
 
     No new shape is needed: a bin is a segment, and `segments` already exists.
     That is the point of a shape vocabulary.
+
+    ``source``/``layer`` default to "profile" for the developing-range profile,
+    but a second profile at a different scope (session_stats' session-wide one)
+    must pass its own - two profiles sharing a layer would replace each other
+    in `collapse_redrawn`, and sharing a source would make one Layers checkbox
+    hide both.
     """
     heaviest = max((v for _, v, _ in bins), default=0) or 1
     marks: list[dict] = []
@@ -498,9 +535,9 @@ def _histogram(time: int, bins: list, start: int, end: int, *,
         # against time.
         bought_it = buy * 2 >= volume
         marks.append(_segment(
-            "profile", [(end, price), (end, price)],
+            source, [(end, price), (end, price)],
             buy_color if bought_it else sell_color,
-            profile_cfg.BIN_HEIGHT, layer="profile", at=time,
+            bin_height, layer=layer, at=time,
             offsets=(-pixels, 0.0),
         ))
     return marks
@@ -522,7 +559,8 @@ def _profile_marks(time: int, row: dict) -> list[dict]:
             marks.extend(_histogram(time, closed["bins"], start, end,
                                     max_px=profile_cfg.CLOSED_WIDTH_PX,
                                     buy_color=profile_cfg.CLOSED_BUY_COLOR,
-                                    sell_color=profile_cfg.CLOSED_SELL_COLOR))
+                                    sell_color=profile_cfg.CLOSED_SELL_COLOR,
+                                    bin_height=profile_cfg.BIN_HEIGHT))
             # A finished profile keeps its own span, so its point of control is
             # drawn against the structure it describes, not against the right edge.
             marks.append(_segment("profile", [(start, closed["poc"]), (end, closed["poc"])],
@@ -536,7 +574,8 @@ def _profile_marks(time: int, row: dict) -> list[dict]:
     marks.extend(_histogram(time, row["profile_bins"], start, end,
                             max_px=profile_cfg.MAX_WIDTH_PX,
                             buy_color=profile_cfg.BUY_COLOR,
-                            sell_color=profile_cfg.SELL_COLOR))
+                            sell_color=profile_cfg.SELL_COLOR,
+                            bin_height=profile_cfg.BIN_HEIGHT))
 
     for key, color, width in (("profile_val", profile_cfg.VALUE_AREA_COLOR, 1),
                               ("profile_vah", profile_cfg.VALUE_AREA_COLOR, 1),
@@ -545,6 +584,38 @@ def _profile_marks(time: int, row: dict) -> list[dict]:
         if level is not None:
             marks.append(_segment("profile", [(start, level), (end, level)],
                                   color, width, layer="profile", at=time))
+    return marks
+
+
+def _session_marks(time: int, row: dict) -> list[dict]:
+    """The session's own volume profile so far - anchored open to now.
+
+    One LAYER, replaced wholesale each bar: the bin count changes every bar as
+    volume accumulates, exactly `profile`'s own reason for using a layer
+    rather than an id. There is nothing to keep "closed" here - a session ends
+    when the next one's session_new resets the indicator, and there is no
+    later bar to draw the finished shape against.
+    """
+    marks: list[dict] = []
+    start, end = row.get("session_from_time"), row.get("session_to_time")
+    if start is None or end is None:
+        return marks
+
+    marks.extend(_histogram(time, row["session_bins"], int(start), int(end),
+                            max_px=session_stats_cfg.MAX_WIDTH_PX,
+                            buy_color=session_stats_cfg.BUY_COLOR,
+                            sell_color=session_stats_cfg.SELL_COLOR,
+                            source="session_stats", layer="session_stats",
+                            bin_height=session_stats_cfg.BIN_HEIGHT))
+
+    for key, color, width in (("session_val", session_stats_cfg.VALUE_AREA_COLOR, 1),
+                              ("session_vah", session_stats_cfg.VALUE_AREA_COLOR, 1),
+                              ("session_poc", session_stats_cfg.POC_COLOR,
+                               session_stats_cfg.POC_WIDTH)):
+        level = row.get(key)
+        if level is not None:
+            marks.append(_segment("session_stats", [(start, level), (end, level)],
+                                  color, width, layer="session_stats", at=time))
     return marks
 
 
@@ -628,7 +699,8 @@ def for_range(symbol: str, timeframe: str, start: int, count: int,
     registry.reset()
 
     marks: list[dict] = []
-    events = bar_events(bars, symbol, timeframe, with_vap=registry.has("profile"))
+    events = bar_events(bars, symbol, timeframe,
+                       with_vap=wants_vap(registry, profile_mode))
     profile = registry.get("profile")
     last = len(bars) - 1
 

@@ -316,7 +316,21 @@ indicators.session_stats ─► indicators.base, config.indicators.session_stats
                              before publishing, per the codebase-wide rule
                              tests/test_fields.py enforces; every ratio field
                              (net_ratio, closed_ratio, body/wick, efficiency)
-                             is already dimensionless by construction.)
+                             is already dimensionless by construction.
+
+                             It also carries the session's own volume profile
+                             (session_poc/session_val/session_vah/session_bins),
+                             anchored session-open to now and drawn the same way
+                             `profile` draws its developing range - reusing
+                             chart.overlays._histogram with its own `source`/
+                             `layer` ("session_stats") so the two profiles never
+                             collide in collapse_redrawn or in the Layers panel.
+                             Its volume-at-price fields are None whenever
+                             `profile`'s ARE, for the same reason: fetching vap
+                             per bar is not free, so `chart.overlays.wants_vap`
+                             gates BOTH indicators behind the toolbar's single
+                             Profile on/off switch rather than adding a second
+                             one nobody would know was related.)
 
 profile.build      ─► data.resample (anchor + aggressor), config.{profile,ticks}
 profile.store      ─► profile.build (the packed dtypes), config.profile, numpy

@@ -182,10 +182,54 @@ def test_poc_is_none_without_volume_at_price():
 
 
 def test_poc_is_the_heaviest_traded_price_in_the_session_so_far():
+    """The POC is binned by range_scale, so it lands on a bin's LOWER edge, not
+    necessarily the exact tick that traded - same convention as store.rebin()."""
     ss = SessionStats()
     ss.update(_vbar(0, 100, 102, 98, 100, [(99.0, 10, 5), (101.0, 90, 40)]), up(new=True))
     row = ss.update(_vbar(1, 100, 103, 97, 101, [(102.0, 5, 5)]), up())
-    assert row["session_poc"] == 101.0
+    assert row["session_poc"] == 100.0    # the bin holding the heaviest level, 101.0
+
+
+def test_val_and_vah_bracket_the_poc():
+    ss = SessionStats()
+    ss.update(_vbar(0, 100, 102, 98, 100, [(99.0, 10, 5), (101.0, 90, 40)]), up(new=True))
+    row = ss.update(_vbar(1, 100, 103, 97, 101, [(102.0, 5, 5)]), up())
+    assert row["session_val"] <= row["session_poc"] <= row["session_vah"]
+
+
+def test_bins_and_span_are_none_without_a_range_scale_reading():
+    ss = SessionStats()
+    row = ss.update(_vbar(0, 100, 102, 98, 100, [(99.0, 10, 5)]),
+                    {"session": "NY", "session_new": True, "range_scale": None})
+    assert row["session_bins"] is None
+    assert row["session_from_time"] is None
+
+
+def test_bins_span_from_the_sessions_first_bar_to_its_latest():
+    ss = SessionStats()
+    ss.update(_vbar(0, 100, 102, 98, 100, [(99.0, 10, 5)]), up(new=True))
+    row = ss.update(_vbar(1, 100, 103, 97, 101, [(102.0, 5, 5)]), up())
+    assert row["session_from_time"] == int(bar(0, 0, 0, 0, 0).ts.timestamp())
+    assert row["session_to_time"] == int(bar(1, 0, 0, 0, 0).ts.timestamp())
+
+
+# --- the drawing: a session profile must never collide with the swing profile ---
+
+def test_the_session_profile_draws_under_its_own_source_and_layer():
+    """Sharing `profile`'s layer would make the two histograms replace each
+    other every bar; sharing its source would make one Layers checkbox hide both."""
+    from src.chart import overlays
+
+    row = {
+        "session_bins": [[100.0, 10, 5], [101.0, 20, 15]],
+        "session_from_time": 100, "session_to_time": 200,
+        "session_poc": 101.0, "session_val": 100.0, "session_vah": 101.0,
+    }
+    marks = overlays.marks_for(200, row)
+    sources = {m["source"] for m in marks}
+    assert sources == {"session_stats"}
+    layers = {m.get("layer") for m in marks}
+    assert layers == {"session_stats"}
 
 
 def test_tracked_sessions_config_is_london_and_ny():

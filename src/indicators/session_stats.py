@@ -31,9 +31,15 @@ with no points threshold to calibrate. ``session_high_at_ratio`` /
 so far) each running extreme was set - early is a session that picked a side
 and defended it.
 
-Volume and delta need order flow; the POC needs volume at price. Both are NQT
-only, and both are None on a bar file - the same honesty ``orderflow`` and
-``profile`` already keep. It does not guess.
+Volume and delta need order flow; the POC and the session's own volume profile
+need volume at price. Both are NQT only, and both are None on a bar file - the
+same honesty ``orderflow`` and ``profile`` already keep. It does not guess.
+
+The profile itself folds bars into the same live tick-grid accumulator
+(``profile.store.Ladder``) that ``indicators/profile.py``'s developing range
+uses - one fold, shared - and bins it the same way: ``range_scale /
+config.BINS_PER_SCALE`` wide, so the histogram's shape is comparable between a
+quiet hour and a loud one rather than drawing the clock.
 
 It refuses outside ``config.TRACKED_SESSIONS``. VPbreakout trades London and
 NY only, and a "session so far" for Asia or the halt is a number nobody asked
@@ -46,6 +52,7 @@ import logging
 
 from src.config.indicators import session_stats as cfg
 from src.indicators.base import Indicator
+from src.profile import store
 from src.profile.store import Ladder
 from src.profile.value_area import EmptyProfile, value_area
 
@@ -60,6 +67,8 @@ _NOTHING = {
     "session_high_at_ratio": None, "session_low_at_ratio": None,
     "session_volume": None, "session_delta": None,
     "session_poc": None, "session_poc_ratio": None,
+    "session_val": None, "session_vah": None, "session_bins": None,
+    "session_from_time": None, "session_to_time": None,
 }
 
 
@@ -111,10 +120,27 @@ class SessionStats(Indicator):
                           "proxy zero."),
         "session_poc": ("price", "The session's own point of control: the single "
                         "price with the most volume traded at it since the open. "
-                        "None without volume at price (NQT + python -m src.cli.vap)."),
+                        "None without volume at price (NQT + python -m src.cli.vap); "
+                        "None until range_scale has warmed up - the bins it sizes; "
+                        "and None while the chart's Profile toggle is off, the same "
+                        "switch `profile` itself uses - volume at price is a per-bar "
+                        "store lookup, and the switch exists so a plain browse never "
+                        "pays for it unasked."),
         "session_poc_ratio": ("0..1", "(session_poc - session_low) / session_range. "
                               "Where the market's fair price sits inside the range "
                               "it built to find it."),
+        "session_val": ("price", "Value area low: the bottom of the contiguous band "
+                        "around the POC holding config.profile.VALUE_AREA of the "
+                        "session's volume so far."),
+        "session_vah": ("price", "Value area high: the top of that same band."),
+        "session_bins": ("payload", "The session's own histogram so far: "
+                         "[price, volume, buy_volume] per bin, bins range_scale / "
+                         "BINS_PER_SCALE wide. The chart draws it; nothing else "
+                         "should read it - five readings already say what it says."),
+        "session_from_time": ("epoch seconds, UTC", "Close time of the session's "
+                              "first bar - where the profile drawing anchors."),
+        "session_to_time": ("epoch seconds, UTC", "Close time of the current bar - "
+                            "the profile's right edge, moving every bar."),
     }
 
     def __init__(self) -> None:
@@ -135,6 +161,8 @@ class SessionStats(Indicator):
         self._volume: float | None = None
         self._delta: float | None = None
         self._ladder = Ladder()
+        self._first_ts: int | None = None
+        self._last_ts: int | None = None
 
     def update(self, event, upstream=None) -> dict:
         up = upstream or {}
@@ -150,6 +178,10 @@ class SessionStats(Indicator):
 
     def _observe(self, event) -> None:
         o, h, lo, c = event.open, event.high, event.low, event.close
+        ts = int(event.ts.timestamp())
+        if self._first_ts is None:
+            self._first_ts = ts
+        self._last_ts = ts
         self._bars += 1
         self._travel += h - lo
 
@@ -213,13 +245,20 @@ class SessionStats(Indicator):
             row["session_net"] = net / scale
             row["session_travel"] = self._travel / scale
 
-        if self._ladder:
-            prices, volume, _buy = self._ladder.arrays()
+        if self._ladder and scale:
+            row["session_from_time"] = self._first_ts
+            row["session_to_time"] = self._last_ts
+            bin_size = scale / cfg.BINS_PER_SCALE
+            prices, volume, buy = store.rebin(*self._ladder.arrays(), bin_size)
             try:
-                poc, _val, _vah = value_area(prices, volume)
+                poc, val, vah = value_area(prices, volume)
                 row["session_poc"] = poc
+                row["session_val"] = val
+                row["session_vah"] = vah
                 if rng > 0:
                     row["session_poc_ratio"] = (poc - self._low) / rng
+                row["session_bins"] = [[float(p), int(v), int(b)]
+                                       for p, v, b in zip(prices, volume, buy)]
             except EmptyProfile:
                 pass
         return row

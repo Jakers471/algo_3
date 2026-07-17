@@ -89,6 +89,7 @@ LAYERS = (
     {"id": "absorption", "label": "Absorption", "visible": True},
     {"id": "ribbon",     "label": "MA ribbon",  "visible": False},
     {"id": "ma",         "label": "Moving averages", "visible": True},
+    {"id": "session_stats", "label": "Session profile", "visible": True},
     # Regime ships two shapes on one toggle: the dashed rule at each turn and
     # the background tint per bar (config/indicators/regime.py BAND_COLORS).
     {"id": "regime",     "label": "Regime",     "visible": False},

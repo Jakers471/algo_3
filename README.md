@@ -165,12 +165,22 @@ flow and `session_poc` needs volume at price — both None on a bar file, same h
 tick-grid accumulator (`Ladder`, now in `src/profile/store.py`) that `profile.py`'s
 developing range uses, so both indicators share one fold instead of two.
 
-It is not drawn on the chart as marks. Instead, **click the current session's own dashed
-line** (London or NY) to open a live scorecard in the top-right corner — the numbers update
-on every bar for as long as replay keeps running, reading the same `snapshot.fields` the
-desktop table already receives (`frontend/chart/js/session_panel.js`). Click the same line
-again to close it. Because session_stats keeps no history of past sessions, only the
-*current* session's line is ever a meaningful click target.
+**Click the current session's own dashed line** (London or NY) to open a live scorecard in
+the top-right corner — the numbers update on every bar for as long as replay keeps running,
+reading the same `snapshot.fields` the desktop table already receives
+(`frontend/chart/js/session_panel.js`). Click the same line again to close it. Because
+session_stats keeps no history of past sessions, only the *current* session's line is ever a
+meaningful click target.
+
+**The session also carries its own volume profile**, anchored the session's own open to now
+— `session_poc`/`session_val`/`session_vah`/`session_bins`, drawn on the chart exactly the way
+the developing swing-to-swing profile is (same `_histogram` helper, reused with its own
+`source`/`layer` so the two profiles never collide or replace each other), one Layers toggle
+("Session profile"). Volume at price is a per-bar store lookup, and rather than add a second
+switch nobody would know was related, `session_stats`' volume-at-price fields ride the SAME
+toolbar Profile on/off switch `profile` itself uses (`chart.overlays.wants_vap`) — everything
+else on the card (range, net, travel, direction changes…) needs no volume at price and keeps
+working regardless of that toggle.
 
 `delta_at_poc` is the one almost nothing else can compute: it needs volume at price **and**
 aggressor side, and both live only in the ticks. It sits near zero by construction — the
