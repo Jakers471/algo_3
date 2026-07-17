@@ -2,11 +2,16 @@
 
 Three claims worth protecting. It refuses outside config TRACKED_SESSIONS - a
 "session so far" for Asia or the halt is a number nobody asked for. The ratio
-fields (net_ratio, closed_ratio, body/wick) need no range_scale to be
-regime-invariant - they are already a fraction of the session's own range. And
+fields (net_ratio, closed_ratio) need no range_scale to be regime-invariant -
+they are already a fraction of the session's own range. And
 session_range/session_net/session_travel are the ONE place besides range_scale
 itself that ever touches points, so they must convert through it rather than
 publish points directly (tests/test_fields.py enforces the codebase-wide rule).
+
+No body/wick split is pinned here because none is published: given
+session_net_ratio and session_closed_ratio, open_ratio = closed_ratio -
+net_ratio always, and body/up-wick/low-wick are arithmetic on those two - a
+provable redundancy, not a judgment call.
 """
 
 from __future__ import annotations
@@ -30,6 +35,12 @@ def bar(i, o, h, lo, c, *, delta=None, volume=100.0, vap=None):
 
 def up(session="NY", new=False, scale=10.0):
     return {"session": session, "session_new": new, "range_scale": scale}
+
+
+@pytest.fixture(autouse=True)
+def short_recent_window(monkeypatch):
+    """A 2-bar floor so a short test can fill the recent-delta window."""
+    monkeypatch.setattr(cfg, "RECENT_MIN_BARS", 2)
 
 
 # --- scope: London/NY only ----------------------------------------------------
@@ -77,11 +88,15 @@ def test_range_and_net_are_none_without_a_range_scale_reading():
 
 # --- the ratio fields: dimensionless by construction ---------------------------
 
-def test_body_and_wicks_sum_to_the_whole_range():
+def test_open_ratio_is_recoverable_from_closed_and_net_ratio_alone():
+    """The provable redundancy the wick fields were cut for: open_ratio =
+    closed_ratio - net_ratio always, so a body/wick split adds no information."""
     ss = SessionStats()
-    row = ss.update(bar(0, 100, 110, 90, 105), up(new=True))
-    total = row["session_body_ratio"] + row["session_upwick_ratio"] + row["session_lowwick_ratio"]
-    assert total == pytest.approx(1.0)
+    ss.update(bar(0, 100, 110, 90, 105), up(new=True))    # session_open = 100
+    row = ss.update(bar(1, 105, 110, 90, 96), up())
+    open_ratio = row["session_closed_ratio"] - row["session_net_ratio"]
+    expected_open_ratio = (100.0 - 90.0) / (110.0 - 90.0)   # (session_open - low) / range
+    assert open_ratio == pytest.approx(expected_open_ratio)
 
 
 def test_a_session_that_sold_off_reads_negative_net_ratio():
@@ -149,21 +164,50 @@ def test_high_at_ratio_reads_early_when_the_high_prints_early():
     assert row["session_high_at_ratio"] == pytest.approx(1 / 3)
 
 
-# --- volume and delta: absent, never a proxy zero -------------------------------
+# --- volume: cumulative and honest; delta: recent, never cumulative -----------
 
 def test_volume_and_delta_are_none_on_a_bar_with_no_order_flow():
     ss = SessionStats()
     row = ss.update(bar(0, 100, 101, 99, 100), up(new=True))
     assert row["session_volume"] is None
-    assert row["session_delta"] is None
+    assert row["session_delta_recent"] is None
 
 
-def test_volume_and_delta_accumulate_when_order_flow_is_present():
+def test_volume_accumulates_since_the_session_opened():
+    """Unsigned and additive - unlike delta, cumulative volume stays honest."""
     ss = SessionStats()
     ss.update(bar(0, 100, 101, 99, 100, delta=20.0, volume=200.0), up(new=True))
     row = ss.update(bar(1, 100, 102, 99, 101, delta=-5.0, volume=150.0), up())
     assert row["session_volume"] == 350.0
-    assert row["session_delta"] == 15.0
+
+
+def test_delta_recent_is_none_until_the_window_has_enough_bars(monkeypatch):
+    monkeypatch.setattr(cfg, "RECENT_MIN_BARS", 3)
+    ss = SessionStats()
+    ss.update(bar(0, 100, 101, 99, 100, delta=20.0, volume=200.0), up(new=True))
+    row = ss.update(bar(1, 100, 102, 99, 101, delta=-5.0, volume=150.0), up())
+    assert row["session_delta_recent"] is None    # only 2 of 3 bars seen
+
+
+def test_delta_recent_sums_the_window_not_the_whole_session():
+    ss = SessionStats()
+    ss.update(bar(0, 100, 101, 99, 100, delta=20.0, volume=200.0), up(new=True))
+    row = ss.update(bar(1, 100, 102, 99, 101, delta=-5.0, volume=150.0), up())
+    assert row["session_delta_recent"] == 15.0
+
+
+def test_delta_recent_ages_out_bars_older_than_the_window(monkeypatch):
+    """The whole point: a crash's real selling must not be cancelled by a
+    later, unrelated regime once it has scrolled out of the recent window."""
+    monkeypatch.setattr(cfg, "RECENT_MIN_BARS", 2)
+    monkeypatch.setattr(cfg, "RECENT_WINDOW_MINUTES", 10)   # 2 bars at 5m each
+    ss = SessionStats()
+    ss.update(bar(0, 100, 101, 99, 100, delta=-500.0, volume=1000.0), up(new=True))
+    ss.update(bar(1, 100, 102, 99, 101, delta=-500.0, volume=1000.0), up())
+    # Bar 0 is now more than 10 minutes behind bar 2's close; only bars 1-2
+    # remain in the window, so the crash's delta must not still be counted.
+    row = ss.update(bar(2, 101, 103, 100, 102, delta=300.0, volume=800.0), up())
+    assert row["session_delta_recent"] == pytest.approx(-200.0)   # -500 + 300, not -700
 
 
 # --- POC: needs volume at price, refuses (None) without it ----------------------

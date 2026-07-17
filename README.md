@@ -148,22 +148,29 @@ and publish nothing at all: a "session so far" for a session nobody intends to t
 only invite a rule to accidentally read it.
 
 It treats the whole session as one candle — `session_range` is its high minus its low,
-`session_net` is close minus open, and `session_body_ratio` / `session_upwick_ratio` /
-`session_lowwick_ratio` split that range the same way a single candlestick would. Like
-everything else in the structure layer, `session_range`, `session_net` and `session_travel`
-are measured in multiples of `range_scale`, never raw points — a session that is "big" in
-April must not silently mean something different in August. The ratio fields need no such
-conversion; they are already a fraction of the session's own range.
+`session_net` is close minus open. There is no body/wick split: given `session_net_ratio` and
+`session_closed_ratio`, `open_ratio = closed_ratio - net_ratio` always, so body/up-wick/
+low-wick would be three lines of arithmetic on two numbers already on the card, not a third
+fact — provable, not a judgment call. Like everything else in the structure layer,
+`session_range`, `session_net` and `session_travel` are measured in multiples of `range_scale`,
+never raw points — a session that is "big" in April must not silently mean something different
+in August. The ratio fields need no such conversion; they are already a fraction of the
+session's own range.
 
 `session_travel` sums every bar's own range — how far price actually walked, not just where
 it ended up — so `session_efficiency = range / travel` says how much of that walking was net
 progress. `session_dir_changes` counts bar-to-bar close reversals, a counting measure with no
 points threshold to calibrate. `session_high_at_ratio` / `session_low_at_ratio` say how far
-into the session each running extreme was set. `session_volume` / `session_delta` need order
-flow and `session_poc` needs volume at price — both None on a bar file, same honesty
-`orderflow` and `profile` already keep — and `session_poc` folds into the same live
-tick-grid accumulator (`Ladder`, now in `src/profile/store.py`) that `profile.py`'s
-developing range uses, so both indicators share one fold instead of two.
+into the session each running extreme was set. `session_volume` needs order flow and stays
+cumulative since open — unsigned and genuinely additive, so a running total is honest.
+`session_delta_recent` needs it too but is deliberately NOT cumulative: delta is signed, and a
+running sum across a session that changed character doesn't average opposing regimes, it
+cancels them — real selling in a crash, netted against real buying in the bounce that followed,
+reads as indecision when neither was. It sums only the last `RECENT_WINDOW_MINUTES` instead.
+`session_poc` needs volume at price — None on a bar file, same honesty `orderflow` and
+`profile` already keep — and folds into the same live tick-grid accumulator (`Ladder`, now in
+`src/profile/store.py`) that `profile.py`'s developing range uses, so both indicators share one
+fold instead of two.
 
 **Click the current session's own dashed line** (London or NY) to open a live scorecard in
 the top-right corner — the numbers update on every bar for as long as replay keeps running,

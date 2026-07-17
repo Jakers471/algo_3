@@ -20,6 +20,23 @@ ENABLED = True
 # rule should be reading.
 TRACKED_SESSIONS = ("London", "NY")
 
+# --- the recent window ---------------------------------------------------------
+# session_delta_recent sums delta over the last RECENT_WINDOW_MINUTES of market
+# time, floored at RECENT_MIN_BARS bars - the same shape as range_scale's own
+# window, and the same numbers, reused rather than re-derived: 30 minutes is
+# the shortest window that still leaves the fastest rungs a real sample, and
+# there is no basis yet to pick a different one for delta specifically.
+#
+# PROVISIONAL. This is not the two-window (recent vs prior) phase-detection
+# design that replaces session_efficiency/session_dir_changes/session_travel -
+# that needs an N chosen by measuring event count and lag across a small
+# geometric ladder (N, 2N, 4N), the way swing.py's RETRACE was chosen, never
+# by eye and never by optimizing PnL. Delta alone doesn't need that ladder - it
+# only needs to stop blending across regimes - so it borrows range_scale's
+# already-justified window rather than inventing a fresh unvalidated number.
+RECENT_WINDOW_MINUTES = 30
+RECENT_MIN_BARS = 8
+
 # --- the session's own volume profile ----------------------------------------
 # Bin width = range_scale / BINS_PER_SCALE, same reasoning as
 # config/indicators/profile.py: a session spans hours, not a leg's few dozen

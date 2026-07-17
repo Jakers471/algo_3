@@ -5,9 +5,12 @@ VPbreakout reads to judge a session's character - and publish nothing at all
 for Asia, the halt, or before either session has begun.
 
 Treats the whole session as one candle. ``session_range`` is its high minus
-its low; ``session_net`` is close minus open; ``session_body_ratio`` /
-``session_upwick_ratio`` / ``session_lowwick_ratio`` split that range the same
-way a single candlestick would, and sum to 1.0.
+its low; ``session_net`` is close minus open. There is no body/wick split -
+it would be three lines computed from the two already above it: given
+``session_net_ratio`` and ``session_closed_ratio``, ``open_ratio =
+closed_ratio - net_ratio`` always, and body/up-wick/low-wick fall straight out
+of that as arithmetic on numbers already on the card. Publishing all five
+would be the same two facts, told three extra times.
 
 Like everything else in the structure layer, ``session_range``, ``session_net``
 and ``session_travel`` are measured in multiples of ``range_scale``, never in
@@ -31,9 +34,19 @@ with no points threshold to calibrate. ``session_high_at_ratio`` /
 so far) each running extreme was set - early is a session that picked a side
 and defended it.
 
-Volume and delta need order flow; the POC and the session's own volume profile
-need volume at price. Both are NQT only, and both are None on a bar file - the
+Volume needs order flow; the POC and the session's own volume profile need
+volume at price. Both are NQT only, and both are None on a bar file - the
 same honesty ``orderflow`` and ``profile`` already keep. It does not guess.
+
+``session_delta_recent`` is delta over the last ``RECENT_WINDOW_MINUTES``, not
+since the session opened - a cumulative sum across a session that changed
+character does not average opposing regimes, it CANCELS them. A crash worth
+tens of thousands of contracts of aggressive selling, followed by dip-buying
+at the lows, nets to a small number that reads as "no conviction" when the
+opposite happened twice. Delta is signed; unlike ``session_volume`` (unsigned,
+and genuinely additive - "566K contracts traded this session" stays true no
+matter how the session turned), a running sum of a signed quantity is only
+honest within one regime.
 
 The profile itself folds bars into the same live tick-grid accumulator
 (``profile.store.Ladder``) that ``indicators/profile.py``'s developing range
@@ -49,6 +62,7 @@ for and a rule could accidentally read.
 from __future__ import annotations
 
 import logging
+from collections import deque
 
 from src.config.indicators import session_stats as cfg
 from src.indicators.base import Indicator
@@ -61,11 +75,10 @@ logger = logging.getLogger(__name__)
 _NOTHING = {
     "session_range": None, "session_bars": None, "session_net": None,
     "session_net_ratio": None, "session_closed_ratio": None,
-    "session_body_ratio": None, "session_upwick_ratio": None,
-    "session_lowwick_ratio": None, "session_travel": None,
+    "session_travel": None,
     "session_efficiency": None, "session_dir_changes": None,
     "session_high_at_ratio": None, "session_low_at_ratio": None,
-    "session_volume": None, "session_delta": None,
+    "session_volume": None, "session_delta_recent": None,
     "session_poc": None, "session_poc_ratio": None,
     "session_val": None, "session_vah": None, "session_bins": None,
     "session_from_time": None, "session_to_time": None,
@@ -91,12 +104,11 @@ class SessionStats(Indicator):
                               "covered - direction and strength in one number."),
         "session_closed_ratio": ("0..1", "(close - session_low) / session_range. "
                                  "Where price sits right now inside the session's "
-                                 "own range. Near 0 is at the low, near 1 at the high."),
-        "session_body_ratio": ("0..1", "|session_net| / range, treating the whole "
-                               "session as one candle. body + up-wick + low-wick "
-                               "sum to 1."),
-        "session_upwick_ratio": ("0..1", "(session_high - max(open, close)) / range."),
-        "session_lowwick_ratio": ("0..1", "(min(open, close) - session_low) / range."),
+                                 "own range. Near 0 is at the low, near 1 at the high. "
+                                 "No separate body/wick split is published: given this "
+                                 "and session_net_ratio, open_ratio = closed_ratio - "
+                                 "net_ratio always, and body/up-wick/low-wick are "
+                                 "arithmetic on those two - not a third fact."),
         "session_travel": ("x range_scale", "Sum of every bar's own (high - low) "
                            "since the open, / range_scale - how far price actually "
                            "walked, not just where it ended up."),
@@ -114,10 +126,18 @@ class SessionStats(Indicator):
                                   "high was made and defended."),
         "session_low_at_ratio": ("0..1", "The same, for the running low."),
         "session_volume": ("contracts", "Total volume since the session opened. "
-                           "None on a bar file - use a tick-rebuilt dataset (NQT)."),
-        "session_delta": ("contracts, signed", "Sum of buy_volume - sell_volume "
-                          "since the session opened. None on a bar file, never a "
-                          "proxy zero."),
+                           "Unsigned and genuinely additive, so cumulative is honest "
+                           "here in a way it is not for delta. None on a bar file - "
+                           "use a tick-rebuilt dataset (NQT)."),
+        "session_delta_recent": ("contracts, signed", "Sum of buy_volume - sell_volume "
+                                 "over the last config.RECENT_WINDOW_MINUTES, NOT since "
+                                 "the session opened. A cumulative sum across a session "
+                                 "that changed character cancels its own regimes rather "
+                                 "than averaging them - a crash's aggressive selling and "
+                                 "the dip-buying that followed it net to a small number "
+                                 "that reads as indecision when both moves had real "
+                                 "conviction. None on a bar file, never a proxy zero; "
+                                 "None until RECENT_MIN_BARS have been seen."),
         "session_poc": ("price", "The session's own point of control: the single "
                         "price with the most volume traded at it since the open. "
                         "None without volume at price (NQT + python -m src.cli.vap); "
@@ -159,10 +179,14 @@ class SessionStats(Indicator):
         self._last_close: float | None = None
         self._last_sign: int | None = None
         self._volume: float | None = None
-        self._delta: float | None = None
         self._ladder = Ladder()
         self._first_ts: int | None = None
         self._last_ts: int | None = None
+        # A trailing window of (ts, delta), aged out by market time - same
+        # shape as range_scale's own window, so "recent" means the same slice
+        # of the session no matter which rung is running it.
+        self._recent_delta: deque[tuple[int, float]] = deque()
+        self._recent_delta_sum = 0.0
 
     def update(self, event, upstream=None) -> dict:
         up = upstream or {}
@@ -208,12 +232,29 @@ class SessionStats(Indicator):
         delta = getattr(event, "delta", None)
         if delta is not None:
             self._volume = (self._volume or 0.0) + (event.volume or 0.0)
-            self._delta = (self._delta or 0.0) + delta
+            self._observe_recent_delta(ts, delta)
 
         vap = getattr(event, "vap", None)
         if vap is not None:
             prices, volume, buy = vap
             self._ladder.add(prices, volume, buy)
+
+    def _observe_recent_delta(self, ts: int, delta: float) -> None:
+        """Record this bar's delta; age out what is both old enough and spare.
+
+        Both conditions, never one - the same rule range_scale's window keeps,
+        for the same reason: never below RECENT_MIN_BARS, or the first few bars
+        of a session (or a coarse rung) would be taking a sum of almost nothing
+        and calling it "recent."
+        """
+        self._recent_delta.append((ts, delta))
+        self._recent_delta_sum += delta
+
+        horizon = ts - cfg.RECENT_WINDOW_MINUTES * 60
+        while (len(self._recent_delta) > cfg.RECENT_MIN_BARS
+               and self._recent_delta[0][0] <= horizon):
+            _, stale = self._recent_delta.popleft()
+            self._recent_delta_sum -= stale
 
     def _publish(self, scale: float | None) -> dict:
         rng = self._high - self._low
@@ -222,16 +263,14 @@ class SessionStats(Indicator):
         row["session_bars"] = self._bars
         row["session_dir_changes"] = self._dir_changes
         row["session_volume"] = self._volume
-        row["session_delta"] = self._delta
+        if len(self._recent_delta) >= cfg.RECENT_MIN_BARS:
+            row["session_delta_recent"] = self._recent_delta_sum
 
         # Ratios of the session's own range to itself - the range_scale unit
         # cancels out of them, so they need no conversion to be regime-invariant.
         if rng > 0:
             row["session_net_ratio"] = net / rng
             row["session_closed_ratio"] = (self._close - self._low) / rng
-            row["session_body_ratio"] = abs(net) / rng
-            row["session_upwick_ratio"] = (self._high - max(self._open, self._close)) / rng
-            row["session_lowwick_ratio"] = (min(self._open, self._close) - self._low) / rng
         if self._travel > 0:
             row["session_efficiency"] = rng / self._travel
         row["session_high_at_ratio"] = self._high_bar / self._bars
