@@ -91,6 +91,53 @@ def test_every_block_paints_its_own_colour_onto_the_header(window):
     assert header_colours(window) == set(window.model.groups())
 
 
+def _new_session(**over):
+    session = {"id": "t2", "symbol": "NQT", "timeframe": "15m",
+               "groups": GROUPS, "fields": [f for g in GROUPS for f in g["fields"]],
+               "playing": False, "speed": 1}
+    session.update(over)
+    return session
+
+
+def test_the_filter_survives_a_replay_switch(app):
+    """Leaving a replay and starting another must not hand every column back.
+
+    `_switch_session` rebuilds the columns, because a new replay may run
+    different indicators. It rebuilt them from the session alone once, which
+    silently dropped the reader's filter the moment they re-entered replay.
+    """
+    win = TableWindow(FakeStream(), _new_session(id="t1"), only=["swing"])
+    assert win.model.groups() == ["bar", "swing"]
+
+    win._switch_session(_new_session())
+
+    assert win.model.groups() == ["bar", "swing"], (
+        "the filter is what the reader asked to look at, not a property of the "
+        "replay they looked at it through")
+    assert "[swing]" in win.windowTitle(), "the title must still name the filter"
+    win.close()
+
+
+def test_the_filter_survives_the_details_toggle(app):
+    """Details rebuilds the columns too, on the same path the switch used."""
+    win = TableWindow(FakeStream(), _new_session(), only=["swing"])
+    win.details_button.setChecked(True)
+    win._toggle_details()
+
+    assert win.model.groups() == ["bar", "swing"]
+    # Details widens the block it kept - it does not un-filter the rest.
+    assert "trigger" in [c.key for c in win.model._columns]
+    win.close()
+
+
+def test_no_filter_still_shows_every_block(app):
+    """The default is unchanged: `only=None` is not `only=[]`."""
+    win = TableWindow(FakeStream(), _new_session())
+    assert win.model.groups() == ["bar", "sessions", "orderflow", "swing", "breaks"]
+    assert "[" not in win.windowTitle()
+    win.close()
+
+
 def test_the_stylesheet_never_sets_a_header_colour(window):
     """The regression this file exists for. One line, and every hue disappears."""
     sheet = window.styleSheet()

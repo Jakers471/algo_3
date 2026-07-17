@@ -191,12 +191,7 @@ class TableWindow(QMainWindow):
         self.pending = 0
         self.received = 0
 
-        # Say so in the title bar. A filtered table and a full one look alike
-        # until you scroll, and two of them open at once is the point of the
-        # filter - the window has to name which is which.
-        scope = f"  [{', '.join(only)}]" if only else ""
-        self.setWindowTitle(
-            f"algo_3  -  {session['symbol']} {session['timeframe']}  snapshots{scope}")
+        self.setWindowTitle(self._title())
         self.resize(1100, 620)
 
         self.show_all = False
@@ -347,6 +342,17 @@ class TableWindow(QMainWindow):
         """The session's field groups, or its flat field list from an older server."""
         return self.session.get("groups") or self.session.get("fields", [])
 
+    def _title(self) -> str:
+        """One place, because both the first session and every later one need it.
+
+        The filter is named here. A narrowed table and a full one look alike
+        until you scroll, and opening both at once is the point of the filter -
+        the window has to say which is which.
+        """
+        scope = f"  [{', '.join(self.only)}]" if self.only else ""
+        return (f"algo_3  -  {self.session['symbol']} "
+                f"{self.session['timeframe']}  snapshots{scope}")
+
     def _rebuild_columns(self) -> None:
         """Swap the model, keeping the rows we already hold."""
         rows = list(self.model._rows)   # noqa: SLF001 - same module's model
@@ -389,13 +395,17 @@ class TableWindow(QMainWindow):
         self.session = session
         self.received = 0
         self.pending = 0
-        self.model = SnapshotModel(self._groups(), show_all=self.show_all)
+        # `only` survives the switch. It is what the reader asked to look at, not
+        # a property of the replay they were looking at it through - retiring one
+        # replay for another is no reason to hand back every column they filtered
+        # out.
+        self.model = SnapshotModel(self._groups(), show_all=self.show_all,
+                                   only=self.only)
         self.view.setModel(self.model)
         # A different session may run different indicators, so the legend moves
         # with the columns it names.
         self.legend.setText(self._legend_text())
-        self.setWindowTitle(
-            f"algo_3  -  {session['symbol']} {session['timeframe']}  snapshots")
+        self.setWindowTitle(self._title())
         self._set_following(True)
         logger.info("Following session %s (%s %s)",
                     session["id"], session["symbol"], session["timeframe"])
