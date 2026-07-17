@@ -252,12 +252,21 @@ export class ReplayEngine {
  * redraw do not care which arrived how.
  */
 function flattenOverlays(overlays) {
+  // Never spread a whole array into push() - it passes each element as its
+  // own call argument, and a seed over a large warmup window (thousands of
+  // ribbon or profile segments) blows V8's argument-count limit with a
+  // "Maximum call stack size exceeded" that has nothing to do with recursion.
   const marks = [];
   for (const overlay of overlays || []) {
-    if (overlay.kind === 'vlines') marks.push(...overlay.lines.map((l) => ({ ...l, kind: 'vline' })));
-    else if (overlay.kind === 'markers') marks.push(...overlay.markers);
-    else if (overlay.kind === 'segments') marks.push(...overlay.segments);
-    else if (overlay.kind === 'bands') marks.push(...overlay.bands);
+    if (overlay.kind === 'vlines') {
+      for (const l of overlay.lines) marks.push({ ...l, kind: 'vline' });
+    } else if (overlay.kind === 'markers') {
+      for (const m of overlay.markers) marks.push(m);
+    } else if (overlay.kind === 'segments') {
+      for (const s of overlay.segments) marks.push(s);
+    } else if (overlay.kind === 'bands') {
+      for (const b of overlay.bands) marks.push(b);
+    }
   }
   return marks;
 }
