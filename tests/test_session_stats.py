@@ -39,8 +39,10 @@ def up(session="NY", new=False, scale=10.0):
 
 @pytest.fixture(autouse=True)
 def short_recent_window(monkeypatch):
-    """A 2-bar floor so a short test can fill the recent-delta window."""
+    """A 2-bar floor and a 10-minute window, so two 5-minute bars fill one
+    window and four bars split cleanly into a distinct recent + prior pair."""
     monkeypatch.setattr(cfg, "RECENT_MIN_BARS", 2)
+    monkeypatch.setattr(cfg, "RECENT_WINDOW_MINUTES", 10)
 
 
 # --- scope: London/NY only ----------------------------------------------------
@@ -113,45 +115,89 @@ def test_closed_ratio_is_near_zero_at_the_session_low():
     assert row["session_closed_ratio"] == pytest.approx(0.0)
 
 
-# --- travel and efficiency -----------------------------------------------------
+# --- the two-window phase detector: recent vs prior, not open-to-now -----------
 
-def test_travel_accumulates_every_bars_own_range():
+def test_efficiency_recent_is_none_until_the_recent_window_has_enough_bars():
     ss = SessionStats()
-    ss.update(bar(0, 100, 105, 99, 102), up(new=True, scale=1.0))    # range 6
-    row = ss.update(bar(1, 102, 103, 100, 101), up(scale=1.0))       # range 3
-    assert row["session_travel"] == 9.0    # (6 + 3) / scale(1.0)
+    row = ss.update(bar(0, 100, 101, 99, 100), up(new=True))
+    assert row["session_efficiency_recent"] is None    # only 1 of 2 bars
 
 
-def test_a_straight_line_session_has_efficiency_near_one():
-    """No backtrack at all: travel equals range, so efficiency is 1.0."""
+def test_a_straight_line_window_has_efficiency_near_one():
+    """No backtrack at all: the window's range equals its travel."""
     ss = SessionStats()
     ss.update(bar(0, 100, 101, 100, 101), up(new=True))
     row = ss.update(bar(1, 101, 105, 101, 105), up())
-    assert row["session_efficiency"] == pytest.approx(1.0)
+    assert row["session_efficiency_recent"] == pytest.approx(1.0)
 
 
-def test_a_chopping_session_has_efficiency_below_one():
+def test_a_chopping_window_has_efficiency_below_one():
     ss = SessionStats()
     ss.update(bar(0, 100, 110, 90, 100), up(new=True))
     row = ss.update(bar(1, 100, 110, 90, 100), up())    # retraced the whole range
-    assert row["session_efficiency"] < 1.0
+    assert row["session_efficiency_recent"] < 1.0
 
 
-# --- direction changes: a reversal, not a first move ----------------------------
+def test_efficiency_prior_is_the_window_immediately_before_recent():
+    """Impulse then chop: prior stays near 1.0 while recent reads it dropping -
+    the exact signature a phase change is supposed to produce."""
+    ss = SessionStats()
+    ss.update(bar(0, 100, 101, 100, 101), up(new=True))     # prior window: straight
+    ss.update(bar(1, 101, 105, 101, 105), up())
+    ss.update(bar(2, 105, 115, 95, 105), up())               # recent window: chop
+    row = ss.update(bar(3, 105, 115, 95, 105), up())
+    assert row["session_efficiency_prior"] == pytest.approx(1.0)
+    assert row["session_efficiency_recent"] < 1.0
+
+
+def test_range_ratio_below_one_is_the_range_contracting():
+    """Both bars of each window share the SAME high/low, so the window's own
+    span (a rolling max minus a rolling min) is unambiguous: 30, then 10."""
+    ss = SessionStats()
+    ss.update(bar(0, 100, 100, 70, 90), up(new=True))    # prior window: span 30
+    ss.update(bar(1, 90, 100, 70, 85), up())
+    ss.update(bar(2, 85, 110, 100, 105), up())            # recent window: span 10
+    row = ss.update(bar(3, 105, 110, 100, 108), up())
+    assert row["session_range_ratio"] == pytest.approx(10.0 / 30.0)
+
+
+def test_volume_ratio_reads_recent_activity_against_prior():
+    ss = SessionStats()
+    ss.update(bar(0, 100, 101, 99, 100, delta=0.0, volume=100.0), up(new=True))
+    ss.update(bar(1, 100, 101, 99, 100, delta=0.0, volume=100.0), up())
+    ss.update(bar(2, 100, 101, 99, 100, delta=0.0, volume=300.0), up())
+    row = ss.update(bar(3, 100, 101, 99, 100, delta=0.0, volume=300.0), up())
+    assert row["session_volume_ratio"] == pytest.approx(600.0 / 200.0)
+
+
+# --- direction change RATE: a rate, never a ratchet -----------------------------
 
 def test_the_first_move_off_flat_is_not_a_direction_change():
     ss = SessionStats()
     ss.update(bar(0, 100, 101, 99, 100), up(new=True))
     row = ss.update(bar(1, 100, 102, 100, 101), up())     # first real close move
-    assert row["session_dir_changes"] == 0
+    assert row["session_dir_change_rate"] == 0.0
 
 
-def test_a_genuine_reversal_is_counted():
+def test_a_genuine_reversal_is_counted_as_a_rate_not_a_ratchet():
     ss = SessionStats()
     ss.update(bar(0, 100, 101, 99, 100), up(new=True))
     ss.update(bar(1, 100, 102, 100, 101), up())    # up
     row = ss.update(bar(2, 101, 101, 98, 99), up())  # down: a reversal
-    assert row["session_dir_changes"] == 1
+    # recent window = bars 1-2 (10 minutes): one reversal in two bars.
+    assert row["session_dir_change_rate"] == pytest.approx(0.5)
+
+
+def test_the_rate_falls_back_out_once_the_reversal_scrolls_out_of_the_window():
+    """The whole point: unlike the old monotonic count, this can go back down."""
+    ss = SessionStats()
+    ss.update(bar(0, 100, 101, 99, 100), up(new=True))
+    ss.update(bar(1, 100, 102, 100, 101), up())     # up
+    ss.update(bar(2, 101, 101, 98, 99), up())        # down: a reversal
+    ss.update(bar(3, 99, 100, 98, 99.5), up())        # up: another reversal
+    row = ss.update(bar(4, 99.5, 100.5, 99, 100), up())  # up: no reversal
+    # recent window = bars 3-4: one reversal (bar 3), not the earlier one too.
+    assert row["session_dir_change_rate"] == pytest.approx(0.5)
 
 
 # --- where the extremes were made -----------------------------------------------

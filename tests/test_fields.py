@@ -70,7 +70,7 @@ def test_field_source_maps_a_column_back_to_its_indicator():
 KNOWN_UNITS = {
     "price", "points", "contracts", "contracts, signed", "count",
     "x range_scale", "0..1", "-1..+1", "boolean", "payload",
-    "epoch seconds, UTC",
+    "epoch seconds, UTC", "ratio",
 }
 
 

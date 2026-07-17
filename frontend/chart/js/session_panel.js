@@ -74,9 +74,13 @@ export class SessionPanel {
         + `${pct(fields.session_net_ratio)} of range `
         + `<span class="muted">&lt;- direction/strength</span></div>
       <div class="session-row">closed at ${pct(fields.session_closed_ratio)} of range</div>
-      <div class="session-row">travel ${asPoints(fields.session_travel, scale)} pts | `
-        + `efficiency ${eff(fields.session_efficiency)}</div>
-      <div class="session-row">direction changes ${fields.session_dir_changes ?? '--'} | `
+      <div class="session-row">efficiency: prior ${eff(fields.session_efficiency_prior)} `
+        + `-&gt; recent ${eff(fields.session_efficiency_recent)}`
+        + `<span class="muted"> &lt;- impulse handing to a base reads high -&gt; low</span></div>
+      <div class="session-row">range x${eff(fields.session_range_ratio)} | `
+        + `volume x${eff(fields.session_volume_ratio)} `
+        + `<span class="muted">(recent / prior - contraction is &lt;&lt; 1)</span></div>
+      <div class="session-row">direction-change rate ${pct(fields.session_dir_change_rate)} | `
         + `high formed ${pct(fields.session_high_at_ratio)} in | `
         + `low formed ${pct(fields.session_low_at_ratio)} in</div>
       <div class="session-row">volume ${vol(fields.session_volume)} | `

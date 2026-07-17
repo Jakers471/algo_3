@@ -152,15 +152,31 @@ It treats the whole session as one candle — `session_range` is its high minus 
 `session_closed_ratio`, `open_ratio = closed_ratio - net_ratio` always, so body/up-wick/
 low-wick would be three lines of arithmetic on two numbers already on the card, not a third
 fact — provable, not a judgment call. Like everything else in the structure layer,
-`session_range`, `session_net` and `session_travel` are measured in multiples of `range_scale`,
-never raw points — a session that is "big" in April must not silently mean something different
-in August. The ratio fields need no such conversion; they are already a fraction of the
-session's own range.
+`session_range` and `session_net` are measured in multiples of `range_scale`, never raw points
+— a session that is "big" in April must not silently mean something different in August. The
+ratio fields need no such conversion; they are already a fraction of the session's own range.
 
-`session_travel` sums every bar's own range — how far price actually walked, not just where
-it ended up — so `session_efficiency = range / travel` says how much of that walking was net
-progress. `session_dir_changes` counts bar-to-bar close reversals, a counting measure with no
-points threshold to calibrate. `session_high_at_ratio` / `session_low_at_ratio` say how far
+**`session_efficiency`/`session_dir_changes`/`session_travel` do not exist.** They used to be
+cumulative since the session opened, and that silently blended any session with more than one
+character into a number describing neither — measured directly on the real crash-then-base NY
+session of 25 Jun '26, cumulative efficiency never exceeded ~0.5 all session, hiding a crash
+that was briefly running near 1.0. Replaced by a sliding **recent-vs-prior window pair**:
+`session_efficiency_recent` / `session_efficiency_prior` (range/travel over the last
+`RECENT_WINDOW_MINUTES`, and the same window immediately before it), `session_range_ratio` and
+`session_volume_ratio` (recent ÷ prior — contraction reads `<< 1`, the classic base-forming
+tell), and `session_dir_change_rate` — a RATE over the recent window, not the monotonic count
+`session_dir_changes` was, which could only ever grow and so could never report that the market
+had just started trending. None of these need `range_scale`: a ratio between two windows of the
+same unit cancels it, exactly the way `session_net_ratio` already does for the whole session —
+normalizing twice would solve a problem range_scale already solved. `N` (30 minutes / 6 bars on
+5m) was measured, not guessed: `scratch/analysis/session_window_study.py` walks all 1,212
+London/NY sessions in the dataset and picks the window by event count and how many transitions
+each candidate's own 4N companion confirms nearby — the same method `scale_ladder.py` uses for
+`RETRACE`, and it finds the same thing: no privileged scale, confirmation falls off smoothly
+with no elbow, so this is a considered point on a tradeoff, not "the true N." Deliberately not
+coupled to `indicators/regime.py` — not considered complete or validated.
+
+`session_high_at_ratio` / `session_low_at_ratio` say how far
 into the session each running extreme was set. `session_volume` needs order flow and stays
 cumulative since open — unsigned and genuinely additive, so a running total is honest.
 `session_delta_recent` needs it too but is deliberately NOT cumulative: delta is signed, and a
@@ -263,7 +279,8 @@ Select rows and press **Ctrl+C** (or click **Copy**). They land on the clipboard
 markdown table, with a context line naming the symbol, rung and session — so a row that
 looks wrong can be pasted into a chat or an issue and still say what it said, which a
 screenshot cannot. It copies the columns **as shown**, filter and **Details** included, and
-uses raw field keys (`session_efficiency`, not the header's shortened `efficiency`) because
+uses raw field keys (`session_efficiency_recent`, not the header's shortened `efficiency
+recent`) because
 those are what [`FIELDS.md`](FIELDS.md) defines.
 
 ### Three scales at once

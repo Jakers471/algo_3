@@ -69,9 +69,10 @@ algo_3/
 │   │   ├── regime.py      reads the ribbon: alignment/width/agreement -> a regime label
 │   │   ├── profile.py     the developing profile; frozen onto each structure
 │   │   ├── ma.py          a short list of named SMAs, each its own line and colour
-│   │   └── session_stats.py  the running London/NY scorecard: range, net, travel,
-│   │                          flow, POC - the VPbreakout strategy's planned inputs,
-│   │                          watchable live now via the chart's session panel
+│   │   └── session_stats.py  the running London/NY scorecard: range, net, phase
+│   │                          (recent-vs-prior), flow, POC - the VPbreakout
+│   │                          strategy's planned inputs, watchable live now via
+│   │                          the chart's session panel
 │   ├── profile/        volume at price - what bars can never carry
 │   │   ├── build.py       ticks -> 1-tick histograms, packed (I/O + fold)
 │   │   ├── store.py       memmap the pack; slice a time range -> histogram;
@@ -311,13 +312,36 @@ indicators.session_stats ─► indicators.base, config.indicators.session_stats
                              `session_new`; refuses (all fields None) outside
                              config.TRACKED_SESSIONS = ("London", "NY") - a "session
                              so far" for Asia or the halt is a number nobody trades
-                             on. session_range/session_net/session_travel are the
-                             only fields besides range_scale itself measured in
-                             points - and even those convert through range_scale
-                             before publishing, per the codebase-wide rule
+                             on. session_range/session_net are the only fields
+                             besides range_scale itself measured in points - and
+                             even those convert through range_scale before
+                             publishing, per the codebase-wide rule
                              tests/test_fields.py enforces; every ratio field
-                             (net_ratio, closed_ratio, body/wick, efficiency)
-                             is already dimensionless by construction.
+                             (net_ratio, closed_ratio) is already dimensionless
+                             by construction.
+
+                             session_efficiency/session_dir_changes/session_travel
+                             do NOT exist here - they used to be cumulative since
+                             the session opened, and that blended a session with
+                             more than one character into a number describing
+                             neither (measured on the real crash-then-base NY
+                             session of 25 Jun '26: cumulative efficiency never
+                             exceeded ~0.5 all session). Replaced by
+                             session_efficiency_recent/_prior, session_range_ratio
+                             and session_volume_ratio - a sliding recent-vs-prior
+                             window pair, N chosen empirically
+                             (scratch/analysis/session_window_study.py) rather
+                             than guessed - and session_dir_change_rate, a RATE
+                             over the same recent window rather than a
+                             monotonically growing count. None of these need
+                             range_scale: a ratio between two windows of the same
+                             unit cancels it, the same way session_net_ratio
+                             already does for the whole session - range_scale's
+                             job (surviving a change of volatility regime) is
+                             already done elsewhere, and normalizing twice would
+                             solve a problem that does not exist. Deliberately
+                             NOT coupled to indicators/regime.py - not considered
+                             complete or validated.
 
                              It also carries the session's own volume profile
                              (session_poc/session_val/session_vah/session_bins),
