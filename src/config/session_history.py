@@ -35,7 +35,7 @@ _ROOT = Path(__file__).resolve().parents[2]
 #
 # This is the DECLARATION. The frozen RECEIPT of what it seals - counts,
 # spans, the exact rule - is SESSION_SPLIT.json at the repo root, written once
-# by scratch/analysis/seal_split.py; session_history/split.py verifies the two
+# by scratch/session_research/seal_split.py; session_history/split.py verifies the two
 # agree on every load, so neither can drift without a loud error.
 SEALED_FROM = date(2025, 10, 1)
 

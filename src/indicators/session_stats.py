@@ -39,7 +39,7 @@ window pair: ``recent`` (the last config.RECENT_WINDOW_MINUTES) and ``prior``
 config.RECENT_MIN_BARS bars, recomputed every bar - sliding, never tumbling,
 because a fixed non-overlapping block reintroduces the exact blending bug at
 an arbitrary cut point. N was measured, not guessed
-(scratch/analysis/session_window_study.py; see config for the table).
+(scratch/session_research/session_window_study.py; see config for the table).
 
 These fields need NO range_scale conversion - a ratio of two windows of the
 same unit cancels it, same as ``session_net_ratio`` does for the whole

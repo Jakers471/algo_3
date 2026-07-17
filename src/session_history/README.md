@@ -15,7 +15,7 @@ discipline that keeps those answers honest.
 
 Doors: `python -m src.cli.session_catalog` and `python -m src.cli.session_history`
 (both in `commands.bat` → Data). The seal itself is written once by
-`scratch/analysis/seal_split.py` — deliberately NOT in the menu, because
+`scratch/session_research/seal_split.py` — deliberately NOT in the menu, because
 re-running it would move the cutoff, and a cutoff that moves is not a seal.
 
 ## The seal
@@ -58,7 +58,7 @@ costs one:
 
 ## Known debts, recorded rather than hidden
 
-- The **N study** (`scratch/analysis/session_window_study.py`, chose N=6) was
+- The **N study** (`scratch/session_research/session_window_study.py`, chose N=6) was
   computed over ALL 1,212 sessions — including what is now sealed — before the
   seal existed. That leak is spent and cannot be unspent; it is the mildest of
   these, because the study fit N to **event counts, not returns**. Re-run it on

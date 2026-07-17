@@ -26,7 +26,7 @@ TRACKED_SESSIONS = ("London", "NY")
 # (recent vs prior) phase-detection design SESSION_STATS_BRIEF.md calls for -
 # one window, reused, not two unrelated dials.
 #
-# MEASURED, not borrowed. scratch/analysis/session_window_study.py walks every
+# MEASURED, not borrowed. scratch/session_research/session_window_study.py walks every
 # London/NY session in the NQT dataset (1,212 of them) and, per candidate N,
 # counts recent/prior EFFICIENCY-ratio transitions (crossing outside [0.5, 2.0])
 # and checks how many are confirmed by that same candidate's own 4N companion

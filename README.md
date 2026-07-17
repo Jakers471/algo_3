@@ -169,7 +169,7 @@ tell), and `session_dir_change_rate` — a RATE over the recent window, not the 
 had just started trending. None of these need `range_scale`: a ratio between two windows of the
 same unit cancels it, exactly the way `session_net_ratio` already does for the whole session —
 normalizing twice would solve a problem range_scale already solved. `N` (30 minutes / 6 bars on
-5m) was measured, not guessed: `scratch/analysis/session_window_study.py` walks all 1,212
+5m) was measured, not guessed: `scratch/session_research/session_window_study.py` walks all 1,212
 London/NY sessions in the dataset and picks the window by event count and how many transitions
 each candidate's own 4N companion confirms nearby — the same method `scale_ladder.py` uses for
 `RETRACE`, and it finds the same thing: no privileged scale, confirmation falls off smoothly

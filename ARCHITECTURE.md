@@ -211,7 +211,7 @@ algo_3/
 ├── conftest.py         puts repo root on sys.path so tests import `src`
 ├── SESSION_SPLIT.json  FROZEN: the vault receipt - which sessions are explore
 │                       vs sealed (like DATA_AUDIT.json, data-truth, committed;
-│                       written once by scratch/analysis/seal_split.py)
+│                       written once by scratch/session_research/seal_split.py)
 ├── (top level, not code): .env, logs/, data/, projectX_API/
 ```
 
@@ -300,7 +300,7 @@ indicators.sessions  ─► config.session, indicators.base   (Asia/London/NY)
                          counterpart to the streaming state machine, for code
                          that already holds a whole DataFrame and wants every
                          instance of a named session's row-index span at once.
-                         scratch/analysis/session_window_study.py and
+                         scratch/session_research/session_window_study.py and
                          session_history/build.py both call it rather than
                          each re-walking bars through their own Sessions().
 indicators.orderflow ─► indicators.base   (lifts delta off the bar; refuses if absent)
@@ -363,7 +363,7 @@ indicators.session_stats ─► indicators.base, config.indicators.session_stats
                              session_efficiency_recent/_prior, session_range_ratio
                              and session_volume_ratio - a sliding recent-vs-prior
                              window pair, N chosen empirically
-                             (scratch/analysis/session_window_study.py) rather
+                             (scratch/session_research/session_window_study.py) rather
                              than guessed - and session_dir_change_rate, a RATE
                              over the same recent window rather than a
                              monotonically growing count. None of these need

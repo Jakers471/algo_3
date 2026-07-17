@@ -10,7 +10,7 @@ Two artifacts, one boundary, checked against each other. The DECLARATION is
 ``config/session_history.py``'s SEALED_FROM - a round date near the two-thirds
 mark, deliberately not tuned. The RECEIPT is ``SESSION_SPLIT.json`` at the
 repo root - frozen and committed like DATA_AUDIT.json, written once by
-scratch/analysis/seal_split.py (guarded against re-runs), recording exactly
+scratch/session_research/seal_split.py (guarded against re-runs), recording exactly
 which sessions that declaration seals: counts, spans, the rule. ``load()``
 refuses to answer if the two disagree, so neither can drift quietly.
 
@@ -38,7 +38,7 @@ EXPLORE, SEALED = "explore", "sealed"
 
 
 class NotSealed(FileNotFoundError):
-    """SESSION_SPLIT.json does not exist. Run: python -m scratch.analysis.seal_split"""
+    """SESSION_SPLIT.json does not exist. Run: python -m scratch.session_research.seal_split"""
 
 
 class SealDrift(RuntimeError):
@@ -53,7 +53,7 @@ def load() -> dict:
         if not SPLIT_FILE.exists():
             raise NotSealed(
                 "no SESSION_SPLIT.json - the vault has not been sealed; "
-                "run: python -m scratch.analysis.seal_split")
+                "run: python -m scratch.session_research.seal_split")
         data = json.loads(SPLIT_FILE.read_text(encoding="utf-8"))
         declared = int(datetime(cfg.SEALED_FROM.year, cfg.SEALED_FROM.month,
                                 cfg.SEALED_FROM.day, tzinfo=timezone.utc).timestamp())
@@ -62,7 +62,7 @@ def load() -> dict:
                 f"SESSION_SPLIT.json cutoff {data['cutoff_epoch']} != "
                 f"config SEALED_FROM {cfg.SEALED_FROM.isoformat()} ({declared}). "
                 "One of them moved. Decide which, say why in a commit, and "
-                "re-run scratch/analysis/seal_split.py --force to re-freeze.")
+                "re-run scratch/session_research/seal_split.py --force to re-freeze.")
         _CACHE = data
     return _CACHE
 
