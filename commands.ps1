@@ -109,7 +109,7 @@ $root = @{
                     @{ Label = 'Snapshot tables  -  all three rungs at once (30s / 3m / 15m)'; Run = { foreach ($r in '30s','3m','15m') { Start-Process -FilePath 'python' -ArgumentList '-m','src.cli.table','--rung',$r } } },
                     @{ Label = 'Snapshot table  -  session card only  (the session_stats block, nothing else)'; Run = { python -m src.cli.table --group session_stats } },
                     @{ Label = 'STUDY a random session  (serves + opens the chart on it, explore-side only)'; Run = { python -m src.cli.chart --study } },
-                    @{ Label = 'STUDY a random session  -  London  (where the measured edge lives)'; Run = { python -m src.cli.chart --study London } },
+                    @{ Label = 'STUDY a random session  -  London'; Run = { python -m src.cli.chart --study London } },
                     @{ Label = 'STUDY a random session  -  NY'; Run = { python -m src.cli.chart --study NY } },
                     @{ Label = 'List sessions to study  (five explore-side picks + their links)'; Run = { python -m src.cli.explore_session --count 5 } }
                 )
@@ -156,6 +156,8 @@ $root = @{
                                 @{ Label = 'Session lookup  (k-NN gate: do similar past sessions predict this one? DIRECTION - no)'; Run = { python -m scratch.session_research.session_lookup --target direction } },
                                 @{ Label = 'Session lookup  -  magnitude in raw points  (vol clustering: yes, +3.5pp)'; Run = { python -m scratch.session_research.session_lookup --target magnitude_raw } },
                                 @{ Label = 'Session lookup  -  POSITIVE CONTROL  (plant the answer; the harness must find it)'; Run = { python -m scratch.session_research.session_lookup --sanity } },
+                                @{ Label = 'London verify  (the one edge candidate, as trades with costs: p=0.078, DEAD)'; Run = { python -m scratch.session_research.london_verify } },
+                                @{ Label = 'London verify  -  null distribution  (50 shuffles; the real grid sits inside it)'; Run = { python -m scratch.session_research.london_verify --null-runs 50 } },
                                 @{ Label = 'Session window study  (choose N for session_stats'' recent/prior phase detector)'; Run = { python -m scratch.session_research.session_window_study } }
                             )
                         }
