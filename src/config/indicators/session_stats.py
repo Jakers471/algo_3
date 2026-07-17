@@ -22,20 +22,34 @@ TRACKED_SESSIONS = ("London", "NY")
 
 # --- the recent window ---------------------------------------------------------
 # session_delta_recent sums delta over the last RECENT_WINDOW_MINUTES of market
-# time, floored at RECENT_MIN_BARS bars - the same shape as range_scale's own
-# window, and the same numbers, reused rather than re-derived: 30 minutes is
-# the shortest window that still leaves the fastest rungs a real sample, and
-# there is no basis yet to pick a different one for delta specifically.
+# time, floored at RECENT_MIN_BARS bars. This is also N for the two-window
+# (recent vs prior) phase-detection design SESSION_STATS_BRIEF.md calls for -
+# one window, reused, not two unrelated dials.
 #
-# PROVISIONAL. This is not the two-window (recent vs prior) phase-detection
-# design that replaces session_efficiency/session_dir_changes/session_travel -
-# that needs an N chosen by measuring event count and lag across a small
-# geometric ladder (N, 2N, 4N), the way swing.py's RETRACE was chosen, never
-# by eye and never by optimizing PnL. Delta alone doesn't need that ladder - it
-# only needs to stop blending across regimes - so it borrows range_scale's
-# already-justified window rather than inventing a fresh unvalidated number.
+# MEASURED, not borrowed. scratch/analysis/session_window_study.py walks every
+# London/NY session in the NQT dataset (1,212 of them) and, per candidate N,
+# counts recent/prior EFFICIENCY-ratio transitions (crossing outside [0.5, 2.0])
+# and checks how many are confirmed by that same candidate's own 4N companion
+# nearby - the same "does a coarser rung agree" check scale_ladder.py runs for
+# RETRACE. On NQT 5m:
+#
+#     N (bars)   events   per 1k bars   confirmed by 4N
+#          3        567         5.7         54.1%
+#          4      1,203        12.2         52.9%
+#          5      1,553        15.7         48.4%
+#          6      1,694        17.1         44.0%   <- chosen
+#          8      1,762        17.8         33.1%
+#         10      1,681        17.0         24.1%
+#
+# Confirmation falls off SMOOTHLY as N grows, with no elbow or cliff - the same
+# finding scale_ladder.py made for RETRACE (H = 0.503: no privileged scale).
+# So this is not "the true N," it is a considered point on a tradeoff that has
+# no true optimum: N=6 sits near peak event count (power, sqrt(n)) while still
+# confirming a real plurality of its own events, clearly ahead of N=8/10's
+# fall-off. On 5m bars N=6 is 30 minutes - which is also what this dial already
+# held, provisionally, before it was ever measured.
 RECENT_WINDOW_MINUTES = 30
-RECENT_MIN_BARS = 8
+RECENT_MIN_BARS = 6
 
 # --- the session's own volume profile ----------------------------------------
 # Bin width = range_scale / BINS_PER_SCALE, same reasoning as
