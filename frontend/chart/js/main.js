@@ -117,7 +117,36 @@ async function boot() {
     },
   });
 
-  await controls.onExit();
+  // A deep link cuts straight to a bar: /?symbol=NQT&tf=5m&at=<epoch seconds>.
+  //
+  // The date box takes a `datetime-local`, which cannot be pasted into from a
+  // terminal in any pleasant way - and the whole session-study loop starts with
+  // a timestamp that `src.cli.explore_session` picked. So the picker opens this
+  // URL and the copy-paste disappears: the tool that knows the moment is the
+  // tool that navigates to it.
+  const link = deepLink();
+  if (link) {
+    controls.selectDataset(link.symbol, link.timeframe);
+    await controls.onStart(link.at);
+  } else {
+    await controls.onExit();
+  }
+}
+
+/**
+ * `?at=<epoch seconds>` and optional `symbol` / `tf`, or null for a plain open.
+ *
+ * A junk `at` opens the chart normally rather than failing: a half-typed URL is
+ * a browsing accident, not an error worth a blank screen. `at` must be POSITIVE,
+ * not merely finite - `Number('')` is 0, so a bare `?at=` would otherwise sail
+ * through and ask the server to cut to 1970.
+ */
+function deepLink() {
+  const params = new URLSearchParams(window.location.search);
+  if (!params.has('at')) return null;
+  const at = Number(params.get('at'));
+  if (!Number.isFinite(at) || at <= 0) return null;
+  return { at, symbol: params.get('symbol'), timeframe: params.get('tf') };
 }
 
 boot().catch((err) => {

@@ -39,18 +39,38 @@ export class Controls {
     const symbols = Object.keys(this.datasets);
     $('symbol').innerHTML = symbols.map((s) => `<option>${s}</option>`).join('');
     $('symbol').value = symbols.includes('NQ') ? 'NQ' : symbols[0];
+    this._fillTimeframes();
 
-    const fill = () => {
-      const tfs = Object.keys(this.datasets[$('symbol').value]);
-      $('timeframe').innerHTML = tfs.map((t) => `<option>${t}</option>`).join('');
-      $('timeframe').value = tfs.includes('5m') ? '5m' : tfs[0];
-    };
-    fill();
-
-    $('symbol').addEventListener('change', () => { fill(); this._reload(); });
+    $('symbol').addEventListener('change', () => {
+      this._fillTimeframes();
+      this._reload();
+    });
     // Changing timeframe keeps your place; changing symbol goes to the tail (the
     // datasets do not share a time span, so a preserved time can fall off the end).
     $('timeframe').addEventListener('change', () => this._changeView());
+  }
+
+  /** The timeframes this symbol actually has, defaulting to 5m where there is one. */
+  _fillTimeframes(prefer) {
+    const tfs = Object.keys(this.datasets[$('symbol').value]);
+    $('timeframe').innerHTML = tfs.map((t) => `<option>${t}</option>`).join('');
+    const wanted = tfs.includes(prefer) ? prefer : '5m';
+    $('timeframe').value = tfs.includes(wanted) ? wanted : tfs[0];
+  }
+
+  /**
+   * Point the selectors at a dataset without loading anything.
+   *
+   * For a deep link, which must choose the dataset BEFORE it starts a replay -
+   * setting the selects and firing 'change' would kick off a browse load that
+   * the replay then immediately throws away. Unknown names are ignored rather
+   * than fatal: a stale bookmark should open the chart, not a blank page.
+   */
+  selectDataset(symbol, timeframe) {
+    if (symbol && Object.keys(this.datasets).includes(symbol)) {
+      $('symbol').value = symbol;
+    }
+    this._fillTimeframes(timeframe);
   }
 
   get symbol() { return $('symbol').value; }
