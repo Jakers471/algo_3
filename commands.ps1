@@ -271,7 +271,9 @@ $root = @{
                                 @{ Label = 'HFT paper  (is tick data more predictable? yes - and unreachable)'; Run = { python -m scratch.analysis.hft_paper; Start-Process 'scratch/analysis/hft_paper.html' } },
                                 @{ Label = 'Magnitude paper  (regenerate + open the HTML paper)'; Run = { python -m scratch.analysis.magnitude_paper; Start-Process 'scratch/analysis/magnitude_paper.html' } },
                                 @{ Label = 'Magnitude  (why the sign is a coin and the size is not - three PNGs)'; Run = { python -m scratch.analysis.magnitude } },
-                                @{ Label = 'Quant report  (alpha vs beta tearsheet, no candlesticks)'; Run = { python -m scratch.analysis.quant_report; Start-Process 'scratch/analysis/quant_report.html' } }
+                                @{ Label = 'Quant report  (alpha vs beta tearsheet, no candlesticks)'; Run = { python -m scratch.analysis.quant_report; Start-Process 'scratch/analysis/quant_report.html' } },
+                                @{ Label = 'Sigma paper  (std dev, the bell curve, and why every tool is a z-score)'; Run = { python -m scratch.algo_metrics.sigma_paper; Start-Process 'scratch/algo_metrics/sigma_paper.html' } },
+                                @{ Label = 'Four means  (arithmetic/geometric/harmonic/RMS on real NQ - four PNGs)'; Run = { python -m scratch.algo_metrics.four_means } }
                             )
                         }
                     },
