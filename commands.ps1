@@ -153,6 +153,9 @@ $root = @{
                             Title = 'Session research  -  the VPbreakout workflow (current)'
                             Items = @(
                                 @{ Label = 'Session interrogation  (explore population: clock artifact, distributions, breaks vs traps)'; Run = { python -m scratch.session_research.session_interrogation } },
+                                @{ Label = 'Session lookup  (k-NN gate: do similar past sessions predict this one? DIRECTION - no)'; Run = { python -m scratch.session_research.session_lookup --target direction } },
+                                @{ Label = 'Session lookup  -  magnitude in raw points  (vol clustering: yes, +3.5pp)'; Run = { python -m scratch.session_research.session_lookup --target magnitude_raw } },
+                                @{ Label = 'Session lookup  -  POSITIVE CONTROL  (plant the answer; the harness must find it)'; Run = { python -m scratch.session_research.session_lookup --sanity } },
                                 @{ Label = 'Session window study  (choose N for session_stats'' recent/prior phase detector)'; Run = { python -m scratch.session_research.session_window_study } }
                             )
                         }
