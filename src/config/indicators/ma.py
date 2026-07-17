@@ -17,8 +17,8 @@ ENABLED = True
 # the order the lines are computed and drawn in.
 LINES = (
     {"period": 50, "enabled": True, "color": "#e8a33d"},
-    {"period": 100, "enabled": False, "color": "#58a6ff"},
-    {"period": 200, "enabled": False, "color": "#bc8cff"},
+    {"period": 100, "enabled": True, "color": "#58a6ff"},
+    {"period": 200, "enabled": True, "color": "#bc8cff"},
 )
 
 # The lines actually running, derived once so the indicator and the drawing
@@ -28,4 +28,4 @@ ACTIVE = tuple(line for line in LINES if line["enabled"])
 # --- drawing ----------------------------------------------------------------
 DRAW = True
 
-WIDTH = 2
+WIDTH = 1
