@@ -22,6 +22,7 @@ second opinion about where a session starts.
 from __future__ import annotations
 
 import random
+from functools import lru_cache
 
 from src.config.indicators import session_stats as ss_cfg
 from src.data.loader import load_raw
@@ -29,22 +30,35 @@ from src.indicators.sessions import session_runs
 from src.session_history import split
 
 
+# The answer cannot change while the process lives: the dataset on disk is
+# fixed, and the seal is a committed file. Without this, listing costs a full
+# load-and-segment of every bar - 1.2s on NQT 5m - which is fine for a CLI that
+# runs once and unacceptable for the chart's Next-session button, where it is
+# paid on every click.
+@lru_cache(maxsize=8)
+def _cached(symbol: str, timeframe: str, tracked: tuple[str, ...]):
+    # volume too: session_runs' docstring says open/high/low/close, but it
+    # builds a real BarClose per row and that reads row.volume.
+    bars = load_raw(symbol, timeframe)[["open", "high", "low", "close", "volume"]]
+    out = []
+    for session_name, idx in session_runs(bars, tracked):
+        start = int(bars.index[idx[0]].timestamp())
+        if not split.is_sealed(start):
+            out.append((session_name, start))
+    return tuple(out)
+
+
 def explore_sessions(symbol: str, timeframe: str,
                      name: str | None = None) -> list[tuple[str, int]]:
     """``(session name, start epoch seconds)`` for every explore session.
 
     ``name`` narrows to one of ``TRACKED_SESSIONS`` ("NY", "London").
+
+    A fresh list every call: the cache holds a tuple so a caller that mutates
+    what it gets back cannot corrupt the next caller's answer.
     """
     tracked = ((name,) if name else ss_cfg.TRACKED_SESSIONS)
-    # volume too: session_runs' docstring says open/high/low/close, but it
-    # builds a real BarClose per row and that reads row.volume.
-    bars = load_raw(symbol, timeframe)[["open", "high", "low", "close", "volume"]]
-    out = []
-    for session_name, idx in session_runs(bars, tuple(tracked)):
-        start = int(bars.index[idx[0]].timestamp())
-        if not split.is_sealed(start):
-            out.append((session_name, start))
-    return out
+    return list(_cached(symbol, timeframe, tuple(tracked)))
 
 
 def random_explore(symbol: str, timeframe: str, name: str | None = None,

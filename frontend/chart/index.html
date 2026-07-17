@@ -19,6 +19,17 @@
       <button id="replay" class="btn primary">Replay</button>
       <input id="datetime" class="input" type="datetime-local" title="Replay start (UTC)">
       <button id="jump" class="btn">Go</button>
+      <button id="restart" class="btn" title="Cut back to where this replay began">Restart</button>
+    </div>
+
+    <div class="group study">
+      <select id="study-session" class="select" title="Which session to study">
+        <option value="">Study: any</option>
+        <option value="London">Study: London</option>
+        <option value="NY">Study: NY</option>
+      </select>
+      <button id="study-next" class="btn" title="Open a random explore-side session (never the vault)">Next session &rsaquo;</button>
+      <span id="study-label" class="study-label"></span>
     </div>
 
     <div class="group transport">

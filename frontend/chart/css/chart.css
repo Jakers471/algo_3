@@ -39,6 +39,12 @@ body { display: flex; flex-direction: column; }
 .group { display: flex; align-items: center; gap: 6px; }
 .group.right { margin-left: auto; }
 
+/* Which session is loaded, and that it is explore-side. Muted: it is a label,
+   not a control - but it is the one thing on the toolbar that says the vault is
+   intact, so it turns red rather than staying quiet when the pick fails. */
+.study-label { color: var(--muted); font-size: 11px; white-space: nowrap; }
+.study-label.error { color: var(--down); }
+
 .btn, .select, .input {
   background: #161b22;
   color: var(--text);

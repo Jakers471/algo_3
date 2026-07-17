@@ -10,6 +10,7 @@
  * TUI watching the same session would disagree with it.
  */
 
+import { nextStudySession } from '../api.js';
 import { fmtPrice, fmtTime, fmtVol, fromInputValue, toInputValue } from '../format.js';
 
 const $ = (id) => document.getElementById(id);
@@ -22,6 +23,10 @@ export class Controls {
   constructor(deps) {
     Object.assign(this, deps);
     this.picking = false;
+    // Where the current (or last) replay was cut from. Null until one starts,
+    // and deliberately NOT cleared on exit - Restart's whole job is to survive
+    // leaving replay.
+    this.startedAt = null;
 
     this._buildSelectors();
     this._wireProfile();
@@ -196,7 +201,7 @@ export class Controls {
     $('jump').addEventListener('click', () => {
       const value = $('datetime').value;
       if (!value) return;
-      this.onStart(fromInputValue(value));
+      this.startAt(fromInputValue(value));
     });
 
     // Click-to-cut: the chart click hands back the bar's time, which the server
@@ -204,10 +209,60 @@ export class Controls {
     this.surface.onClick((param) => {
       if (!this.picking || !param.time) return;
       this._setPicking(false);
-      this.onStart(param.time);
+      this.startAt(param.time);
     });
 
+    // Back to where this replay began. The moment survives leaving replay, so
+    // studying a session is: watch it, exit to look around, restart, watch it
+    // again - rather than exiting and hunting for the bar a second time. The
+    // date box cannot serve as the memory: showBar() rewrites it every bar, so
+    // by the end of a replay it holds the last bar, not the first.
+    $('restart').disabled = true;   // nothing to go back to until a replay starts
+    $('restart').addEventListener('click', () => {
+      if (this.startedAt == null) return;
+      this.startAt(this.startedAt);
+    });
+
+    // Session-to-session, without a terminal round-trip. The study loop is
+    // "look at one, form a view, look at another"; a loop that costs a trip to
+    // a shell per iteration is a loop that gets run five times and abandoned.
+    $('study-next').addEventListener('click', () => this._studyNext());
+
     $('fit').addEventListener('click', () => this.surface.fit());
+  }
+
+  /** Open a random explore-side session. The server refuses to serve a sealed one. */
+  async _studyNext() {
+    const button = $('study-next');
+    button.disabled = true;
+    try {
+      const pick = await nextStudySession(this.symbol, this.timeframe,
+                                          $('study-session').value);
+      $('study-label').textContent =
+        `${pick.session} ${fmtTime(pick.at).slice(0, 16)} - explore, 1 of ${pick.explore_total}`;
+      $('study-label').classList.remove('error');
+      await this.startAt(pick.at);
+    } catch (err) {
+      // Most likely: this symbol has no seal, or no explore sessions. Say it on
+      // the chart rather than only in a console nobody has open.
+      $('study-label').textContent = String(err.message || err);
+      $('study-label').classList.add('error');
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  /**
+   * Enter replay at a moment, remembering it for Restart.
+   *
+   * Every path into replay comes through here - the date box, a click on the
+   * chart, and a deep link - so none of them can forget to record where it
+   * began.
+   */
+  async startAt(epochSeconds) {
+    this.startedAt = epochSeconds;
+    $('restart').disabled = false;
+    await this.onStart(epochSeconds);
   }
 
   _setPicking(on) {
@@ -263,6 +318,8 @@ export class Controls {
     document.body.classList.toggle('replaying', replaying);
     $('replay').textContent = replaying ? 'Exit replay' : 'Replay';
     if (!replaying) this._setPicking(false);
+    // `restart` is deliberately absent: the transport controls are meaningless
+    // outside replay, but Restart's entire purpose is to get you back INTO it.
     for (const id of ['play', 'step', 'speed-1', 'speed-2', 'speed-4']) {
       $(id).disabled = !replaying;
     }

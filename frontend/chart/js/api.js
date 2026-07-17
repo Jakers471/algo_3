@@ -74,6 +74,17 @@ export const locate = (symbol, timeframe, time) =>
   getJSON('/api/locate', { symbol, timeframe, time: Math.floor(time) });
 
 /**
+ * A random EXPLORE-side session to study next: `{session, at, split, explore_total}`.
+ *
+ * `session` narrows to one name ('NY', 'London') or '' for any. There is no
+ * parameter that returns a sealed session - the vault is enforced server-side,
+ * not by this button choosing to behave.
+ */
+export const nextStudySession = (symbol, timeframe, session = '') =>
+  getJSON('/api/study', session ? { symbol, timeframe, session }
+                                : { symbol, timeframe });
+
+/**
  * Drawing instructions for bars `[start, start+count)`.
  *
  * Python computed these. The chart renders them without knowing what they mean -

@@ -11,12 +11,14 @@ Routes:
   /api/bars?symbol&timeframe&start&count -> raw bars (application/octet-stream)
   /api/locate?symbol&timeframe&time      -> JSON: bar index for an epoch second
   /api/overlays?symbol&timeframe&start&count -> JSON: drawing instructions
+  /api/study?symbol&timeframe[&session]  -> JSON: a random EXPLORE session to open
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import random
 
 from src.chart import overlays, store
 from src.config import chart as chart_cfg
@@ -73,7 +75,15 @@ def handle(path: str, query: dict) -> Response:
             return _locate(query)
         if path == "/api/overlays":
             return _overlays(query)
+        if path == "/api/study":
+            return _study(query)
     except store.NotPacked as exc:
+        return _error(404, str(exc))
+    except LookupError as exc:
+        return _error(404, str(exc))
+    except FileNotFoundError as exc:
+        # e.g. split.NotSealed - the seal has not been written. A 404 carrying
+        # the command that fixes it beats a 500 saying "see server log".
         return _error(404, str(exc))
     except ValueError as exc:
         return _error(400, str(exc))
@@ -81,6 +91,38 @@ def handle(path: str, query: dict) -> Response:
         logger.exception("Unhandled error serving %s", path)
         return _error(500, "internal error - see server log")
     return _error(404, f"no such route: {path}")
+
+
+def _study(query: dict) -> Response:
+    """A random EXPLORE-side session to open next.
+
+    The point of putting this behind the chart rather than only in a CLI door:
+    the study loop is "look at a session, form a view, look at another", and
+    a loop that costs a terminal round-trip per iteration is a loop that gets
+    done a handful of times and then stops. Here it is a button.
+
+    It serves ONLY explore sessions - there is no query parameter that will get
+    a sealed one out of this route. That is the point: the vault survives on
+    what the tools make easy, not on the reader's memory, and a chart is the
+    easiest thing in the project to click.
+    """
+    symbol, timeframe = _pair(query)
+    name = (query.get("session", [""])[0] or "").strip() or None
+    from src.session_history import pick, split
+
+    # One walk, not two: random_explore() would re-list them, and listing means
+    # loading the whole dataset and segmenting it. Draw from the list we have.
+    sessions = pick.explore_sessions(symbol, timeframe, name)
+    if not sessions:
+        raise LookupError(f"no explore sessions for {symbol} {timeframe}"
+                          + (f" named {name}" if name else ""))
+    picked, start = random.choice(sessions)
+    return _json(200, {
+        "session": picked,
+        "at": start,
+        "split": split.EXPLORE,
+        "explore_total": len(sessions),
+    })
 
 
 def _profile_symbols() -> list[str]:

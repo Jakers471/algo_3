@@ -127,7 +127,9 @@ async function boot() {
   const link = deepLink();
   if (link) {
     controls.selectDataset(link.symbol, link.timeframe);
-    await controls.onStart(link.at);
+    // startAt, not onStart: it records the moment, so Restart can bring you
+    // back to the session this link opened even after you leave replay.
+    await controls.startAt(link.at);
   } else {
     await controls.onExit();
   }
