@@ -61,9 +61,9 @@ def _about_lookup(groups) -> dict:
 class SnapshotModel(QAbstractTableModel):
     """Rows are snapshots; columns come from the session's own field groups."""
 
-    def __init__(self, groups, *, show_all: bool = False) -> None:
+    def __init__(self, groups, *, show_all: bool = False, only=None) -> None:
         super().__init__()
-        self._columns = cols.columns_for(groups, show_all=show_all)
+        self._columns = cols.columns_for(groups, show_all=show_all, only=only)
         self._rows: deque = deque(maxlen=cfg.MAX_ROWS)
         self._about = _about_lookup(groups)
 
@@ -182,20 +182,26 @@ class GroupSeams(QStyledItemDelegate):
 class TableWindow(QMainWindow):
     """The window: a table, a status line, a legend, and a Follow toggle."""
 
-    def __init__(self, stream, session: dict) -> None:
+    def __init__(self, stream, session: dict, *, only=None) -> None:
         super().__init__()
         self.stream = stream
         self.session = session
+        self.only = only
         self.following = True
         self.pending = 0
         self.received = 0
 
+        # Say so in the title bar. A filtered table and a full one look alike
+        # until you scroll, and two of them open at once is the point of the
+        # filter - the window has to name which is which.
+        scope = f"  [{', '.join(only)}]" if only else ""
         self.setWindowTitle(
-            f"algo_3  -  {session['symbol']} {session['timeframe']}  snapshots")
+            f"algo_3  -  {session['symbol']} {session['timeframe']}  snapshots{scope}")
         self.resize(1100, 620)
 
         self.show_all = False
-        self.model = SnapshotModel(self._groups(), show_all=self.show_all)
+        self.model = SnapshotModel(self._groups(), show_all=self.show_all,
+                                   only=self.only)
         self.view = self._build_view()
         self.status = QLabel("waiting for the first bar...")
 
@@ -344,7 +350,8 @@ class TableWindow(QMainWindow):
     def _rebuild_columns(self) -> None:
         """Swap the model, keeping the rows we already hold."""
         rows = list(self.model._rows)   # noqa: SLF001 - same module's model
-        self.model = SnapshotModel(self._groups(), show_all=self.show_all)
+        self.model = SnapshotModel(self._groups(), show_all=self.show_all,
+                                   only=self.only)
         for row in rows:
             self.model.append(row)
         self.view.setModel(self.model)

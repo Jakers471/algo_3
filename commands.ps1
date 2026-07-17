@@ -106,7 +106,8 @@ $root = @{
                     @{ Label = 'Snapshot table  -  30s rung'; Run = { python -m src.cli.table --rung 30s } },
                     @{ Label = 'Snapshot table  -  3m rung'; Run = { python -m src.cli.table --rung 3m } },
                     @{ Label = 'Snapshot table  -  15m rung'; Run = { python -m src.cli.table --rung 15m } },
-                    @{ Label = 'Snapshot tables  -  all three rungs at once (30s / 3m / 15m)'; Run = { foreach ($r in '30s','3m','15m') { Start-Process -FilePath 'python' -ArgumentList '-m','src.cli.table','--rung',$r } } }
+                    @{ Label = 'Snapshot tables  -  all three rungs at once (30s / 3m / 15m)'; Run = { foreach ($r in '30s','3m','15m') { Start-Process -FilePath 'python' -ArgumentList '-m','src.cli.table','--rung',$r } } },
+                    @{ Label = 'Snapshot table  -  session card only  (the session_stats block, nothing else)'; Run = { python -m src.cli.table --group session_stats } }
                 )
             }
         },

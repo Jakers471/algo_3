@@ -190,11 +190,16 @@ def field_label(group: str, name: str) -> str:
     return name.replace("_", " ")
 
 
-def columns_for(groups, *, show_all: bool = False) -> list[Column]:
+def columns_for(groups, *, show_all: bool = False, only=None) -> list[Column]:
     """Bar columns, then one block per indicator, in dependency order.
 
     ``groups`` is what the session publishes: ``[{"id", "fields"}, ...]``. A bare
     list of field names is accepted too, and lands in a single unnamed group.
+
+    ``only`` narrows to those indicator ids; None keeps every one. The bar block
+    survives it either way - it is the time and price a reader locates every
+    other number against, so a table without it is a wall of ratios anchored to
+    nothing.
     """
     if groups and isinstance(groups[0], str):
         groups = [{"id": "fields", "fields": list(groups)}]
@@ -203,6 +208,8 @@ def columns_for(groups, *, show_all: bool = False) -> list[Column]:
            for i, (k, label, align) in enumerate(BAR_COLUMNS)]
 
     for group in groups or []:
+        if only is not None and group["id"] not in only:
+            continue
         shown = [f for f in group["fields"] if show_all or not is_detail(f)]
         for i, name in enumerate(shown):
             out.append(Column(name, field_label(group["id"], name),

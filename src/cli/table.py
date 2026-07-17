@@ -9,6 +9,7 @@ bar; then:
     python -m src.cli.table                       # attach to the running replay
     python -m src.cli.table --symbol NQT --timeframe 5m   # start one of its own
     python -m src.cli.table --rung 15m            # the 15m scale of that replay
+    python -m src.cli.table --group session_stats # that indicator's block alone
 
 One replay publishes a row per rung of its ladder - the same market, folded into
 a coarser bar, with its own indicator state. Three tables on three rungs are
@@ -38,6 +39,9 @@ def main() -> None:
     ap.add_argument("--at", type=int, default=None, help="bar index to cut back to")
     ap.add_argument("--rung", default=None,
                     help="which scale of the replay to show (default: its base)")
+    ap.add_argument("--group", action="append", default=None, metavar="ID",
+                    help="show only this indicator's columns; repeat or comma-separate "
+                         "for several (default: all). The bar block always shows.")
     ap.add_argument("--list", action="store_true", help="list running replays and exit")
     args = ap.parse_args()
 
@@ -81,6 +85,29 @@ def main() -> None:
         print()
         sys.exit(1)
 
+    only = None
+    if args.group:
+        # Repeated flags and comma-separated lists both land here, so
+        # `--group a --group b` and `--group a,b` mean the same thing.
+        only = [name.strip() for item in args.group
+                for name in item.split(",") if name.strip()]
+
+        published = [g["id"] for g in (session.get("groups") or [])
+                     if isinstance(g, dict)]
+        unknown = [name for name in only if name not in published]
+        # An older server publishes a flat field list and no ids at all; there is
+        # nothing to check against there, so let it through rather than refuse.
+        if published and unknown:
+            print()
+            print(console.paint(f"  no such indicator block: {', '.join(unknown)}",
+                                console.YELLOW))
+            print(console.paint(f"  this replay publishes: {', '.join(published)}",
+                                console.DIM))
+            print(console.paint("  `python -m src.cli.fields` lists them with their "
+                                "source and config file.", console.DIM))
+            print()
+            sys.exit(1)
+
     stream = client.SnapshotStream(args.url, session["id"], rung=rung)
     stream.start()
 
@@ -94,7 +121,7 @@ def main() -> None:
     print()
 
     app = QApplication(sys.argv)
-    window = TableWindow(stream, {**session, "timeframe": rung})
+    window = TableWindow(stream, {**session, "timeframe": rung}, only=only)
     window.show()
     code = app.exec()
     stream.stop()
