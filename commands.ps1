@@ -108,8 +108,9 @@ $root = @{
                     @{ Label = 'Snapshot table  -  15m rung'; Run = { python -m src.cli.table --rung 15m } },
                     @{ Label = 'Snapshot tables  -  all three rungs at once (30s / 3m / 15m)'; Run = { foreach ($r in '30s','3m','15m') { Start-Process -FilePath 'python' -ArgumentList '-m','src.cli.table','--rung',$r } } },
                     @{ Label = 'Snapshot table  -  session card only  (the session_stats block, nothing else)'; Run = { python -m src.cli.table --group session_stats } },
-                    @{ Label = 'Study a random session  (picks explore-side, OPENS the chart there)'; Run = { python -m src.cli.explore_session --open } },
-                    @{ Label = 'Study a random session  -  NY only  (opens the chart there)'; Run = { python -m src.cli.explore_session --name NY --open } },
+                    @{ Label = 'STUDY a random session  (serves + opens the chart on it, explore-side only)'; Run = { python -m src.cli.chart --study } },
+                    @{ Label = 'STUDY a random session  -  London  (where the measured edge lives)'; Run = { python -m src.cli.chart --study London } },
+                    @{ Label = 'STUDY a random session  -  NY'; Run = { python -m src.cli.chart --study NY } },
                     @{ Label = 'List sessions to study  (five explore-side picks + their links)'; Run = { python -m src.cli.explore_session --count 5 } }
                 )
             }

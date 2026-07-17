@@ -135,6 +135,7 @@ algo_3/
 │   │   ├── api.py         route -> (status, content-type, bytes); no sockets
 │   │   ├── server.py      HTTP: static frontend + /api, one port, no stacking
 │   │   ├── lifecycle.py   single-instance guard; confirmed-closed shutdown
+│   │   ├── link.py        build a chart URL / deep link; is the server up?
 │   │   └── autoreload.py  dev: restart the server when Python changes
 │   └── cli/            thin doors: parse input, call an engine, format out
 │       ├── data.py        load & summarize prepared bars (python -m src.cli.data)

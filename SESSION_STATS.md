@@ -21,18 +21,21 @@ deps    sessions -> range_scale -> session_stats
 ## 1. See it
 
 ```
-commands.bat -> Chart -> Pick a session to study      # random, explore-side only
-commands.bat -> Chart -> Open chart                   # paste the UTC stamp, hit Go
+commands.bat -> Chart -> STUDY a random session       # serves AND opens on it
 commands.bat -> Chart -> Snapshot table - session card only
 ```
 
 or, directly:
 
 ```powershell
-python -m src.cli.explore_session --name NY --count 5   # never returns a sealed session
-python -m src.cli.chart --open                          # paste the stamp into the date box
-python -m src.cli.table --group session_stats           # this block and nothing else
+python -m src.cli.chart --study London        # serve, pick, open - one command
+python -m src.cli.table --group session_stats # this block and nothing else
 ```
+
+`--study` picks uniformly from the **explore** side and cannot return a sealed
+session. Naming one is optional (`--study NY`). It deep-links the chart
+(`/?symbol=..&tf=..&at=<epoch>`) so there is no timestamp to retype — the tool
+that knows the moment navigates to it.
 
 `--group session_stats` shows the 22 non-detail fields plus the 6 bar columns
 (time, OHLC, volume) and hides the other eleven indicators entirely. **Ctrl+C**

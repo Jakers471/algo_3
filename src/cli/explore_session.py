@@ -22,9 +22,8 @@ import argparse
 import random
 import webbrowser
 from datetime import datetime, timezone
-from urllib.parse import urlencode
 
-from src.config import chart as chart_cfg
+from src.chart import link
 from src.config import ticks as ticks_cfg
 from src.config.indicators import session_stats as ss_cfg
 from src.core import console
@@ -34,16 +33,6 @@ from src.session_history import pick, split
 
 def _utc(epoch: int) -> datetime:
     return datetime.fromtimestamp(epoch, tz=timezone.utc)
-
-
-def _base_url() -> str:
-    return f"http://{chart_cfg.HOST}:{chart_cfg.PORT}"
-
-
-def chart_url(base: str, symbol: str, timeframe: str, start: int) -> str:
-    """The chart's deep link: it boots straight into replay at this bar."""
-    query = urlencode({"symbol": symbol, "tf": timeframe, "at": start})
-    return f"{base.rstrip('/')}/?{query}"
 
 
 def main() -> None:
@@ -61,9 +50,9 @@ def main() -> None:
     ap.add_argument("--count", type=int, default=1,
                     help="how many to pick (default: 1)")
     ap.add_argument("--open", action="store_true",
-                    help="open the chart on the first pick (needs the server up)")
-    ap.add_argument("--url", default=None,
-                    help=f"chart base URL (default: {_base_url()})")
+                    help="open the chart on the first pick (needs the server up; "
+                         "python -m src.cli.chart --study does both)")
+    ap.add_argument("--url", default=None, help="chart base URL")
     args = ap.parse_args()
 
     try:
@@ -93,25 +82,33 @@ def main() -> None:
               f"  {console.paint(stamp.strftime('(%a %d %b %Y, %H:%M UTC)'), console.DIM)}")
     print()
 
-    base = args.url or _base_url()
+    base = args.url or link.base_url()
+    name, start = chosen[0]
+    url = link.deep_link(base, args.symbol, args.timeframe, start)
+
     if args.open:
-        name, start = chosen[0]
-        url = chart_url(base, args.symbol, args.timeframe, start)
+        # Never open a tab at a server that is not there. ERR_CONNECTION_REFUSED
+        # blames the network for what is really "nothing is listening", and the
+        # page cannot say the one thing the reader needs to know.
+        if not link.is_serving():
+            print(console.paint("  the chart server is not running, so there is "
+                                "nothing to open.", console.YELLOW))
+            print(console.paint("  start it and study in one step:", console.DIM))
+            print(console.paint(f"      python -m src.cli.chart --study"
+                                f"{' ' + args.name if args.name else ''}",
+                                console.CYAN))
+            print(console.paint("  or serve first (python -m src.cli.chart), then "
+                                "re-run this.", console.DIM))
+            print()
+            raise SystemExit(1)
         print(console.paint(f"  opening the chart on {name} "
                             f"{_utc(start):%Y-%m-%d %H:%M} UTC", console.CYAN))
         print(console.paint(f"  {url}", console.DIM))
-        # If the server is not up this opens a dead tab, which says so plainly -
-        # a nicer failure than this tool silently deciding not to.
         webbrowser.open(url)
-        print(console.paint(f"  (not the chart? start it: python -m src.cli.chart)",
-                            console.DIM))
     else:
-        name, start = chosen[0]
-        print(console.paint("  open one straight away:  "
-                            "python -m src.cli.explore_session --open", console.DIM))
-        print(console.paint(f"  or paste a link:  "
-                            f"{chart_url(base, args.symbol, args.timeframe, start)}",
-                            console.DIM))
+        print(console.paint("  serve and study in one step:  "
+                            "python -m src.cli.chart --study", console.DIM))
+        print(console.paint(f"  or, with the chart already up:  {url}", console.DIM))
     print()
 
 
