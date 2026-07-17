@@ -30,6 +30,12 @@ _ROOT = Path(__file__).resolve().parents[2]
 # file and dials that produced it. FIELDS_V2.md reads as a table: every field in
 # one list, each row carrying the indicator that owns it, for scanning across
 # indicators rather than down one.
+#
+# FIELDS_V3.md is NOT generated and is deliberately not written here. It is the
+# system map and the parameter-risk audit - the menu, the wiring, and which dials
+# could be overfit - and none of that is derivable from the registry. It is
+# reasoned, so it is written by hand and re-derived by hand; the method behind
+# each of its counts is recorded beside the count.
 DOC = _ROOT / "FIELDS.md"
 DOC_V2 = _ROOT / "FIELDS_V2.md"
 

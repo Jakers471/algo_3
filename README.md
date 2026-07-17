@@ -371,6 +371,12 @@ src.cli.fields --write` from definitions that live beside the code that computes
 so they cannot disagree. A test fails if a field has no definition, if its unit is
 unrecognised, if the two documents describe different fields, or if either goes stale.
 
+**`FIELDS_V3.md`** is the third and is not generated, because what it says is not
+derivable from the registry: how the menu, the fields and the surfaces are wired, and
+which of the project's 206 config constants could ever be overfit. The short answer is
+that 21 shape a number a rule would read and **none has ever seen a P&L** — every gram
+of that risk arrives with the signal layer, which does not exist yet.
+
 The row is not the view. A snapshot carries everything a *renderer* needs, which is more
 than a reader wants — there is only one kind of object in the structure layer, a swing
 point, and six fields point at one (`swing_price`, `leg_from_price`, `leg_to_price`,
@@ -444,5 +450,9 @@ _See `ARCHITECTURE.md` for all entry points. `src/broker/` is a reusable engine 
 - `FIELDS.md` — **generated**: every snapshot field, its unit, its meaning, and the
   indicator, source file and config that produce it. `python -m src.cli.fields --write`
 - `FIELDS_V2.md` — **generated**: the same contract as one table, one row per field
+- `FIELDS_V3.md` — **hand-written**: the system map and the parameter-risk audit. The
+  menu, the fields, and what they are wired to; then the census — 206 config constants,
+  80 behavioural, **21 that shape a number a rule reads, and 0 fit to returns** — plus
+  what a signal layer would cost in degrees of freedom, and what is already spent
 - `CLAUDE.md` — project rules & conventions
 - `requirements.txt` · `.env` (from `.env.example`) · `venv/` (git-ignored)
