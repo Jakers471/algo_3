@@ -248,10 +248,21 @@ def _segment(source: str, points: list[tuple], color: str, width: int,
     # ``offsets`` shifts a point sideways by pixels from the bar it names. Style
     # belongs in Python, and so does a length that only means anything on screen.
     shifts = offsets or (0.0,) * len(points)
+    # Almost every caller passes exactly two points (a ribbon/ma line, a leg, a
+    # profile level) - millions of them over a 5,000-bar warmup, since the
+    # ribbon alone draws 32 lines a bar. min() over a generator was showing up
+    # in a profile as real time on a hot path that never needed the general
+    # case; `breaks` is the one caller with three, and still gets a correct
+    # answer from the fallback.
+    if len(points) == 2:
+        t0, t1 = points[0][0], points[1][0]
+        earliest = t0 if t0 <= t1 else t1
+    else:
+        earliest = min(t for t, _ in points)
     mark = {
         "kind": "segment",
         "source": source,
-        "time": int(min(t for t, _ in points)),
+        "time": int(earliest),
         "points": [{"time": int(t), "price": float(p), "dx": float(dx)}
                    for (t, p), dx in zip(points, shifts)],
         "color": color,
