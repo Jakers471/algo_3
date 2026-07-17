@@ -50,6 +50,7 @@ from src.indicators.session_stats import SessionStats
 from src.indicators.sessions import Sessions
 from src.indicators.swing import Swing
 from src.profile import store as store_vap
+from src.session_history import store as history
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +75,10 @@ def build_registry(profile_mode: str | None = None, symbol: str | None = None,
     if sessions_cfg.ENABLED:
         indicators.append(Sessions())
     if session_stats_cfg.ENABLED:
-        indicators.append(SessionStats(symbol=symbol, timeframe=timeframe))
+        # FULL: the chart and replay are the live card, and relative to live the
+        # sealed third genuinely is the past. Nothing here is being evaluated.
+        indicators.append(SessionStats(symbol=symbol, timeframe=timeframe,
+                                       split_label=history.FULL))
     if orderflow_cfg.ENABLED:
         indicators.append(OrderFlow())
     if absorption_cfg.ENABLED:

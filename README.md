@@ -405,9 +405,15 @@ indicators, never a reimplementation. It turns every N=1 anecdote into a populat
 "does range expansion with rising efficiency separate real breaks from traps" stops being
 an argument from three eyeballed sessions and becomes a query. The default build physically
 cannot contain a sealed row. `src/session_history/README.md` maps the whole subsystem, the
-order of operations, and the known debts (the N study and the shipped percentile table
-predate the seal and were computed over the full dataset — re-derive both explore-only
-before any sealed evaluation).
+order of operations, and the known debts (the N study predates the seal and was computed
+over the full dataset — re-derive it explore-only before any sealed evaluation).
+
+The percentile table is built per population, never in place: `NQT_5m_full.npz` and
+`NQT_5m_explore.npz` are separate files, each stamped with what it was built from, and every
+read names which one it wants. `FULL` is right for the live card, where the sealed third
+genuinely is the past; `EXPLORE` is the only honest answer anywhere a rule is being
+evaluated, since a full table ranks a bar against sessions that had not happened yet — and
+that leaks as a *good backtest*, not an error.
 
 **The strategy layer is being redefined and is currently absent**, so there is no
 backtest or walk-forward door to run yet. The engines behind them (`backtest/`,

@@ -337,11 +337,21 @@ class SessionStats(Indicator):
                             "the profile's right edge, moving every bar."),
     }
 
-    def __init__(self, symbol: str | None = None, timeframe: str | None = None) -> None:
-        # Needed ONLY for the percentile-vs-history fields - see the module
-        # docstring for why this indicator alone needs its dataset identity.
+    def __init__(self, symbol: str | None = None, timeframe: str | None = None,
+                 split_label: str = history.FULL) -> None:
+        # symbol/timeframe are needed ONLY for the percentile-vs-history fields
+        # - see the module docstring for why this indicator alone needs its
+        # dataset identity.
+        #
+        # `split_label` names WHICH history those percentiles rank against.
+        # FULL is the default because this indicator's only live caller is the
+        # card, where the sealed third genuinely is the past. Anything
+        # EVALUATING a rule must pass EXPLORE instead: against a full table a
+        # bar is ranked among sessions that had not happened yet, and that leak
+        # surfaces as a good backtest rather than an error.
         self._symbol = symbol
         self._timeframe = timeframe
+        self._split_label = split_label
         self.reset()
 
     def reset(self) -> None:
@@ -495,16 +505,18 @@ class SessionStats(Indicator):
         try:
             row["session_range_percentile"] = history.percentile_rank(
                 self._symbol, self._timeframe, self._session_name,
-                self._bars, "range", range_x)
+                self._bars, "range", range_x, split_label=self._split_label)
             row["session_travel_percentile"] = history.percentile_rank(
                 self._symbol, self._timeframe, self._session_name,
-                self._bars, "travel", travel_x)
+                self._bars, "travel", travel_x, split_label=self._split_label)
             if self._volume is not None:
                 row["session_volume_percentile"] = history.percentile_rank(
                     self._symbol, self._timeframe, self._session_name,
-                    self._bars, "volume", self._volume)
+                    self._bars, "volume", self._volume,
+                    split_label=self._split_label)
             row["session_travel_budget"] = history.travel_budget(
-                self._symbol, self._timeframe, self._session_name, travel_x)
+                self._symbol, self._timeframe, self._session_name, travel_x,
+                split_label=self._split_label)
         except history.NotBuilt:
             pass   # the table has not been built yet; these fields stay None
 

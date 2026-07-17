@@ -38,9 +38,23 @@ from src.indicators.sessions import session_runs
 logger = logging.getLogger(__name__)
 
 
-def path(symbol: str, timeframe: str):
+from src.session_history.store import EXPLORE, FULL   # noqa: E402 - the shared
+# vocabulary lives with the reader; store has no module-level import of this
+# file, so naming it here does not close a cycle.
+
+
+def path(symbol: str, timeframe: str, split_label: str):
+    """One file per (symbol, timeframe, split). The span is IN the name.
+
+    ``split_label`` has no default on purpose - the same reason
+    catalog.py's does not. An explore-scoped table and a full-history one
+    answer the same question differently and silently, so a single path would
+    let the second overwrite the first and leave nothing on disk able to say
+    which one a percentile came from. A caller that has not decided which
+    history it wants has not decided what its number means.
+    """
     cfg.CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    return cfg.CACHE_DIR / f"{symbol}_{timeframe}.npz"
+    return cfg.CACHE_DIR / f"{symbol}_{timeframe}_{split_label}.npz"
 
 
 def _scales(bars: pd.DataFrame) -> np.ndarray:
@@ -142,8 +156,23 @@ def build(symbol: str, timeframe: str, *, explore_only: bool = False) -> dict:
                     name, sessions_seen[name], max_bar,
                     payload[f"median_final_travel_{name}"])
 
+    # The table says what it was built from, so a reader never has to remember
+    # how it was last built. A percentile is meaningless without the population
+    # behind it, and "which population" is exactly the fact that goes missing.
+    split_label = EXPLORE if explore_only else FULL
+    cutoff_utc = ""
+    if explore_only:
+        from src.session_history import split
+        cutoff_utc = split.load()["cutoff_utc"]
+
     payload["percentiles"] = cfg.PERCENTILES
-    out = path(symbol, timeframe)
+    payload["built_from"] = np.array(split_label)
+    payload["cutoff_utc"] = np.array(cutoff_utc)
+    payload["sessions_used"] = np.array(
+        [sessions_seen[name] for name in ss_cfg.TRACKED_SESSIONS])
+
+    out = path(symbol, timeframe, split_label)
     np.savez(out, **payload)
-    logger.info("Wrote %s", out)
+    logger.info("Wrote %s  (built from %s history, %d sessions)",
+                out, split_label, sum(sessions_seen.values()))
     return {"path": out, "sessions": sessions_seen}

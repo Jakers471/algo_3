@@ -24,6 +24,7 @@ import pytest
 from src.config.indicators import session_stats as cfg
 from src.events.types import BarClose
 from src.indicators.session_stats import SessionStats
+from src.session_history import store as history_store
 
 START = dt.datetime(2024, 3, 13, 8, 1, tzinfo=dt.timezone.utc)   # inside NY
 
@@ -403,7 +404,7 @@ def test_percentile_fields_are_none_when_the_table_has_not_been_built(monkeypatc
     monkeypatch.setattr(ss_module.history, "percentile_rank", _raise)
     monkeypatch.setattr(ss_module.history, "travel_budget", _raise)
 
-    ss = SessionStats(symbol="NQT", timeframe="5m")
+    ss = SessionStats(symbol="NQT", timeframe="5m", split_label=history_store.FULL)
     ss.update(bar(0, 100, 101, 99, 100), up(new=True))
     row = ss.update(bar(1, 100, 102, 99, 101), up())
     assert row["session_range_percentile"] is None
@@ -415,14 +416,14 @@ def test_percentile_fields_read_the_cached_table_when_available(monkeypatch):
 
     calls = []
 
-    def _rank(symbol, timeframe, session, elapsed_bar, metric, value):
-        calls.append((symbol, timeframe, session, elapsed_bar, metric, value))
+    def _rank(symbol, timeframe, session, elapsed_bar, metric, value, *, split_label):
+        calls.append((symbol, timeframe, session, elapsed_bar, metric, value, split_label))
         return {"range": 0.9, "travel": 0.4, "volume": 0.5}[metric]
 
     monkeypatch.setattr(ss_module.history, "percentile_rank", _rank)
-    monkeypatch.setattr(ss_module.history, "travel_budget", lambda *a: 0.25)
+    monkeypatch.setattr(ss_module.history, "travel_budget", lambda *a, **k: 0.25)
 
-    ss = SessionStats(symbol="NQT", timeframe="5m")
+    ss = SessionStats(symbol="NQT", timeframe="5m", split_label=history_store.FULL)
     ss.update(bar(0, 100, 101, 99, 100, delta=5.0, volume=50.0), up(new=True))
     row = ss.update(bar(1, 100, 102, 99, 101, delta=5.0, volume=50.0), up())
 
@@ -432,9 +433,11 @@ def test_percentile_fields_read_the_cached_table_when_available(monkeypatch):
     assert row["session_travel_budget"] == 0.25
     # Called with THIS session's own name ("NY", from `up()`'s default) and
     # THIS bar's own elapsed count (2, on the second bar) - not some other
-    # session's history or a stale bar count.
+    # session's history or a stale bar count. And against FULL history: this
+    # indicator is the live card, where the sealed third genuinely is the past.
     assert all(c[0] == "NQT" and c[1] == "5m" and c[2] == "NY" for c in calls)
     assert calls[-1][3] == 2
+    assert all(c[6] == ss_module.history.FULL for c in calls)
 
 
 def test_volume_percentile_is_not_queried_without_order_flow(monkeypatch):
@@ -442,10 +445,10 @@ def test_volume_percentile_is_not_queried_without_order_flow(monkeypatch):
 
     metrics_seen = []
     monkeypatch.setattr(ss_module.history, "percentile_rank",
-                        lambda s, t, sess, e, metric, v: metrics_seen.append(metric) or 0.5)
-    monkeypatch.setattr(ss_module.history, "travel_budget", lambda *a: 0.5)
+                        lambda s, t, sess, e, metric, v, **k: metrics_seen.append(metric) or 0.5)
+    monkeypatch.setattr(ss_module.history, "travel_budget", lambda *a, **k: 0.5)
 
-    ss = SessionStats(symbol="NQT", timeframe="5m")
+    ss = SessionStats(symbol="NQT", timeframe="5m", split_label=history_store.FULL)
     ss.update(bar(0, 100, 101, 99, 100), up(new=True))    # no delta/volume flow
     ss.update(bar(1, 100, 102, 99, 101), up())
     assert "volume" not in metrics_seen

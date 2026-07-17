@@ -58,12 +58,20 @@ costs one:
 
 ## Known debts, recorded rather than hidden
 
-- The **N study** (`scratch/analysis/session_window_study.py`, chose N=6) and
-  the shipped **percentile table** were computed over ALL 1,212 sessions —
-  including what is now sealed — before the seal existed. That leak is spent
-  and cannot be unspent. Before any evaluation on sealed data: re-run the N
-  study on explore only, and rebuild the percentile table with
-  `python -m src.cli.session_history --explore-only`.
+- The **N study** (`scratch/analysis/session_window_study.py`, chose N=6) was
+  computed over ALL 1,212 sessions — including what is now sealed — before the
+  seal existed. That leak is spent and cannot be unspent; it is the mildest of
+  these, because the study fit N to **event counts, not returns**. Re-run it on
+  explore only before any evaluation on sealed data.
+- The **percentile table** carried the same debt, and no longer does: the two
+  populations are now separate files that cannot overwrite each other
+  (`NQT_5m_full.npz`, `NQT_5m_explore.npz`), each stamped with what it was
+  built from. Build both with and without `--explore-only`; ask a table which
+  it is with `store.describe(symbol, timeframe, split_label)`. The gap this
+  closed was never "can you scope it" — `--explore-only` already worked — but
+  "can you know what you scoped," and the two tables genuinely differ: NY at
+  bar 20, range 3.0 x range_scale ranks at the 3.3rd percentile against full
+  history and the 2.8th against explore.
 - The sessions eyeballed during development (NY 25 Jun '26 among them) fall in
   the sealed period and are burned as evaluation material.
 - The catalog deliberately omits the percentile fields: they are derived FROM
