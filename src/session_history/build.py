@@ -85,9 +85,21 @@ def _cumulative(idx: list[int], high: np.ndarray, low: np.ndarray,
     return range_x, travel_x, cum_volume
 
 
-def build(symbol: str, timeframe: str) -> dict:
+def build(symbol: str, timeframe: str, *, explore_only: bool = False) -> dict:
+    """``explore_only`` drops every sealed session (see session_history/split.py).
+
+    The default (full history) is right for the LIVE card - sealed sessions
+    are the past, relative to live. It is WRONG for any evaluation on sealed
+    data: a table built over the full set bakes the vault's own distribution
+    into the reading being evaluated against it. Rebuild with explore_only
+    before that day.
+    """
     bars = load_raw(symbol, timeframe)[["open", "high", "low", "close", "volume"]]
     runs = session_runs(bars, ss_cfg.TRACKED_SESSIONS)
+    if explore_only:
+        from src.session_history import split
+        runs = [(name, idx) for name, idx in runs
+                if not split.is_sealed(int(bars.index[idx[0]].timestamp()))]
     scale = _scales(bars)
     high, low = bars["high"].to_numpy(), bars["low"].to_numpy()
     volume = bars["volume"].to_numpy()

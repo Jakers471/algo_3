@@ -26,10 +26,14 @@ def main() -> None:
         description="Build session_stats' percentile-vs-history table.")
     ap.add_argument("--symbol", default=ticks_cfg.OUTPUT_SYMBOL)
     ap.add_argument("--timeframe", default="5m")
+    ap.add_argument("--explore-only", action="store_true",
+                    help="drop sealed sessions (SESSION_SPLIT.json). Required before "
+                         "any evaluation ON sealed data; the full-history default is "
+                         "for the live card only.")
     args = ap.parse_args()
 
     started = time.time()
-    result = build.build(args.symbol, args.timeframe)
+    result = build.build(args.symbol, args.timeframe, explore_only=args.explore_only)
 
     print()
     print(console.paint(f"  wrote {result['path']}", console.BOLD, console.GREEN)
