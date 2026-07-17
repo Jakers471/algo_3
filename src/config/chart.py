@@ -82,11 +82,11 @@ LAYERS = (
     # on every symbol - pure time, so NQ/ES/NQT all get them. On by default; toggle
     # off in the Layers panel if three verticals a day is more ink than you want.
     {"id": "sessions",   "label": "Sessions",   "visible": True},
-    {"id": "swing",      "label": "Swings",     "visible": True},
-    {"id": "legs",       "label": "Legs",       "visible": True},
-    {"id": "breaks",     "label": "Breaks",     "visible": True},
-    {"id": "extremes",   "label": "Rails",      "visible": True},
-    {"id": "absorption", "label": "Absorption", "visible": True},
+    {"id": "swing",      "label": "Swings",     "visible": False},
+    {"id": "legs",       "label": "Legs",       "visible": False},
+    {"id": "breaks",     "label": "Breaks",     "visible": False},
+    {"id": "extremes",   "label": "Rails",      "visible": False},
+    {"id": "absorption", "label": "Absorption", "visible": False},
     {"id": "ribbon",     "label": "MA ribbon",  "visible": False},
     {"id": "ma",         "label": "Moving averages", "visible": True},
     {"id": "session_stats", "label": "Session profile", "visible": True},
