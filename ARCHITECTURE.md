@@ -21,7 +21,9 @@ algo_3/
 │   │   ├── table.py       desktop table: server URL, row cap, theme
 │   │   ├── live.py        contract id, which market streams, capture dir
 │   │   ├── profile.py     volume-at-price cache dir, tick size, value-area share
-│   │   ├── session_history.py  percentile table cache dir, percentile breakpoints
+│   │   ├── session_history.py  percentile table cache dir, breakpoints, and
+│   │   │                  SEALED_FROM - the vault date (the declaration; the
+│   │   │                  frozen receipt is SESSION_SPLIT.json at the root)
 │   │   └── indicators/    one module per indicator, named for its id
 │   │       ├── sessions.py  enable + line colors for the sessions indicator
 │   │       ├── orderflow.py enable + delta strip colors and placement
@@ -80,7 +82,16 @@ algo_3/
 │   │   │                  also Ladder, the live VAP accumulator both `profile`
 │   │   │                  and `session_stats` fold their bars into
 │   │   └── value_area.py  histogram -> POC / VAL / VAH (pure, no I/O)
-│   ├── session_history/  percentile-vs-history table for session_stats
+│   ├── session_history/  the population, the seal, and the readings on both
+│   │   ├── README.md      the subsystem's own map: seal -> catalog -> table,
+│   │   │                  the order of operations, and the known debts
+│   │   ├── split.py       read + VERIFY the seal (SESSION_SPLIT.json vs config
+│   │   │                  SEALED_FROM); label a session explore/sealed - the
+│   │   │                  one place the vault boundary is enforced
+│   │   ├── catalog.py     walk a dataset through the real indicators; one
+│   │   │                  parquet row per bar of every explore session - the
+│   │   │                  card as a population (sealed rows only by explicit
+│   │   │                  flag, to a separate loudly-named file)
 │   │   ├── build.py       walk every London/NY session once; write percentile
 │   │   │                  breakpoints per (session, elapsed bar, metric) + the
 │   │   │                  median final travel, to cache/session_history/
@@ -133,6 +144,8 @@ algo_3/
 │       ├── vap.py         build volume at price (python -m src.cli.vap)
 │       ├── session_history.py  build session_stats' percentile table
 │       │                  (python -m src.cli.session_history)
+│       ├── session_catalog.py  build the per-bar session catalog
+│       │                  (python -m src.cli.session_catalog)
 │       ├── fields.py      the field contract (python -m src.cli.fields)
 │       └── capture.py     record the live market feed (python -m src.cli.capture)
 ├── frontend/           browser code — never inside the Python src/
@@ -192,8 +205,13 @@ algo_3/
 │   │                       alignment, width in range_scale, confirmed labels
 │   ├── test_table_columns.py  pins row rendering: absent != zero, colour rules
 │   ├── test_table_client.py   pins the reconnect storm: backoff, adoption
+│   ├── test_session_split.py  pins the seal: declaration vs receipt drift is a
+│   │                       loud error; the default catalog cannot hold a sealed row
 │   └── test_lifecycle.py   pins per-port pidfiles; the Windows os.kill trap
 ├── conftest.py         puts repo root on sys.path so tests import `src`
+├── SESSION_SPLIT.json  FROZEN: the vault receipt - which sessions are explore
+│                       vs sealed (like DATA_AUDIT.json, data-truth, committed;
+│                       written once by scratch/analysis/seal_split.py)
 ├── (top level, not code): .env, logs/, data/, projectX_API/
 ```
 
@@ -412,9 +430,29 @@ indicators.session_stats ─► indicators.base, config.indicators.session_stats
                              the DISTRIBUTION range_scale is measured against has
                              itself drifted across the dataset's history.)
 
+session_history.split ─► config.session_history, SESSION_SPLIT.json
+                         (label a session explore/sealed by its start time.
+                          Loads the receipt ONCE and verifies it against the
+                          declared SEALED_FROM - disagreement raises SealDrift
+                          rather than answering; a seal that can move quietly
+                          is not a seal. Everything that respects the vault
+                          routes through this one reader.)
+session_history.catalog ─► indicators.{registry,sessions,range_scale,
+                           session_stats}, profile.store, data.loader,
+                           session_history.split, config.{session_history,
+                           indicators.profile, indicators.session_stats}
+                           (the card as a population: one parquet row per bar
+                            per explore session, through the REAL indicator
+                            code, never a reimplementation. SessionStats is
+                            built WITHOUT symbol/timeframe so the percentile
+                            fields stay absent - they are derived from this
+                            distribution and would leak the full-dataset
+                            table's shape into explore rows. Sealed rows only
+                            by include_sealed, to a separate file.)
 session_history.build ─► indicators.{sessions (session_runs), range_scale},
                          data.loader, config.session_history,
-                         config.indicators.session_stats (TRACKED_SESSIONS)
+                         config.indicators.session_stats (TRACKED_SESSIONS),
+                         session_history.split (explore_only)
                          (walks every London/NY session ONCE with range_scale
                           flowing continuously across session boundaries -
                           range_scale is a rolling window over calendar time,
@@ -633,6 +671,14 @@ engines' ``build`` callable).
   each cell to percentile breakpoints (598 London + 609 NY sessions on the shipped NQT 5m
   dataset, ~3s). Written to `cache/session_history/`, git-ignored. Rebuild after new data
   lands, the same way `--repack`/`cli.vap` do. Wired into `commands.bat` → Data.
+
+- **`python -m src.cli.session_catalog`** — build the per-bar session catalog: the card,
+  every explore session, every bar, one parquet (`cache/session_history/catalog_*.parquet`,
+  ~66k rows / 817 sessions on the shipped NQT 5m, ~40s). The foundation the population
+  interrogation and the k-NN sit on. The default build physically cannot contain a sealed
+  row; `--include-sealed` exists for the one honest final evaluation of an already-frozen
+  rule and writes to a separate, loudly-named file. See `src/session_history/README.md`
+  for the whole subsystem and the order of operations. Wired into `commands.bat` → Data.
 
 - **`python -m src.cli.fields`** — the field contract. Prints every snapshot field beside the
   indicator that publishes it, that indicator's source file, its config file, the unit the

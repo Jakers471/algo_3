@@ -384,6 +384,31 @@ The page **must be served** — opening `index.html` from the filesystem cannot 
 Starting reclaims the port from any older chart server, so they never stack;
 `--stop` closes one and confirms the port is free.
 
+## The vault and the catalog
+
+Research on the session card runs on a hard discipline: **everything that costs zero
+degrees of freedom happens before anything that costs one.** Description is free — looking
+at explore distributions burns nothing. Decisions are not.
+
+**The vault.** The most recent third of all London/NY sessions (from `SEALED_FROM =
+2025-10-01`, `config/session_history.py`) is **sealed**: not plotted, not eyeballed, not
+"just checked," until a rule is already frozen and gets its one honest evaluation. Split by
+*time*, not at random — volatility clusters, so a randomly held-out Wednesday sits beside a
+Tuesday that explored it and leaks straight through. The declaration lives in config; the
+frozen receipt (`SESSION_SPLIT.json`, committed like `DATA_AUDIT.json`) records exactly
+which sessions it seals — 817 explore, 395 sealed — and `src/session_history/split.py`
+refuses to answer if the two ever disagree.
+
+**The catalog** (`python -m src.cli.session_catalog`, `commands.bat` → Data) is the card
+computed over every explore session, every bar — ~66k parquet rows through the *real*
+indicators, never a reimplementation. It turns every N=1 anecdote into a population:
+"does range expansion with rising efficiency separate real breaks from traps" stops being
+an argument from three eyeballed sessions and becomes a query. The default build physically
+cannot contain a sealed row. `src/session_history/README.md` maps the whole subsystem, the
+order of operations, and the known debts (the N study and the shipped percentile table
+predate the seal and were computed over the full dataset — re-derive both explore-only
+before any sealed evaluation).
+
 **The strategy layer is being redefined and is currently absent**, so there is no
 backtest or walk-forward door to run yet. The engines behind them (`backtest/`,
 `optimize/`, `walkforward/`, `reporting/`) are intact and strategy-agnostic: a
@@ -401,10 +426,13 @@ _See `ARCHITECTURE.md` for all entry points. `src/broker/` is a reusable engine 
 - `frontend/` — browser code, self-contained, no build step (`frontend/README.md`)
 - `data/` — market data, git-ignored (quality audit: `DATA_AUDIT.md`)
 - `scratch/` — experiments & one-off tools, git-ignored
-- `cache/` — packed bar cache, volume-at-price store & server pidfile, git-ignored
-  (rebuild: `--repack`, and `python -m src.cli.vap`)
+- `cache/` — packed bar cache, volume-at-price store, session catalog & history tables,
+  server pidfile — git-ignored (rebuild: `--repack`, `python -m src.cli.vap`,
+  `python -m src.cli.session_catalog`, `python -m src.cli.session_history`)
 - `capture/` — recorded live market sessions (raw JSONL), git-ignored
 - `projectX_API/` — ProjectX API reference docs
+- `SESSION_SPLIT.json` — **frozen**: the vault receipt, which sessions are explore vs
+  sealed (see `src/session_history/README.md`)
 - `commands.bat` — the runnable command menu
 - `BUILD_PLAN.md` — the phased build plan (what we decided, what we verified, what's next)
 - `FIELDS.md` — **generated**: every snapshot field, its unit, its meaning, and the
