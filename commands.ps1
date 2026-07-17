@@ -151,7 +151,7 @@ $root = @{
                     @{ Label = 'Retracement  (does a leg give back less than the last? does it persist?)'; Run = { python -m scratch.analysis.retracement } },
                     @{ Label = 'Flow edge  (does order flow at a break predict the next break?)'; Run = { python -m scratch.analysis.flow_edge } },
                     @{ Label = 'Expectancy  (what does a bracket at a break earn, after costs?)'; Run = { python -m scratch.analysis.expectancy } },
-                    @{ Label = 'Forecast paper  (can you forecast tomorrow's volatility? train/test)'; Run = { python -m scratch.analysis.forecast_paper; Start-Process 'scratch/analysis/forecast_paper.html' } },
+                    @{ Label = 'Forecast paper  (can you forecast tomorrow''s volatility? train/test)'; Run = { python -m scratch.analysis.forecast_paper; Start-Process 'scratch/analysis/forecast_paper.html' } },
                     @{ Label = 'Edge paper  (why reward:risk cannot beat a coin - optional stopping)'; Run = { python -m scratch.analysis.edge_paper; Start-Process 'scratch/analysis/edge_paper.html' } },
                     @{ Label = 'Discipline paper  (is trading 90% risk management?)'; Run = { python -m scratch.analysis.discipline_paper; Start-Process 'scratch/analysis/discipline_paper.html' } },
                     @{ Label = 'Value width  (draw balanced vs imbalanced value areas)'; Run = { python -m scratch.analysis.value_width_draw } },
