@@ -58,6 +58,20 @@ RECENT_MIN_BARS = 6
 # they are independent, not duplicated.
 BINS_PER_SCALE = 8
 
+# --- shelves and gaps: HVN/LVN --------------------------------------------------
+# A bin qualifies as an HVN only if it is a strict local peak AND carries at
+# least this share of the POC's own volume - a real shelf, not a one-bin
+# wobble one tick either side of it. 0.5 means "half as loud as the fair
+# price" - loud enough that a stop placed behind it is resting on real
+# acceptance, not on noise the next bar erases.
+HVN_MIN_SHARE = 0.5
+
+# A bin qualifies as an LVN only if it is a strict local trough AND carries at
+# most this share of the POC's own volume - a real gap the market moved
+# through fast, not an ordinary thin bin at the edge of the range. 0.15 keeps
+# it well below "unremarkable" rather than merely "less than the peak."
+LVN_MAX_SHARE = 0.15
+
 # --- drawing -------------------------------------------------------------
 DRAW = True
 

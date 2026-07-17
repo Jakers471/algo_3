@@ -131,9 +131,11 @@ Publishes the running session scorecard, or nothing outside London/NY.
 | `session_delta_recent` | contracts, signed | yes | Sum of buy_volume - sell_volume over the last config.RECENT_WINDOW_MINUTES, NOT since the session opened. A cumulative sum across a session that changed character cancels its own regimes rather than averaging them - a crash's aggressive selling and the dip-buying that followed it net to a small number that reads as indecision when both moves had real conviction. None on a bar file, never a proxy zero; None until RECENT_MIN_BARS have been seen. |
 | `session_poc` | price | yes | The session's own point of control: the single price with the most volume traded at it since the open. None without volume at price (NQT + python -m src.cli.vap); None until range_scale has warmed up - the bins it sizes; and None while the chart's Profile toggle is off, the same switch `profile` itself uses - volume at price is a per-bar store lookup, and the switch exists so a plain browse never pays for it unasked. |
 | `session_poc_ratio` | 0..1 | yes | (session_poc - session_low) / session_range. Where the market's fair price sits inside the range it built to find it. |
-| `session_val` | price |  | Value area low: the bottom of the contiguous band around the POC holding config.profile.VALUE_AREA of the session's volume so far. |
-| `session_vah` | price |  | Value area high: the top of that same band. |
+| `session_val` | price | yes | Value area low: the bottom of the contiguous band around the POC holding config.profile.VALUE_AREA of the session's volume so far. |
+| `session_vah` | price | yes | Value area high: the top of that same band. |
 | `session_bins` | payload |  | The session's own histogram so far: [price, volume, buy_volume] per bin, bins range_scale / BINS_PER_SCALE wide. The chart draws it; nothing else should read it - five readings already say what it says. |
+| `session_hvn` | payload |  | Other local volume peaks besides the POC - prices, ascending, each carrying at least HVN_MIN_SHARE of the POC's own volume. What a stop belongs BEHIND, not at the session's tick extreme where resting stops cluster. |
+| `session_lvn` | payload |  | Local volume troughs - prices, ascending, each carrying at most LVN_MAX_SHARE of the POC's volume. A target, not an entry: price that reaches one tends to keep moving through it. |
 | `session_from_time` | epoch seconds, UTC |  | Close time of the session's first bar - where the profile drawing anchors. |
 | `session_to_time` | epoch seconds, UTC |  | Close time of the current bar - the profile's right edge, moving every bar. |
 

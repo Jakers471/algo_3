@@ -188,6 +188,22 @@ reads as indecision when neither was. It sums only the last `RECENT_WINDOW_MINUT
 `src/profile/store.py`) that `profile.py`'s developing range uses, so both indicators share one
 fold instead of two.
 
+**`session_hvn` / `session_lvn`** find the profile's OTHER shelves and gaps, besides the POC —
+a strict local peak or trough among filled neighbour bins, carrying at least `HVN_MIN_SHARE` (a
+real shelf, not a one-bin wobble) or at most `LVN_MAX_SHARE` of the POC's own volume (a real
+gap, not an ordinary thin bin). These are for **stop and target placement, not entry**: an HVN
+is what a stop belongs *behind* — real acceptance rarely gives way to noise — and an LVN is a
+target, because price that reaches one tends to keep moving through it fast. Neither is the
+session's tick extreme, which is only where resting stops cluster. One real limitation:
+`store.rebin()` drops zero-volume bins entirely, so a true empty gap — arguably the strongest
+possible LVN — is invisible to this list rather than found by it.
+
+Unlike `profile_val`/`profile_vah` (hidden behind **Details** in the desktop table),
+**`session_val`/`session_vah` are shown facts**, not buried: entry and stop placement read them
+directly, so hiding them by default was the wrong call for this specific pair.
+`session_hvn`/`session_lvn` stay `DETAIL` like `session_bins` does — they're lists of prices,
+not a single reading.
+
 **Click the current session's own dashed line** (London or NY) to open a live scorecard in
 the top-right corner — the numbers update on every bar for as long as replay keeps running,
 reading the same `snapshot.fields` the desktop table already receives

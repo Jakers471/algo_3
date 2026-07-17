@@ -287,6 +287,63 @@ def test_val_and_vah_bracket_the_poc():
     assert row["session_val"] <= row["session_poc"] <= row["session_vah"]
 
 
+# --- HVN/LVN: the profile's other shelves and gaps ------------------------------
+
+def test_a_secondary_shelf_is_found_as_an_hvn():
+    from src.indicators.session_stats import _peaks_and_troughs
+
+    # POC at 100 (volume 100). A local peak at 108 (60) is >= HVN_MIN_SHARE
+    # (0.5) of the POC and a strict local max among its filled neighbours.
+    bins = [[96.0, 20, 0], [98.0, 10, 0], [100.0, 100, 0],
+            [104.0, 15, 0], [108.0, 60, 0], [112.0, 10, 0]]
+    hvn, lvn = _peaks_and_troughs(bins, poc=100.0)
+    assert hvn == [108.0]
+
+
+def test_a_thin_bin_is_found_as_an_lvn():
+    from src.indicators.session_stats import _peaks_and_troughs
+
+    # POC at 100 (volume 100). 104's volume of 5 is a strict local min and
+    # well under LVN_MAX_SHARE (0.15) of the POC.
+    bins = [[96.0, 30, 0], [98.0, 40, 0], [100.0, 100, 0],
+            [102.0, 40, 0], [104.0, 5, 0], [106.0, 45, 0]]
+    hvn, lvn = _peaks_and_troughs(bins, poc=100.0)
+    assert lvn == [104.0]
+
+
+def test_the_poc_itself_is_never_also_reported_as_an_hvn():
+    from src.indicators.session_stats import _peaks_and_troughs
+
+    bins = [[96.0, 20, 0], [98.0, 10, 0], [100.0, 100, 0],
+            [102.0, 10, 0], [104.0, 20, 0]]
+    hvn, lvn = _peaks_and_troughs(bins, poc=100.0)
+    assert 100.0 not in hvn
+
+
+def test_a_bump_below_hvn_min_share_is_not_reported():
+    from src.indicators.session_stats import _peaks_and_troughs
+
+    # A local peak at 108, but only 20% of the POC's volume - below
+    # HVN_MIN_SHARE (0.5), so it is a wobble, not a shelf.
+    bins = [[96.0, 20, 0], [98.0, 10, 0], [100.0, 100, 0],
+            [104.0, 15, 0], [108.0, 20, 0], [112.0, 10, 0]]
+    hvn, lvn = _peaks_and_troughs(bins, poc=100.0)
+    assert hvn == []
+
+
+def test_too_few_bins_finds_nothing():
+    from src.indicators.session_stats import _peaks_and_troughs
+
+    assert _peaks_and_troughs([[100.0, 10, 0], [102.0, 5, 0]], poc=100.0) == ([], [])
+
+
+def test_hvn_and_lvn_are_none_without_volume_at_price():
+    ss = SessionStats()
+    row = ss.update(bar(0, 100, 101, 99, 100), up(new=True))
+    assert row["session_hvn"] is None
+    assert row["session_lvn"] is None
+
+
 def test_bins_and_span_are_none_without_a_range_scale_reading():
     ss = SessionStats()
     row = ss.update(_vbar(0, 100, 102, 98, 100, [(99.0, 10, 5)]),

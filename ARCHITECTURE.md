@@ -358,7 +358,30 @@ indicators.session_stats ─► indicators.base, config.indicators.session_stats
                              (chart.overlays.wants_vap). The one asymmetry: if
                              `profile` is already paying for the fetch,
                              session_stats rides along on the same bars for
-                             free even with its own switch off.)
+                             free even with its own switch off.
+
+                             session_hvn/session_lvn find the profile's OTHER
+                             shelves and gaps besides the POC - a strict local
+                             peak/trough among filled neighbour bins, filtered by
+                             a share of the POC's own volume
+                             (config.HVN_MIN_SHARE/LVN_MAX_SHARE) so a one-bin
+                             wobble does not qualify. For stop/target placement,
+                             not entry: an HVN is what a stop belongs BEHIND (real
+                             acceptance rarely gives way to noise); an LVN is a
+                             target (price that reaches one tends to keep moving
+                             through it). Neither is the session's tick extreme,
+                             which is where resting stops cluster. LIMITATION:
+                             store.rebin() drops zero-volume bins entirely, so a
+                             true empty gap - arguably the strongest LVN - is
+                             invisible to this list rather than found by it.
+
+                             session_val/session_vah ride the desktop table as
+                             shown facts, not DETAIL like profile_val/profile_vah
+                             are - entry and stop placement read them directly
+                             (src/table/columns.py _CHART_LEVELS no longer
+                             includes them). session_hvn/session_lvn, being lists
+                             of prices rather than one fact, are DETAIL like
+                             session_bins is.)
 
 profile.build      ─► data.resample (anchor + aggressor), config.{profile,ticks}
 profile.store      ─► profile.build (the packed dtypes), config.profile, numpy

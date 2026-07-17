@@ -73,6 +73,19 @@ uses - one fold, shared - and bins it the same way: ``range_scale /
 config.BINS_PER_SCALE`` wide, so the histogram's shape is comparable between a
 quiet hour and a loud one rather than drawing the clock.
 
+``session_hvn``/``session_lvn`` are the OTHER shelves in that histogram - a
+POC is the single loudest one, but a profile usually holds several. A bin is
+an HVN candidate if it is a strict local peak among its immediate neighbours
+AND carries at least ``config.HVN_MIN_SHARE`` of the POC's own volume - real
+acceptance, not a one-bin wobble. An LVN candidate is a strict local trough
+carrying at most ``config.LVN_MAX_SHARE`` - a gap the market moved through
+fast rather than a routine thin bin. These are for stop and target placement,
+not entry: an HVN is what a stop belongs BEHIND, because real acceptance does
+not give way to noise; an LVN is a target, because price that reaches one
+tends to keep moving through it. Neither is the session's tick extreme, which
+is where resting stops cluster and is the wick you get filled on, not a level
+that was ever accepted.
+
 It refuses outside ``config.TRACKED_SESSIONS``. VPbreakout trades London and
 NY only, and a "session so far" for Asia or the halt is a number nobody asked
 for and a rule could accidentally read.
@@ -107,6 +120,7 @@ _NOTHING = {
     "session_volume": None, "session_delta_recent": None,
     "session_poc": None, "session_poc_ratio": None,
     "session_val": None, "session_vah": None, "session_bins": None,
+    "session_hvn": None, "session_lvn": None,
     "session_from_time": None, "session_to_time": None,
 }
 
@@ -123,6 +137,42 @@ class _Bar:
     volume: float
     delta: float | None
     reversal: bool
+
+
+def _peaks_and_troughs(bins: list, poc: float) -> tuple[list[float], list[float]]:
+    """(HVN prices, LVN prices) - the OTHER shelves and gaps in the profile.
+
+    A strict local extremum among immediate neighbours, filtered by a share of
+    the POC's own volume: HVN_MIN_SHARE keeps a real shelf from a one-bin
+    wobble, LVN_MAX_SHARE keeps a real gap from an ordinary thin bin. The POC
+    itself is excluded - it already has its own field, and a bin cannot be
+    both the loudest AND merely notable.
+
+    LIMITATION: "neighbours" means the next FILLED bin on each side -
+    store.rebin() drops bins with zero volume entirely, so a true empty gap
+    (arguably the strongest possible LVN) is invisible to this list rather
+    than detected by it. What this finds is "quiet among what traded," not
+    "never traded at all."
+    """
+    if len(bins) < 3:
+        return [], []
+    volumes = [v for _, v, _ in bins]
+    poc_volume = max(volumes)
+    if poc_volume <= 0:
+        return [], []
+
+    hvn: list[float] = []
+    lvn: list[float] = []
+    for i in range(1, len(bins) - 1):
+        price, vol, _buy = bins[i]
+        if price == poc:
+            continue
+        left, right = volumes[i - 1], volumes[i + 1]
+        if vol > left and vol > right and vol >= cfg.HVN_MIN_SHARE * poc_volume:
+            hvn.append(price)
+        elif vol < left and vol < right and vol <= cfg.LVN_MAX_SHARE * poc_volume:
+            lvn.append(price)
+    return hvn, lvn
 
 
 def _window_stats(entries: list[_Bar]) -> dict | None:
@@ -230,6 +280,14 @@ class SessionStats(Indicator):
                          "[price, volume, buy_volume] per bin, bins range_scale / "
                          "BINS_PER_SCALE wide. The chart draws it; nothing else "
                          "should read it - five readings already say what it says."),
+        "session_hvn": ("payload", "Other local volume peaks besides the POC - "
+                        "prices, ascending, each carrying at least HVN_MIN_SHARE "
+                        "of the POC's own volume. What a stop belongs BEHIND, not "
+                        "at the session's tick extreme where resting stops cluster."),
+        "session_lvn": ("payload", "Local volume troughs - prices, ascending, each "
+                        "carrying at most LVN_MAX_SHARE of the POC's volume. A "
+                        "target, not an entry: price that reaches one tends to "
+                        "keep moving through it."),
         "session_from_time": ("epoch seconds, UTC", "Close time of the session's "
                               "first bar - where the profile drawing anchors."),
         "session_to_time": ("epoch seconds, UTC", "Close time of the current bar - "
@@ -366,8 +424,9 @@ class SessionStats(Indicator):
                 row["session_vah"] = vah
                 if rng > 0:
                     row["session_poc_ratio"] = (poc - self._low) / rng
-                row["session_bins"] = [[float(p), int(v), int(b)]
-                                       for p, v, b in zip(prices, volume, buy)]
+                bins = [[float(p), int(v), int(b)] for p, v, b in zip(prices, volume, buy)]
+                row["session_bins"] = bins
+                row["session_hvn"], row["session_lvn"] = _peaks_and_troughs(bins, poc)
             except EmptyProfile:
                 pass
         return row

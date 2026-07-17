@@ -125,9 +125,17 @@ _DERIVED = {"trigger"}          # = extreme -/+ RETRACE * range_scale
 # of them tells you nothing you can compare across two hours. What the profile
 # SAYS is `value_width`, `poc_position`, `poc_distance`, `price_vs_value` and
 # `delta_at_poc` - dimensionless, and shown. The levels are drawn on the chart.
-# session_stats' own value area is the same idea at a session's scope:
-# session_poc_ratio is the reading; session_val/session_vah are the drawing.
-_CHART_LEVELS = {"profile_val", "profile_vah", "session_val", "session_vah"}
+_CHART_LEVELS = {"profile_val", "profile_vah"}
+
+# session_val/session_vah are deliberately NOT in _CHART_LEVELS and so are
+# shown, unlike profile's own value area: entry and stop placement read these
+# levels directly, and burying the numbers a strategy is meant to trade off of
+# behind a Details click is the wrong default for them specifically.
+
+# Lists of prices, not a single fact - the histogram's other shelves and gaps.
+# Read session_poc/session_val/session_vah for the readings; these ride the
+# row for a future strategy (or the chart) to consume, same as session_bins.
+_PRICE_LISTS = {"session_hvn", "session_lvn"}
 
 
 def is_detail(name: str) -> bool:
@@ -155,6 +163,8 @@ def is_detail(name: str) -> bool:
     if name.endswith("_bins") or name == "profile_closed":
         # A histogram is not a cell. It rides the row so the chart can draw it.
         return True
+    if name in _PRICE_LISTS:
+        return True                      # a list of prices, not a single fact
     return False
 
 
