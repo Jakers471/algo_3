@@ -160,6 +160,7 @@ $root = @{
                                 @{ Label = 'London verify  -  null distribution  (50 shuffles; the real grid sits inside it)'; Run = { python -m scratch.session_research.london_verify --null-runs 50 } },
                                 @{ Label = 'What a null IS  (the shuffle explained + the histogram picture)'; Run = { python -m scratch.session_research.null_explained; Start-Process 'scratch/session_research/null_explained.png' } },
                                 @{ Label = 'Two histograms  (the one in the videos vs the one that decides - same trades)'; Run = { python -m scratch.session_research.two_histograms; Start-Process 'scratch/session_research/two_histograms.png' } },
+                                @{ Label = 'Which is real?  (six equity curves: one strategy, five coins. spot it)'; Run = { python -m scratch.session_research.which_is_real; Start-Process 'scratch/session_research/which_is_real.png' } },
                                 @{ Label = 'Session window study  (choose N for session_stats'' recent/prior phase detector)'; Run = { python -m scratch.session_research.session_window_study } }
                             )
                         }
