@@ -88,6 +88,17 @@ def build_catalog(symbol: str, timeframe: str, *, include_sealed: bool = False,
     step = _step_seconds(timeframe)
     tracked = set(ss_cfg.TRACKED_SESSIONS)
 
+    # Ask ONCE whether this symbol has volume at price, rather than raising
+    # NotBuilt on every bar and swallowing it: a bar-only symbol like NQ has no
+    # VAP by nature, and 1.4M exceptions is a slow way to find that out twice a
+    # second. The profile fields simply stay None, exactly as they do live.
+    if with_vap:
+        from src.profile.build import paths as vap_paths
+        if not all(p.exists() for p in vap_paths(symbol, profile_cfg.BASE_TIMEFRAME)):
+            logger.info("%s has no volume at price - the profile fields will be "
+                        "None (bar file; this is expected for NQ/ES)", symbol)
+            with_vap = False
+
     registry = Registry([Sessions(), RangeScale(), SessionStats()])
     o, h = bars["open"].to_numpy(), bars["high"].to_numpy()
     lo, c = bars["low"].to_numpy(), bars["close"].to_numpy()

@@ -157,6 +157,7 @@ $root = @{
                                 @{ Label = 'Session lookup  -  magnitude in raw points  (vol clustering: yes, +3.5pp)'; Run = { python -m scratch.session_research.session_lookup --target magnitude_raw } },
                                 @{ Label = 'Session lookup  -  POSITIVE CONTROL  (plant the answer; the harness must find it)'; Run = { python -m scratch.session_research.session_lookup --sanity } },
                                 @{ Label = 'London verify  (the one edge candidate, as trades with costs: p=0.078, DEAD)'; Run = { python -m scratch.session_research.london_verify } },
+                                @{ Label = 'London verify  -  NQ, 19 years the idea never saw  (0/12 cells: DEAD)'; Run = { python -m scratch.session_research.london_verify --symbol NQ --before 2024-03-12 } },
                                 @{ Label = 'London verify  -  null distribution  (50 shuffles; the real grid sits inside it)'; Run = { python -m scratch.session_research.london_verify --null-runs 50 } },
                                 @{ Label = 'What a null IS  (the shuffle explained + the histogram picture)'; Run = { python -m scratch.session_research.null_explained; Start-Process 'scratch/session_research/null_explained.png' } },
                                 @{ Label = 'Two histograms  (the one in the videos vs the one that decides - same trades)'; Run = { python -m scratch.session_research.two_histograms; Start-Process 'scratch/session_research/two_histograms.png' } },
