@@ -99,7 +99,8 @@ def _start(body: dict) -> Response:
     # The profile indicator's state IS the range it has accumulated, so switching
     # which range it draws means a new session, seeded from scratch. The chart
     # re-seeds at the same bar, which it already knows how to do.
-    session = manager.create(symbol, timeframe, owner, body.get("profile"))
+    session = manager.create(symbol, timeframe, owner, body.get("profile"),
+                             body.get("session_profile"))
     return _json(200, session.seed(int(body["index"]), body.get("history")))
 
 

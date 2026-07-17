@@ -176,11 +176,15 @@ meaningful click target.
 — `session_poc`/`session_val`/`session_vah`/`session_bins`, drawn on the chart exactly the way
 the developing swing-to-swing profile is (same `_histogram` helper, reused with its own
 `source`/`layer` so the two profiles never collide or replace each other), one Layers toggle
-("Session profile"). Volume at price is a per-bar store lookup, and rather than add a second
-switch nobody would know was related, `session_stats`' volume-at-price fields ride the SAME
-toolbar Profile on/off switch `profile` itself uses (`chart.overlays.wants_vap`) — everything
-else on the card (range, net, travel, direction changes…) needs no volume at price and keeps
-working regardless of that toggle.
+("Session profile"). Volume at price is a per-bar store lookup, so it has its own toolbar
+switch — **"Session profile: on/off"**, independent of the swing profile's own **"Profile:
+on/off"**. Either can run without the other: turn the session one on and the swing one off to
+watch only the session's profile, and vice versa, and neither pays for the other's fetch
+(`chart.overlays.wants_vap`). The one asymmetry: if the swing profile is already paying for
+the fetch, the session profile rides along on the same bars for free even with its own switch
+off — there is no second fetch to skip, though the Layers checkbox still controls whether it's
+actually drawn. Everything else on the card (range, net, travel, direction changes…) needs no
+volume at price and keeps working regardless of either toggle.
 
 `delta_at_poc` is the one almost nothing else can compute: it needs volume at price **and**
 aggressor side, and both live only in the ticks. It sits near zero by construction — the

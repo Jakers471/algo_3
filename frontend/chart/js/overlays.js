@@ -18,6 +18,7 @@ export class OverlayLayer {
     this.surface = surface;
     this._seq = 0;   // guards against a slow response overwriting a newer one
     this.profile = 'off';   // which volume-profile range the server should run
+    this.sessionProfile = 'off';   // independent switch for the session's own profile
     this.layers = layers;
     // The last specs the server sent. Hiding a layer must not cost a round trip,
     // and toggling one back on must show the marks it already had.
@@ -35,7 +36,8 @@ export class OverlayLayer {
     if (!bars.length) return;
     const seq = ++this._seq;
     try {
-      const { overlays } = await getOverlays(symbol, timeframe, startIndex, bars.length, this.profile);
+      const { overlays } = await getOverlays(
+        symbol, timeframe, startIndex, bars.length, this.profile, this.sessionProfile);
       if (seq !== this._seq) return;   // a newer refresh already landed
       this.draw(overlays);
     } catch (err) {

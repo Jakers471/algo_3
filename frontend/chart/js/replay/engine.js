@@ -43,6 +43,7 @@ export class ReplayEngine {
     this.symbol = null;
     this.timeframe = null;
     this.profile = 'off';
+    this.sessionProfile = 'off';   // independent switch for the session's own profile
     this._recovering = false;
     this._recoveryFailures = 0;
     this._generation = 0;   // guards a slow start against a newer one
@@ -108,15 +109,18 @@ export class ReplayEngine {
    * The server seeds its indicators over the same window it hands us marks for,
    * so what we draw and what it believes are the same thing.
    */
-  async start(symbol, timeframe, index, profile = this.profile) {
+  async start(symbol, timeframe, index, profile = this.profile,
+              sessionProfile = this.sessionProfile) {
     this.symbol = symbol;
     this.timeframe = timeframe;
     // The profile indicator's state IS the range it has accumulated, so a change
-    // of range is a new session, not a new setting on this one.
+    // of range is a new session, not a new setting on this one. Same for
+    // session_stats' own volume-at-price fields, gated by a SEPARATE switch.
     this.profile = profile;
+    this.sessionProfile = sessionProfile;
     const generation = ++this._generation;
 
-    const seed = await this.stream.start(symbol, timeframe, index, profile);
+    const seed = await this.stream.start(symbol, timeframe, index, profile, sessionProfile);
 
     // History bars still come over the binary endpoint: 5,000 bars is 120KB of
     // packed records, versus megabytes of JSON inside a snapshot.

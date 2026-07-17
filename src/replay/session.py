@@ -41,7 +41,8 @@ class ReplaySession:
     """One cursor over one symbol/timeframe, with live indicator state."""
 
     def __init__(self, symbol: str, timeframe: str, owner: str = "",
-                 profile_mode: str | None = None) -> None:
+                 profile_mode: str | None = None,
+                 session_profile_mode: str | None = None) -> None:
         self.id = uuid.uuid4().hex[:12]
         self.symbol = symbol
         self.timeframe = timeframe
@@ -49,6 +50,10 @@ class ReplaySession:
         # session: the indicator's state IS the range it has accumulated, and a
         # state machine cannot be re-pointed halfway through.
         self.profile_mode = profile_mode
+        # A SEPARATE switch for session_stats' own volume-at-price fields - see
+        # chart.overlays.wants_vap. Independent of profile_mode so either
+        # profile can be watched without paying for the other's fetch.
+        self.session_profile_mode = session_profile_mode
         # Who asked for this replay. A browser identifies itself with a stable
         # id, so starting a new replay retires the one it left behind - even
         # across a page refresh, when it has forgotten the session id itself.
@@ -102,7 +107,7 @@ class ReplaySession:
                                     index - self.first_index)
             marks: list[dict] = []
             events = overlays.bar_events(bars, self.symbol, self.timeframe,
-                                         with_vap=overlays.wants_vap(self.registry, self.profile_mode))
+                                         with_vap=overlays.wants_vap(self.registry, self.session_profile_mode))
             profile = self.registry.get("profile")
             last = len(bars) - 1
             prev_time: int | None = None
@@ -164,7 +169,7 @@ class ReplaySession:
 
             bar = bars[0]
             event = overlays.bar_events(bars, self.symbol, self.timeframe,
-                                        with_vap=overlays.wants_vap(self.registry, self.profile_mode))[0]
+                                        with_vap=overlays.wants_vap(self.registry, self.session_profile_mode))[0]
             row = self.registry.update(event)
 
             self.cursor = index

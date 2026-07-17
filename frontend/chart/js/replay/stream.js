@@ -73,7 +73,7 @@ export class ReplayStream {
    * produced. The server replayed those bars silently, so the indicators hold
    * exactly what they would have held had we played into this point.
    */
-  async start(symbol, timeframe, index, profile = 'off') {
+  async start(symbol, timeframe, index, profile = 'off', sessionProfile = 'off') {
     const previous = this.sessionId;
 
     // Close the old socket BEFORE asking the server to retire its session.
@@ -89,7 +89,8 @@ export class ReplayStream {
       // Hand the old id back so the server can retire it: an orphaned session
       // would keep a stepping thread alive behind a view that moved on.
       const seed = await post('/api/replay/start', {
-        symbol, timeframe, index, profile, replace: previous, owner: clientId(),
+        symbol, timeframe, index, profile, session_profile: sessionProfile,
+        replace: previous, owner: clientId(),
       });
       this.sessionId = seed.session;
       this._open();

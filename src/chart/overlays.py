@@ -101,28 +101,31 @@ def build_registry(profile_mode: str | None = None) -> Registry:
     return Registry(indicators)
 
 
-def wants_vap(registry: Registry, profile_mode: str | None = None) -> bool:
+def wants_vap(registry: Registry, session_profile_mode: str | None = None) -> bool:
     """Does anything running in this registry read a bar's volume at price?
 
     A store lookup per bar is not free - fetching it for every request made a
-    5,000-bar browse window take minutes, which is what the toolbar's
-    Profile on/off switch exists to gate. `profile` only ever runs when that
-    switch is on (`build_registry` never builds it otherwise), so checking for
-    it is enough on its own.
+    5,000-bar browse window take minutes, which is why each reader is gated by
+    its OWN toolbar switch rather than fetching unconditionally.
 
-    `session_stats` is different: it runs unconditionally (its range/net/
-    travel/volume/delta fields need no volume at price at all), so it cannot
-    be used the same way `profile.has(...)` is - that would force the fetch on
-    every request, on every symbol, whether or not anyone ever opens the
-    session panel. Its OWN volume-at-price fields (POC/VAL/VAH/bins) are
-    therefore gated by the SAME toolbar switch `profile` uses, not a second
-    one: "Profile: on" means "fetch volume at price for whatever wants it
-    this request," a single meaning rather than two switches a user has to
-    learn are related.
+    `profile` only ever runs when its switch is on (`build_registry` never
+    builds it otherwise), so `registry.has("profile")` already says everything
+    it needs to. `session_stats` is different: it runs unconditionally - its
+    range/net/travel/volume/delta fields need no volume at price at all - so a
+    SEPARATE switch, `session_profile_mode`, decides whether its own
+    POC/VAL/VAH/bins get fed. Two independent switches, not one shared: a user
+    who wants only the session's profile and not the swing one (or the other
+    way round) can have exactly that, and neither pays for the other's fetch.
+
+    The one asymmetry: if `profile` is ALREADY paying for the fetch, session_stats
+    rides along on the same bars for free, even with its own switch off - there
+    is no second fetch to skip. Its drawing stays under its own control either
+    way, through the Layers panel (visibility, never computation) rather than
+    this switch (computation, never visibility).
     """
     if registry.has("profile"):
         return True
-    return registry.has("session_stats") and (profile_mode or "off") != "off"
+    return registry.has("session_stats") and (session_profile_mode or "off") != "off"
 
 
 def _optional(value) -> float | None:
@@ -685,7 +688,8 @@ def group_marks(marks: list[dict]) -> list[dict]:
 
 
 def for_range(symbol: str, timeframe: str, start: int, count: int,
-              profile_mode: str | None = None) -> list[dict]:
+              profile_mode: str | None = None,
+              session_profile_mode: str | None = None) -> list[dict]:
     """Overlay specs for bars ``[start, start+count)``. Used by browse mode.
 
     Indicators are fed only these bars, in order, so nothing in the output can
@@ -700,7 +704,7 @@ def for_range(symbol: str, timeframe: str, start: int, count: int,
 
     marks: list[dict] = []
     events = bar_events(bars, symbol, timeframe,
-                       with_vap=wants_vap(registry, profile_mode))
+                       with_vap=wants_vap(registry, session_profile_mode))
     profile = registry.get("profile")
     last = len(bars) - 1
 

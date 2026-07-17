@@ -235,3 +235,40 @@ def test_the_session_profile_draws_under_its_own_source_and_layer():
 def test_tracked_sessions_config_is_london_and_ny():
     """The scope this whole indicator exists to enforce."""
     assert set(cfg.TRACKED_SESSIONS) == {"London", "NY"}
+
+
+# --- wants_vap: two independent switches, not one shared ------------------------
+
+class _FakeRegistry:
+    """Stands in for a real Registry - only `.has()` is exercised here."""
+
+    def __init__(self, *running):
+        self._running = set(running)
+
+    def has(self, indicator_id):
+        return indicator_id in self._running
+
+
+def test_session_profile_alone_wants_vap_without_the_swing_profile():
+    """The user's own case: session profile on, swing profile off."""
+    from src.chart import overlays
+
+    registry = _FakeRegistry("session_stats")   # profile never built
+    assert overlays.wants_vap(registry, session_profile_mode="on")
+
+
+def test_neither_switch_on_means_no_fetch():
+    from src.chart import overlays
+
+    registry = _FakeRegistry("session_stats")
+    assert not overlays.wants_vap(registry, session_profile_mode="off")
+    assert not overlays.wants_vap(registry, session_profile_mode=None)
+
+
+def test_the_swing_profile_running_at_all_forces_the_fetch_regardless():
+    """If `profile` is already paying for the fetch, session_stats rides along
+    for free even with its own switch off - there is no second fetch to skip."""
+    from src.chart import overlays
+
+    registry = _FakeRegistry("profile", "session_stats")
+    assert overlays.wants_vap(registry, session_profile_mode="off")

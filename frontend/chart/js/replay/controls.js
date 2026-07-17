@@ -56,10 +56,19 @@ export class Controls {
   get symbol() { return $('symbol').value; }
   get timeframe() { return $('timeframe').value; }
   get profile() { return $('profile').value; }
+  get sessionProfile() { return $('session-profile').value; }
 
-  /** Which range the volume profile covers: off / developing / leg / box. */
+  /**
+   * Two INDEPENDENT switches, both gating a volume-at-price fetch: the swing
+   * profile's range, and session_stats' own session-wide one. Either can be on
+   * without the other - watching only the session's profile must not pay for
+   * the swing one's fetch, and the reverse.
+   */
   _wireProfile() {
-    $('profile').addEventListener('change', () => this.onProfileChange(this.profile));
+    $('profile').addEventListener('change',
+      () => this.onProfileChange(this.profile, this.sessionProfile));
+    $('session-profile').addEventListener('change',
+      () => this.onProfileChange(this.profile, this.sessionProfile));
     // Both selectors, not just the symbol: whether a profile is possible depends
     // on the symbol (are there ticks?) AND the timeframe (can the store be
     // sliced that fine?). Watching one of them left 15s offering a profile the
@@ -78,18 +87,23 @@ export class Controls {
    * bar finer than that cannot be sliced out of it, and a bar that is not a whole
    * multiple of it would be handed volume from the bars either side.
    *
-   * In both cases the control is disabled and says why, rather than being offered
-   * and quietly drawing nothing.
+   * In both cases BOTH controls are disabled and say why, rather than being
+   * offered and quietly drawing nothing - the constraint is about the data, not
+   * about which of the two profiles is asking for it.
    */
   _syncProfile() {
-    const select = $('profile');
     const reason = this._noProfileBecause();
-    select.disabled = Boolean(reason);
-    select.title = reason || 'Volume profile range';
-    if (reason && select.value !== 'off') {
-      select.value = 'off';
-      this.onProfileChange('off');
+    let changed = false;
+    for (const id of ['profile', 'session-profile']) {
+      const select = $(id);
+      select.disabled = Boolean(reason);
+      select.title = reason || 'Volume profile range';
+      if (reason && select.value !== 'off') {
+        select.value = 'off';
+        changed = true;
+      }
     }
+    if (changed) this.onProfileChange('off', 'off');
   }
 
   /** Why this symbol/timeframe cannot be profiled, or '' if it can. */

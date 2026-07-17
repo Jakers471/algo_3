@@ -84,7 +84,8 @@ async function boot() {
       // Browse and replay share one surface. Hand it over before replay draws,
       // or a scroll-triggered backfill will rebuild the series out from under it.
       browser.suspend();
-      await engine.start(controls.symbol, controls.timeframe, index, controls.profile);
+      await engine.start(controls.symbol, controls.timeframe, index,
+                        controls.profile, controls.sessionProfile);
       controls.showProgress(engine.cursor, engine.total);
     },
 
@@ -95,10 +96,11 @@ async function boot() {
      * a setting toggled mid-flight: replay re-seeds at the bar it had reached
      * (the same machinery a retired session uses), and browse simply refetches.
      */
-    async onProfileChange(mode) {
+    async onProfileChange(mode, sessionMode = controls.sessionProfile) {
       overlays.profile = mode;
+      overlays.sessionProfile = sessionMode;
       if (controls.mode === 'replay' && engine.symbol) {
-        await engine.start(engine.symbol, engine.timeframe, engine.cursor + 1, mode);
+        await engine.start(engine.symbol, engine.timeframe, engine.cursor + 1, mode, sessionMode);
       } else {
         overlays.refresh(browser.symbol, browser.timeframe, browser.firstIndex, browser.bars);
       }

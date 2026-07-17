@@ -25,9 +25,10 @@ _REAPER: threading.Thread | None = None
 
 
 def create(symbol: str, timeframe: str, owner: str = "",
-           profile_mode: str | None = None) -> ReplaySession:
+           profile_mode: str | None = None,
+           session_profile_mode: str | None = None) -> ReplaySession:
     _ensure_reaper()
-    session = ReplaySession(symbol, timeframe, owner, profile_mode)
+    session = ReplaySession(symbol, timeframe, owner, profile_mode, session_profile_mode)
     with _LOCK:
         _SESSIONS[session.id] = session
     logger.info("Replay %s: created (%s %s)", session.id, symbol, timeframe)

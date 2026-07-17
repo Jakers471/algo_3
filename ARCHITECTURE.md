@@ -325,12 +325,15 @@ indicators.session_stats ─► indicators.base, config.indicators.session_stats
                              chart.overlays._histogram with its own `source`/
                              `layer` ("session_stats") so the two profiles never
                              collide in collapse_redrawn or in the Layers panel.
-                             Its volume-at-price fields are None whenever
-                             `profile`'s ARE, for the same reason: fetching vap
-                             per bar is not free, so `chart.overlays.wants_vap`
-                             gates BOTH indicators behind the toolbar's single
-                             Profile on/off switch rather than adding a second
-                             one nobody would know was related.)
+                             Fetching vap per bar is not free, so its
+                             volume-at-price fields are gated by their OWN
+                             toolbar switch (`session_profile_mode`), independent
+                             of `profile`'s - either can run without the other,
+                             and neither pays for the other's fetch
+                             (chart.overlays.wants_vap). The one asymmetry: if
+                             `profile` is already paying for the fetch,
+                             session_stats rides along on the same bars for
+                             free even with its own switch off.)
 
 profile.build      ─► data.resample (anchor + aggressor), config.{profile,ticks}
 profile.store      ─► profile.build (the packed dtypes), config.profile, numpy

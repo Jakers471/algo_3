@@ -79,9 +79,10 @@ export const locate = (symbol, timeframe, time) =>
  * Python computed these. The chart renders them without knowing what they mean -
  * pass the range you have REVEALED and the drawing cannot leak the future.
  */
-export const getOverlays = (symbol, timeframe, start, count, profile = 'off') =>
+export const getOverlays = (symbol, timeframe, start, count, profile = 'off',
+                            sessionProfile = 'off') =>
   getJSON('/api/overlays', {
-    symbol, timeframe, profile,
+    symbol, timeframe, profile, session_profile: sessionProfile,
     start: Math.max(0, Math.floor(start)), count: Math.floor(count),
   });
 

@@ -174,4 +174,6 @@ def _overlays(query: dict) -> Response:
         raise ValueError("'count' must not be negative")
     n = min(n, chart_cfg.MAX_BARS_PER_REQUEST)
     mode = query.get("profile", [None])[0]
-    return _json(200, {"overlays": overlays.for_range(symbol, timeframe, start, n, mode)})
+    session_mode = query.get("session_profile", [None])[0]
+    return _json(200, {"overlays": overlays.for_range(
+        symbol, timeframe, start, n, mode, session_mode)})
