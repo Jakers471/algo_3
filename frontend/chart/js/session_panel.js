@@ -74,16 +74,13 @@ export class SessionPanel {
         + `${pct(fields.session_net_ratio)} of range `
         + `<span class="muted">&lt;- direction/strength</span></div>
       <div class="session-row">closed at ${pct(fields.session_closed_ratio)} of range</div>
-      <div class="session-row">body ${pct(fields.session_body_ratio)} | `
-        + `up-wick ${pct(fields.session_upwick_ratio)} | `
-        + `low-wick ${pct(fields.session_lowwick_ratio)}</div>
       <div class="session-row">travel ${asPoints(fields.session_travel, scale)} pts | `
         + `efficiency ${eff(fields.session_efficiency)}</div>
       <div class="session-row">direction changes ${fields.session_dir_changes ?? '--'} | `
         + `high formed ${pct(fields.session_high_at_ratio)} in | `
         + `low formed ${pct(fields.session_low_at_ratio)} in</div>
       <div class="session-row">volume ${vol(fields.session_volume)} | `
-        + `delta ${vol(fields.session_delta)}</div>
+        + `delta (recent) ${vol(fields.session_delta_recent)}</div>
       <div class="session-row">POC @ ${poc} (${pct(fields.session_poc_ratio)} of range)</div>
     `;
   }

@@ -84,17 +84,14 @@ with it: **yes** by default, **detail** only when you click Details.
 |  | `session_bars` | count | yes | Bars seen since the session opened. |
 |  | `session_net` | x range_scale | yes | (close - session_open) / range_scale. Signed: negative is a session that sold off. |
 |  | `session_net_ratio` | -1..+1 | yes | session_net / session_range. How much of the session's own range the net move actually covered - direction and strength in one number. |
-|  | `session_closed_ratio` | 0..1 | yes | (close - session_low) / session_range. Where price sits right now inside the session's own range. Near 0 is at the low, near 1 at the high. |
-|  | `session_body_ratio` | 0..1 | yes | \|session_net\| / range, treating the whole session as one candle. body + up-wick + low-wick sum to 1. |
-|  | `session_upwick_ratio` | 0..1 | yes | (session_high - max(open, close)) / range. |
-|  | `session_lowwick_ratio` | 0..1 | yes | (min(open, close) - session_low) / range. |
+|  | `session_closed_ratio` | 0..1 | yes | (close - session_low) / session_range. Where price sits right now inside the session's own range. Near 0 is at the low, near 1 at the high. No separate body/wick split is published: given this and session_net_ratio, open_ratio = closed_ratio - net_ratio always, and body/up-wick/low-wick are arithmetic on those two - not a third fact. |
 |  | `session_travel` | x range_scale | yes | Sum of every bar's own (high - low) since the open, / range_scale - how far price actually walked, not just where it ended up. |
 |  | `session_efficiency` | 0..1 | yes | session_range / session_travel. 1.0 is a straight line from open to now; a small number is a session that covered a lot of ground for little net progress - the ratio companion to session_dir_changes. |
 |  | `session_dir_changes` | count | yes | Times the close-to-close direction flipped sign since the open. A counting measure: how choppy the session read, with no points threshold to calibrate. |
 |  | `session_high_at_ratio` | 0..1 | yes | How far into the session (by bar count) the running high was set. Near 0 is early - the high was made and defended. |
 |  | `session_low_at_ratio` | 0..1 | yes | The same, for the running low. |
-|  | `session_volume` | contracts | yes | Total volume since the session opened. None on a bar file - use a tick-rebuilt dataset (NQT). |
-|  | `session_delta` | contracts, signed | yes | Sum of buy_volume - sell_volume since the session opened. None on a bar file, never a proxy zero. |
+|  | `session_volume` | contracts | yes | Total volume since the session opened. Unsigned and genuinely additive, so cumulative is honest here in a way it is not for delta. None on a bar file - use a tick-rebuilt dataset (NQT). |
+|  | `session_delta_recent` | contracts, signed | yes | Sum of buy_volume - sell_volume over the last config.RECENT_WINDOW_MINUTES, NOT since the session opened. A cumulative sum across a session that changed character cancels its own regimes rather than averaging them - a crash's aggressive selling and the dip-buying that followed it net to a small number that reads as indecision when both moves had real conviction. None on a bar file, never a proxy zero; None until RECENT_MIN_BARS have been seen. |
 |  | `session_poc` | price | yes | The session's own point of control: the single price with the most volume traded at it since the open. None without volume at price (NQT + python -m src.cli.vap); None until range_scale has warmed up - the bins it sizes; and None while the chart's Profile toggle is off, the same switch `profile` itself uses - volume at price is a per-bar store lookup, and the switch exists so a plain browse never pays for it unasked. |
 |  | `session_poc_ratio` | 0..1 | yes | (session_poc - session_low) / session_range. Where the market's fair price sits inside the range it built to find it. |
 |  | `session_val` | price | detail | Value area low: the bottom of the contiguous band around the POC holding config.profile.VALUE_AREA of the session's volume so far. |
