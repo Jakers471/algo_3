@@ -32,6 +32,7 @@ from src.config.indicators import profile as profile_cfg
 from src.config.indicators import range_scale as range_scale_cfg
 from src.config.indicators import regime as regime_cfg
 from src.config.indicators import ribbon as ribbon_cfg
+from src.config.indicators import session_stats as session_stats_cfg
 from src.config.indicators import sessions as sessions_cfg
 from src.config.indicators import swing as swing_cfg
 from src.events.types import BarClose
@@ -45,6 +46,7 @@ from src.indicators.range_scale import RangeScale
 from src.indicators.regime import Regime
 from src.indicators.registry import Registry
 from src.indicators.ribbon import Ribbon
+from src.indicators.session_stats import SessionStats
 from src.indicators.sessions import Sessions
 from src.indicators.swing import Swing
 from src.profile import store as store_vap
@@ -62,6 +64,8 @@ def build_registry(profile_mode: str | None = None) -> Registry:
     indicators = []
     if sessions_cfg.ENABLED:
         indicators.append(Sessions())
+    if session_stats_cfg.ENABLED:
+        indicators.append(SessionStats())
     if orderflow_cfg.ENABLED:
         indicators.append(OrderFlow())
     if absorption_cfg.ENABLED:
@@ -74,7 +78,8 @@ def build_registry(profile_mode: str | None = None) -> Registry:
     # regime reads the ribbon and range_scale, so enabling it enables both -
     # otherwise the registry raises on a missing dependency and the dial is a trap.
     wants_ribbon = ribbon_cfg.ENABLED or regime_cfg.ENABLED
-    if range_scale_cfg.ENABLED or wants_swing or regime_cfg.ENABLED:
+    if (range_scale_cfg.ENABLED or wants_swing or regime_cfg.ENABLED
+            or session_stats_cfg.ENABLED):
         indicators.append(RangeScale())
     if wants_swing:
         indicators.append(Swing())

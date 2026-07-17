@@ -23,6 +23,12 @@ import { LayersPanel } from './layers_panel.js';
 import { OverlayLayer } from './overlays.js';
 import { Controls } from './replay/controls.js';
 import { ReplayEngine } from './replay/engine.js';
+import { SessionPanel } from './session_panel.js';
+
+// A click within this many CSS pixels of the session's own dashed line counts
+// as "clicking that session" - tight enough not to fire on an ordinary click
+// elsewhere on the chart, loose enough not to demand a pixel-perfect hit.
+const SESSION_CLICK_TOLERANCE_PX = 10;
 
 async function boot() {
   const [cfg, datasets] = await Promise.all([getConfig(), getDatasets()]);
@@ -39,13 +45,27 @@ async function boot() {
   const overlays = new OverlayLayer(surface, layers);
   const browser = new Browser(surface, overlays, cfg);
   const engine = new ReplayEngine(cfg, surface, layers);
+  const sessionPanel = new SessionPanel(document.getElementById('session-panel'));
 
-  engine.on('bar', ({ bar, seeded }) => {
+  engine.on('bar', ({ bar, seeded, snapshot }) => {
     if (bar) {
       controls.showBar(bar);
       controls.setDate(bar.time);
     }
     if (!seeded) controls.showProgress(engine.cursor, engine.total);
+    if (snapshot) sessionPanel.update(snapshot.fields);
+  });
+
+  // Click the London/NY session's own dashed line to open (or close) its live
+  // scorecard - the numbers session_stats has accumulated since that session
+  // opened, updating on every bar for as long as replay keeps running.
+  surface.onClick((param) => {
+    if (controls.picking || !param.point) return;
+    const open = engine.latestSessionOpen();
+    if (!open) return;
+    const x = surface.chart.timeScale().timeToCoordinate(open.time);
+    if (x === null || Math.abs(param.point.x - x) > SESSION_CLICK_TOLERANCE_PX) return;
+    sessionPanel.toggle(open.label, engine.lastFields);
   });
 
   const controls = new Controls({
@@ -58,6 +78,7 @@ async function boot() {
 
     /** Cut back to a point in time; the server seeds and starts publishing. */
     async onStart(epochSeconds) {
+      sessionPanel.hide();   // a new cut is a new session_stats state
       const { index } = await locate(controls.symbol, controls.timeframe, epochSeconds);
       controls.setMode('replay');
       // Browse and replay share one surface. Hand it over before replay draws,
@@ -85,6 +106,7 @@ async function boot() {
 
     /** Leave replay: retire the session, go back to the live tail of the data. */
     async onExit() {
+      sessionPanel.hide();   // session_stats' state is retired with the session
       await engine.stop();
       await browser.load(controls.symbol, controls.timeframe);
       const last = browser.bars[browser.bars.length - 1];

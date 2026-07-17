@@ -32,7 +32,8 @@ algo_3/
 │   │       ├── ribbon.py    MA fan: period spread (count/start/step) + slope colors
 │   │       ├── regime.py    align/width cutoffs + confirm bars + per-regime colors
 │   │       ├── profile.py   bin width, how many closed profiles to keep
-│   │       └── ma.py        named MAs: period/enabled/color per line
+│   │       ├── ma.py        named MAs: period/enabled/color per line
+│   │       └── session_stats.py  which sessions.py names get a scorecard (London/NY)
 │   ├── audit/           read the data-truth facts from DATA_AUDIT.json
 │   │   └── reader.py       front door: specs, handling flags, data end
 │   ├── logging/         the logging job: dials + the setup that applies them
@@ -66,10 +67,15 @@ algo_3/
 │   │   ├── ribbon.py      a fan of 32 SMAs of the close; each line coloured by its slope
 │   │   ├── regime.py      reads the ribbon: alignment/width/agreement -> a regime label
 │   │   ├── profile.py     the developing profile; frozen onto each structure
-│   │   └── ma.py          a short list of named SMAs, each its own line and colour
+│   │   ├── ma.py          a short list of named SMAs, each its own line and colour
+│   │   └── session_stats.py  the running London/NY scorecard: range, net, travel,
+│   │                          flow, POC - the VPbreakout strategy's planned inputs,
+│   │                          watchable live now via the chart's session panel
 │   ├── profile/        volume at price - what bars can never carry
 │   │   ├── build.py       ticks -> 1-tick histograms, packed (I/O + fold)
-│   │   ├── store.py       memmap the pack; slice a time range -> histogram
+│   │   ├── store.py       memmap the pack; slice a time range -> histogram;
+│   │   │                  also Ladder, the live VAP accumulator both `profile`
+│   │   │                  and `session_stats` fold their bars into
 │   │   └── value_area.py  histogram -> POC / VAL / VAH (pure, no I/O)
 │   ├── data/           load the NT8 Parquet store into clean bars — engine
 │   │   ├── loader.py      read a symbol/TF Parquet -> raw UTC OHLCV (I/O)
@@ -132,6 +138,9 @@ algo_3/
 │           ├── overlays.js   draw the backend's shapes; knows no indicator
 │           ├── layers.js     which layers are visible; filters marks by `source`
 │           ├── layers_panel.js  the Layers checkbox menu (a thin door)
+│           ├── session_panel.js  the London/NY scorecard: formats session_stats
+│           │                 fields the server already ships in `snapshot.fields`;
+│           │                 no computation, only display
 │           ├── vertical_lines.js  chart primitive: dashed rules with labels
 │           ├── segments.js   chart primitive: polylines in (time, price) space
 │           ├── bands.js      chart primitive: full-height background tints
@@ -292,8 +301,29 @@ indicators.ma       ─► indicators.base, config.indicators.ma
                         named lines meant to be read individually. No dependency on
                         `ribbon`; the two coexist as separate indicators.)
 
+indicators.session_stats ─► indicators.base, config.indicators.session_stats,
+                            profile.store (Ladder), profile.value_area
+                            (depends on `sessions` for the boundary and `range_scale`
+                             for the conversion; reads open/high/low/close/volume/
+                             delta/vap straight off the event, the same pattern
+                             `orderflow` and `profile` use. Resets on every
+                             `session_new`; refuses (all fields None) outside
+                             config.TRACKED_SESSIONS = ("London", "NY") - a "session
+                             so far" for Asia or the halt is a number nobody trades
+                             on. session_range/session_net/session_travel are the
+                             only fields besides range_scale itself measured in
+                             points - and even those convert through range_scale
+                             before publishing, per the codebase-wide rule
+                             tests/test_fields.py enforces; every ratio field
+                             (net_ratio, closed_ratio, body/wick, efficiency)
+                             is already dimensionless by construction.)
+
 profile.build      ─► data.resample (anchor + aggressor), config.{profile,ticks}
 profile.store      ─► profile.build (the packed dtypes), config.profile, numpy
+                      (also Ladder: the live tick-grid histogram accumulator both
+                       `indicators.profile` and `indicators.session_stats` fold
+                       their bars into - one accumulator, so a bug in the fold is
+                       fixed once)
 profile.value_area ─► config.profile, numpy    (POC/VAL/VAH; pure, no I/O)
 cli.vap            ─► profile.build, profile.store, core.{console,progress}
 
@@ -328,7 +358,8 @@ the market is. Multiply every price by ten and the same swings appear - pinned b
 chart.packer     ─► data.loader, numpy  (Parquet -> flat bar records)
 chart.store      ─► chart.packer, numpy (memmap the cache; slice + binary-search)
 chart.overlays   ─► chart.store, indicators.{registry,sessions,orderflow,absorption,
-                    range_scale,swing,legs,breaks,ribbon,regime,profile,ma}, config.indicators.*
+                    range_scale,swing,legs,breaks,ribbon,regime,profile,ma,
+                    session_stats}, config.indicators.*
 chart.api        ─► chart.store, chart.overlays, config.chart   (routes -> bytes)
 
 replay.session   ─► chart.{overlays,store}, config.{chart,replay}, replay.snapshot
@@ -361,6 +392,17 @@ same stream and print it. One cursor, one computation, so two views cannot
 disagree - and a third costs nothing. Seeking replays the warmup silently, so
 the indicators at a cut point hold exactly what they would have held had you
 played into it (pinned by tests/test_replay_session.py).
+
+The chart's session panel is a THIRD subscriber to the same Snapshot, reading
+`snapshot.fields` the server already sends on every bar - `replay/engine.js`
+keeps the latest one (`lastFields`) rather than fetching anything new. Clicking
+the current session's own dashed line (`engine.latestSessionOpen()` finds it by
+scanning the accumulated marks for the newest `sessions`-sourced London/NY
+vline) opens `session_panel.js`, which only formats numbers session_stats
+already computed - it draws nothing and it computes nothing. Because
+session_stats is a LIVE accumulator with no memory of past sessions (like
+`sessions` itself), only the CURRENT session's line is ever a meaningful click
+target; clicking an earlier one does nothing.
 chart.server     ─► chart.{api,lifecycle,packer,autoreload}, config.chart  (HTTP + static)
 chart.lifecycle  ─► config.chart        (pidfile, port probe, confirmed shutdown)
 chart.autoreload ─► (watch .py mtimes; trip the server's stop event)

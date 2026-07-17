@@ -51,9 +51,10 @@ is the entire reason the rules survive a change of regime.
 |---|---|---|---|
 | **`bar`** | the dataset | `src/chart/store.py` | `src/config/chart.py` |
 | **`sessions`** | the bar | `src/indicators/sessions.py` | `src/config/indicators/sessions.py` |
+| **`range_scale`** | the bar | `src/indicators/range_scale.py` | `src/config/indicators/range_scale.py` |
+| **`session_stats`** | `sessions`, `range_scale` | `src/indicators/session_stats.py` | `src/config/indicators/session_stats.py` |
 | **`orderflow`** | the bar | `src/indicators/orderflow.py` | `src/config/indicators/orderflow.py` |
 | **`absorption`** | `orderflow` | `src/indicators/absorption.py` | `src/config/indicators/absorption.py` |
-| **`range_scale`** | the bar | `src/indicators/range_scale.py` | `src/config/indicators/range_scale.py` |
 | **`swing`** | `range_scale` | `src/indicators/swing.py` | `src/config/indicators/swing.py` |
 | **`legs`** | `swing` | `src/indicators/legs.py` | `src/config/indicators/legs.py` |
 | **`breaks`** | `swing` | `src/indicators/breaks.py` | `src/config/indicators/breaks.py` |
@@ -78,13 +79,30 @@ with it: **yes** by default, **detail** only when you click Details.
 |  | `volume` | contracts | yes | Total traded. On tick-rebuilt bars it equals buy_volume + sell_volume, give or take the 0.000474% of prints that land between the quotes and join neither side. |
 | **`sessions`** | `session` | Asia \| London \| NY \| None | yes | Which trading session this bar CLOSED in. None is the CME maintenance halt. Windows are Eastern, in config/session.py; membership is start < minute <= end because bars are close-stamped. |
 |  | `session_new` | boolean | yes | True on the first bar of a session, including into and out of the halt. Derivable from `session` changing between rows - it is published because marks_for() sees one row and must decide whether to draw the rule. |
+| **`range_scale`** | `range_scale` | points | yes | The median bar range (high - low) over the last WINDOW_MINUTES of market time, floored at MIN_BARS bars. THE UNIT: every threshold and every ratio in the structure layer is measured in multiples of it. NQ's median 30s range moved 4.50 -> 14.25 across 29 months, so a number in points is right for one regime and silently wrong for the next. Absent on a dead tape - zero is no unit at all, not a small one. |
+| **`session_stats`** | `session_range` | x range_scale | yes | (session_high - session_low) / range_scale, so far. None until range_scale itself has warmed up. |
+|  | `session_bars` | count | yes | Bars seen since the session opened. |
+|  | `session_net` | x range_scale | yes | (close - session_open) / range_scale. Signed: negative is a session that sold off. |
+|  | `session_net_ratio` | -1..+1 | yes | session_net / session_range. How much of the session's own range the net move actually covered - direction and strength in one number. |
+|  | `session_closed_ratio` | 0..1 | yes | (close - session_low) / session_range. Where price sits right now inside the session's own range. Near 0 is at the low, near 1 at the high. |
+|  | `session_body_ratio` | 0..1 | yes | \|session_net\| / range, treating the whole session as one candle. body + up-wick + low-wick sum to 1. |
+|  | `session_upwick_ratio` | 0..1 | yes | (session_high - max(open, close)) / range. |
+|  | `session_lowwick_ratio` | 0..1 | yes | (min(open, close) - session_low) / range. |
+|  | `session_travel` | x range_scale | yes | Sum of every bar's own (high - low) since the open, / range_scale - how far price actually walked, not just where it ended up. |
+|  | `session_efficiency` | 0..1 | yes | session_range / session_travel. 1.0 is a straight line from open to now; a small number is a session that covered a lot of ground for little net progress - the ratio companion to session_dir_changes. |
+|  | `session_dir_changes` | count | yes | Times the close-to-close direction flipped sign since the open. A counting measure: how choppy the session read, with no points threshold to calibrate. |
+|  | `session_high_at_ratio` | 0..1 | yes | How far into the session (by bar count) the running high was set. Near 0 is early - the high was made and defended. |
+|  | `session_low_at_ratio` | 0..1 | yes | The same, for the running low. |
+|  | `session_volume` | contracts | yes | Total volume since the session opened. None on a bar file - use a tick-rebuilt dataset (NQT). |
+|  | `session_delta` | contracts, signed | yes | Sum of buy_volume - sell_volume since the session opened. None on a bar file, never a proxy zero. |
+|  | `session_poc` | price | yes | The session's own point of control: the single price with the most volume traded at it since the open. None without volume at price (NQT + python -m src.cli.vap). |
+|  | `session_poc_ratio` | 0..1 | yes | (session_poc - session_low) / session_range. Where the market's fair price sits inside the range it built to find it. |
 | **`orderflow`** | `delta` | contracts, signed | yes | buy_volume - sell_volume. Aggressive buying minus aggressive selling. NOT computed here: it was decided once, exactly, when bars were rebuilt from ticks - a print at the ask is a buyer, at the bid a seller. None on any bar file; never zero, which would claim the sides were balanced. |
 |  | `buy_volume` | contracts | yes | Traded at the ask: someone crossed the spread to buy. |
 |  | `sell_volume` | contracts | yes | Traded at the bid. buy + sell can fall short of volume: 0.000474% of CONTRACTS print strictly between the quotes and join neither side. How many BARS that touches depends on how long a bar is - 0.045% of 30s bars, 3.9% of 60m bars, up to 120 contracts on one - so the share of contracts is the invariant and the share of bars is not. |
 |  | `trades` | count | yes | Number of prints in the bar. Not contracts - one print can carry many. |
 | **`absorption`** | `absorption` | boolean | yes | The bar closed AGAINST its own order flow: green on net selling, or red on net buying. Somebody resting absorbed the aggressors. Happens on 17.9% of bars; the candle explains only 56% of delta. Thresholds in config/indicators/absorption.py. |
 |  | `absorption_side` | buy \| sell \| None | yes | Who absorbed. `buy` means price rose while sellers were the aggressors - a resting buyer. Marked BELOW the bar, because that is where the interest sat. |
-| **`range_scale`** | `range_scale` | points | yes | The median bar range (high - low) over the last WINDOW_MINUTES of market time, floored at MIN_BARS bars. THE UNIT: every threshold and every ratio in the structure layer is measured in multiples of it. NQ's median 30s range moved 4.50 -> 14.25 across 29 months, so a number in points is right for one regime and silently wrong for the next. Absent on a dead tape - zero is no unit at all, not a small one. |
 | **`swing`** | `swing` | high \| low \| None | yes | A structure point CONFIRMED on this bar. Price retraced RETRACE x range_scale from the running extreme, proving it was a turn. Almost always None: it is an event, not a state. |
 |  | `swing_price` | price | detail | The price of that turn. |
 |  | `swing_time` | epoch seconds, UTC | detail | The EARLIER bar that made the extreme. A high does not announce itself; you learn it was one only after price falls away. That lag is the price of not looking ahead. |
@@ -130,11 +148,13 @@ with it: **yes** by default, **detail** only when you click Details.
 
 **`sessions`** — reads the bar. Publishes the current session, and whether this event opened it.
 
+**`range_scale`** — reads the bar. Publishes the rolling median bar range, or nothing while it warms up.
+
+**`session_stats`** — reads `sessions`, `range_scale`. Publishes the running session scorecard, or nothing outside London/NY.
+
 **`orderflow`** — reads the bar. Publishes delta / buy_volume / sell_volume / trades, or nothing at all.
 
 **`absorption`** — reads `orderflow`. Publishes whether the bar closed against its flow, and who absorbed.
-
-**`range_scale`** — reads the bar. Publishes the rolling median bar range, or nothing while it warms up.
 
 **`swing`** — reads `range_scale`. Confirmed swing points, and the provisional extremes they come from.
 

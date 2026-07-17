@@ -146,3 +146,33 @@ body.picking #chart { cursor: crosshair; }
 
 .hint.visible { opacity: 1; }
 .hint.end { background: #2d1618; border-color: var(--down); color: var(--down); }
+
+/* --- session scorecard ------------------------------------------------------ */
+
+.session-panel {
+  position: absolute;
+  top: 10px; right: 12px;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 14px;
+  min-width: 260px;
+  background: #0d1117e6;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  backdrop-filter: blur(6px);
+  z-index: 4;
+  font-size: 11px;
+  line-height: 1.6;
+  cursor: default;
+}
+
+.session-panel.visible { display: flex; }
+
+.session-title {
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 2px;
+}
+
+.session-row .muted, .session-row.muted { color: var(--muted); }

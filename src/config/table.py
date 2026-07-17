@@ -67,6 +67,7 @@ GROUP_COLORS = {
     "ribbon": "#5691c8",
     "regime": "#c8a45b",
     "ma": "#e8a33d",
+    "session_stats": "#56d364",
 }
 GROUP_FALLBACK = TEXT
 

@@ -30,6 +30,11 @@ export class ReplayEngine {
     if (layers) layers.onChange(() => { if (this.marks.length) this._drawMarks(); });
 
     this.marks = [];
+    // The latest snapshot's indicator fields - session_stats and everything
+    // else the registry publishes. Kept for the session panel: a click needs
+    // the CURRENT numbers, not a recomputation, and the server already sends
+    // them on every snapshot (replay/snapshot.py's `fields`).
+    this.lastFields = {};
     this.playing = false;
     this.speed = 1;
     this.atEnd = false;
@@ -151,6 +156,7 @@ export class ReplayEngine {
     if (this.buffer.bars.length && bar.time <= this.buffer.newestTime) return;
 
     const trimmed = this.buffer.push(bar);
+    this.lastFields = snap.fields || {};
 
     if (snap.marks.length) {
       // Two kinds of redraw, and everything else is an event that accumulates.
@@ -179,6 +185,24 @@ export class ReplayEngine {
 
     this.atEnd = snap.at_end;
     this._emit('bar', { bar, bars: this.buffer.bars, seeded: false, snapshot: snap });
+  }
+
+  /**
+   * The most recent London/NY session-open vline, or null.
+   *
+   * session_stats is a LIVE accumulator with no history of its own - like
+   * `sessions`, it only knows the session it is in right now. So only the
+   * current session's open line is ever a meaningful click target; an older
+   * one has nothing behind it anymore.
+   */
+  latestSessionOpen() {
+    let best = null;
+    for (const m of this.marks) {
+      if (m.kind !== 'vline' || m.source !== 'sessions') continue;
+      if (m.label !== 'London' && m.label !== 'NY') continue;
+      if (!best || m.time > best.time) best = m;
+    }
+    return best;
   }
 
   // --- transport: every one of these is a request, not a local decision ---

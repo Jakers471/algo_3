@@ -140,6 +140,38 @@ table shows those rather than the raw prices:
 | `price_vs_value` | above / inside / below the value area — the market accepting the price it built, or not |
 | `delta_at_poc` | who crossed the spread to build the fair price |
 
+**The session scorecard** (`src/indicators/session_stats.py`) is the running measurement
+behind the planned **VPbreakout** strategy — everything it needs to judge a London or NY
+session's character, live, from the session's own first bar to now. Asia and the
+maintenance halt are out of scope (`config/indicators/session_stats.py` `TRACKED_SESSIONS`)
+and publish nothing at all: a "session so far" for a session nobody intends to trade would
+only invite a rule to accidentally read it.
+
+It treats the whole session as one candle — `session_range` is its high minus its low,
+`session_net` is close minus open, and `session_body_ratio` / `session_upwick_ratio` /
+`session_lowwick_ratio` split that range the same way a single candlestick would. Like
+everything else in the structure layer, `session_range`, `session_net` and `session_travel`
+are measured in multiples of `range_scale`, never raw points — a session that is "big" in
+April must not silently mean something different in August. The ratio fields need no such
+conversion; they are already a fraction of the session's own range.
+
+`session_travel` sums every bar's own range — how far price actually walked, not just where
+it ended up — so `session_efficiency = range / travel` says how much of that walking was net
+progress. `session_dir_changes` counts bar-to-bar close reversals, a counting measure with no
+points threshold to calibrate. `session_high_at_ratio` / `session_low_at_ratio` say how far
+into the session each running extreme was set. `session_volume` / `session_delta` need order
+flow and `session_poc` needs volume at price — both None on a bar file, same honesty
+`orderflow` and `profile` already keep — and `session_poc` folds into the same live
+tick-grid accumulator (`Ladder`, now in `src/profile/store.py`) that `profile.py`'s
+developing range uses, so both indicators share one fold instead of two.
+
+It is not drawn on the chart as marks. Instead, **click the current session's own dashed
+line** (London or NY) to open a live scorecard in the top-right corner — the numbers update
+on every bar for as long as replay keeps running, reading the same `snapshot.fields` the
+desktop table already receives (`frontend/chart/js/session_panel.js`). Click the same line
+again to close it. Because session_stats keeps no history of past sessions, only the
+*current* session's line is ever a meaningful click target.
+
 `delta_at_poc` is the one almost nothing else can compute: it needs volume at price **and**
 aggressor side, and both live only in the ticks. It sits near zero by construction — the
 point of control is where buyers and sellers *agree* — so the tail is the signal, not the

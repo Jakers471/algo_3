@@ -31,10 +31,10 @@ from collections import deque
 
 import numpy as np
 
-from src.config import profile as store_cfg
 from src.config.indicators import profile as cfg
 from src.indicators.base import Indicator, Unavailable
 from src.profile import store
+from src.profile.store import Ladder
 from src.profile.value_area import EmptyProfile, value_area
 
 logger = logging.getLogger(__name__)
@@ -46,61 +46,6 @@ _NOTHING = {"profile_poc": None, "profile_val": None, "profile_vah": None,
             "profile_volume": None, "profile_bins": None, "profile_closed": None,
             "value_width": None, "poc_position": None, "poc_distance": None,
             "price_vs_value": None, "delta_at_poc": None}
-
-
-class Ladder:
-    """A running histogram on the tick grid: dense, and sorted by construction.
-
-    Prices land exactly on the 0.25 grid, so a price is an integer index and a
-    bar folds in with one vectorised add. A dict of prices would need sorting into
-    arrays on every bar, and over a 5,000-bar window that sort dominated
-    everything else the chart did.
-    """
-
-    SLAB = 512      # grow in slabs; padding by one bar's width reallocates always
-
-    def __init__(self) -> None:
-        self._lo: int | None = None            # tick index of self._volume[0]
-        self._volume = np.zeros(0, np.int64)
-        self._buy = np.zeros(0, np.int64)
-
-    def __bool__(self) -> bool:
-        return self._lo is not None
-
-    def add(self, prices, volume, buy) -> None:
-        if len(prices) == 0:
-            return          # nothing traded: there is no price to attribute it to
-        ticks = np.rint(prices / store_cfg.TICK_SIZE).astype(np.int64)
-        lo, hi = int(ticks[0]), int(ticks[-1])          # vap prices are ascending
-        if self._lo is None:
-            self._lo = lo - self.SLAB
-            self._volume = np.zeros(hi - lo + 1 + 2 * self.SLAB, np.int64)
-            self._buy = np.zeros_like(self._volume)
-        else:
-            self._grow(lo, hi)
-        idx = ticks - self._lo
-        # A bar's levels are already unique - the store folds them - so a plain
-        # fancy-index add is correct, and np.add.at's unbuffered path is paid for
-        # nothing.
-        self._volume[idx] += volume
-        self._buy[idx] += buy
-
-    def _grow(self, lo: int, hi: int) -> None:
-        left = self._lo - lo
-        right = hi - (self._lo + len(self._volume) - 1)
-        if left <= 0 and right <= 0:
-            return
-        left = max(left, 0) + (self.SLAB if left > 0 else 0)
-        right = max(right, 0) + (self.SLAB if right > 0 else 0)
-        self._volume = np.pad(self._volume, (left, right))
-        self._buy = np.pad(self._buy, (left, right))
-        self._lo -= left
-
-    def arrays(self) -> tuple:
-        """Ascending prices and their volumes. Empty levels are dropped."""
-        filled = np.flatnonzero(self._volume)
-        prices = (self._lo + filled) * store_cfg.TICK_SIZE
-        return prices, self._volume[filled], self._buy[filled]
 
 
 class Profile(Indicator):
