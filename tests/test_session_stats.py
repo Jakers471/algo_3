@@ -384,6 +384,73 @@ def test_tracked_sessions_config_is_london_and_ny():
     assert set(cfg.TRACKED_SESSIONS) == {"London", "NY"}
 
 
+# --- percentile-vs-history: needs a symbol/timeframe AND the cached table -----
+
+def test_percentile_fields_are_none_without_a_symbol_and_timeframe():
+    """The default constructor - every existing caller - must not crash."""
+    ss = SessionStats()   # no symbol/timeframe given
+    ss.update(bar(0, 100, 101, 99, 100), up(new=True))
+    row = ss.update(bar(1, 100, 102, 99, 101), up())
+    assert row["session_range_percentile"] is None
+    assert row["session_travel_budget"] is None
+
+
+def test_percentile_fields_are_none_when_the_table_has_not_been_built(monkeypatch):
+    from src.indicators import session_stats as ss_module
+
+    def _raise(*a, **k):
+        raise ss_module.history.NotBuilt("no table")
+    monkeypatch.setattr(ss_module.history, "percentile_rank", _raise)
+    monkeypatch.setattr(ss_module.history, "travel_budget", _raise)
+
+    ss = SessionStats(symbol="NQT", timeframe="5m")
+    ss.update(bar(0, 100, 101, 99, 100), up(new=True))
+    row = ss.update(bar(1, 100, 102, 99, 101), up())
+    assert row["session_range_percentile"] is None
+    assert row["session_travel_budget"] is None
+
+
+def test_percentile_fields_read_the_cached_table_when_available(monkeypatch):
+    from src.indicators import session_stats as ss_module
+
+    calls = []
+
+    def _rank(symbol, timeframe, session, elapsed_bar, metric, value):
+        calls.append((symbol, timeframe, session, elapsed_bar, metric, value))
+        return {"range": 0.9, "travel": 0.4, "volume": 0.5}[metric]
+
+    monkeypatch.setattr(ss_module.history, "percentile_rank", _rank)
+    monkeypatch.setattr(ss_module.history, "travel_budget", lambda *a: 0.25)
+
+    ss = SessionStats(symbol="NQT", timeframe="5m")
+    ss.update(bar(0, 100, 101, 99, 100, delta=5.0, volume=50.0), up(new=True))
+    row = ss.update(bar(1, 100, 102, 99, 101, delta=5.0, volume=50.0), up())
+
+    assert row["session_range_percentile"] == 0.9
+    assert row["session_travel_percentile"] == 0.4
+    assert row["session_volume_percentile"] == 0.5
+    assert row["session_travel_budget"] == 0.25
+    # Called with THIS session's own name ("NY", from `up()`'s default) and
+    # THIS bar's own elapsed count (2, on the second bar) - not some other
+    # session's history or a stale bar count.
+    assert all(c[0] == "NQT" and c[1] == "5m" and c[2] == "NY" for c in calls)
+    assert calls[-1][3] == 2
+
+
+def test_volume_percentile_is_not_queried_without_order_flow(monkeypatch):
+    from src.indicators import session_stats as ss_module
+
+    metrics_seen = []
+    monkeypatch.setattr(ss_module.history, "percentile_rank",
+                        lambda s, t, sess, e, metric, v: metrics_seen.append(metric) or 0.5)
+    monkeypatch.setattr(ss_module.history, "travel_budget", lambda *a: 0.5)
+
+    ss = SessionStats(symbol="NQT", timeframe="5m")
+    ss.update(bar(0, 100, 101, 99, 100), up(new=True))    # no delta/volume flow
+    ss.update(bar(1, 100, 102, 99, 101), up())
+    assert "volume" not in metrics_seen
+
+
 # --- wants_vap: two independent switches, not one shared ------------------------
 
 class _FakeRegistry:

@@ -60,7 +60,7 @@ class ReplaySession:
         self.owner = owner
         self.started = time.time()
 
-        self.registry = overlays.build_registry(profile_mode)
+        self.registry = overlays.build_registry(profile_mode, symbol, timeframe)
         # The coarser timeframes, folded from this one's bars and carrying their
         # own indicator state. One cursor drives them all, so a 15m row lands on
         # the same tick of the clock as the thirtieth 30s row.

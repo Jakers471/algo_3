@@ -21,6 +21,7 @@ algo_3/
 │   │   ├── table.py       desktop table: server URL, row cap, theme
 │   │   ├── live.py        contract id, which market streams, capture dir
 │   │   ├── profile.py     volume-at-price cache dir, tick size, value-area share
+│   │   ├── session_history.py  percentile table cache dir, percentile breakpoints
 │   │   └── indicators/    one module per indicator, named for its id
 │   │       ├── sessions.py  enable + line colors for the sessions indicator
 │   │       ├── orderflow.py enable + delta strip colors and placement
@@ -79,6 +80,11 @@ algo_3/
 │   │   │                  also Ladder, the live VAP accumulator both `profile`
 │   │   │                  and `session_stats` fold their bars into
 │   │   └── value_area.py  histogram -> POC / VAL / VAH (pure, no I/O)
+│   ├── session_history/  percentile-vs-history table for session_stats
+│   │   ├── build.py       walk every London/NY session once; write percentile
+│   │   │                  breakpoints per (session, elapsed bar, metric) + the
+│   │   │                  median final travel, to cache/session_history/
+│   │   └── store.py       load the packed table; percentile_rank() / travel_budget()
 │   ├── data/           load the NT8 Parquet store into clean bars — engine
 │   │   ├── loader.py      read a symbol/TF Parquet -> raw UTC OHLCV (I/O)
 │   │   ├── prepare.py     window + gap-mark + zero-vol policy (logic)
@@ -125,6 +131,8 @@ algo_3/
 │       ├── table.py       desktop snapshot table (python -m src.cli.table)
 │       ├── chart.py       serve the replay chart (python -m src.cli.chart)
 │       ├── vap.py         build volume at price (python -m src.cli.vap)
+│       ├── session_history.py  build session_stats' percentile table
+│       │                  (python -m src.cli.session_history)
 │       ├── fields.py      the field contract (python -m src.cli.fields)
 │       └── capture.py     record the live market feed (python -m src.cli.capture)
 ├── frontend/           browser code — never inside the Python src/
@@ -270,6 +278,13 @@ FIELDS.md, and `tests/test_fields.py` fails if the file goes stale. The desktop
 table colours each column block by its producing indicator, with a legend - the
 same map, on screen.
 indicators.sessions  ─► config.session, indicators.base   (Asia/London/NY)
+                         Also exports session_runs(bars, tracked) - a batch
+                         counterpart to the streaming state machine, for code
+                         that already holds a whole DataFrame and wants every
+                         instance of a named session's row-index span at once.
+                         scratch/analysis/session_window_study.py and
+                         session_history/build.py both call it rather than
+                         each re-walking bars through their own Sessions().
 indicators.orderflow ─► indicators.base   (lifts delta off the bar; refuses if absent)
 indicators.absorption ─► indicators.base, config.indicators.absorption
                          (depends on `orderflow`; reads delta, never recomputes it)
@@ -381,7 +396,39 @@ indicators.session_stats ─► indicators.base, config.indicators.session_stats
                              (src/table/columns.py _CHART_LEVELS no longer
                              includes them). session_hvn/session_lvn, being lists
                              of prices rather than one fact, are DETAIL like
-                             session_bins is.)
+                             session_bins is.
+
+                             session_range_percentile/session_travel_percentile/
+                             session_volume_percentile/session_travel_budget need
+                             session_history.store's cached table AND to know
+                             which one - this is the ONE indicator with a symbol/
+                             timeframe constructor argument, threaded from
+                             chart.overlays.build_registry, because it alone is
+                             not dataset-agnostic (every other indicator reads
+                             vap off the event rather than looking anything up
+                             itself). A percentile rank corrects for something
+                             range_scale cannot: range_scale corrects for the
+                             regime the market is in RIGHT NOW, not for whether
+                             the DISTRIBUTION range_scale is measured against has
+                             itself drifted across the dataset's history.)
+
+session_history.build ─► indicators.{sessions (session_runs), range_scale},
+                         data.loader, config.session_history,
+                         config.indicators.session_stats (TRACKED_SESSIONS)
+                         (walks every London/NY session ONCE with range_scale
+                          flowing continuously across session boundaries -
+                          range_scale is a rolling window over calendar time,
+                          agnostic to sessions - and reduces cumulative range/
+                          travel (x range_scale)/volume per elapsed bar to
+                          percentile breakpoints, plus each session name's
+                          median FINAL travel for the budget gauge. Run:
+                          `python -m src.cli.session_history`.)
+session_history.store ─► config.session_history, numpy
+                         (loads the packed table once, in memory - a few
+                          hundred KB, no memmap needed at this size -
+                          and answers percentile_rank()/travel_budget().
+                          Raises NotBuilt, same shape as profile.store's,
+                          if the table has not been built yet.)
 
 profile.build      ─► data.resample (anchor + aggressor), config.{profile,ticks}
 profile.store      ─► profile.build (the packed dtypes), config.profile, numpy
@@ -579,6 +626,13 @@ engines' ``build`` callable).
   exact fold of it. `--verify` checks each sampled bar's histogram against that bar's own
   volume — a single lost contract would make every profile quietly wrong and no picture
   would show it. Wired into `commands.bat` → Data.
+
+- **`python -m src.cli.session_history --symbol NQT --timeframe 5m`** — build the percentile
+  table `session_stats`' percentile-vs-history fields read: walks every London/NY session
+  once, records cumulative range/travel (x range_scale)/volume per elapsed bar, and reduces
+  each cell to percentile breakpoints (598 London + 609 NY sessions on the shipped NQT 5m
+  dataset, ~3s). Written to `cache/session_history/`, git-ignored. Rebuild after new data
+  lands, the same way `--repack`/`cli.vap` do. Wired into `commands.bat` → Data.
 
 - **`python -m src.cli.fields`** — the field contract. Prints every snapshot field beside the
   indicator that publishes it, that indicator's source file, its config file, the unit the

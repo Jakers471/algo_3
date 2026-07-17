@@ -86,6 +86,27 @@ tends to keep moving through it. Neither is the session's tick extreme, which
 is where resting stops cluster and is the wick you get filled on, not a level
 that was ever accepted.
 
+``session_range_percentile``/``session_travel_percentile``/
+``session_volume_percentile`` place today's cumulative reading against
+history AT THE SAME ELAPSED BAR of the same session name - not against points,
+and not even against x-range_scale alone. range_scale corrects for the
+regime the market is in RIGHT NOW; it does not correct for whether the
+DISTRIBUTION range_scale is measured against has itself drifted over the life
+of the dataset. A percentile rank against the SAME dataset's history
+sidesteps that: a number is not "big" or "small" in the abstract, only
+relative to what usually happens by this point in a London or NY session.
+Needs ``src/session_history``'s cached table (``python -m
+src.cli.session_history``) AND to be told which one - ``symbol``/
+``timeframe`` are constructor arguments for exactly this, threaded through
+from ``chart.overlays.build_registry`` since every OTHER indicator here is
+dataset-agnostic and this one alone genuinely is not.
+
+``session_travel_budget`` is the fuel-gauge version of the same idea: travel
+so far divided by a TYPICAL (median) full session's travel. Past 1.0, a
+session has already covered more ground than an average day covers start to
+finish - a late break in a session like that is spending distance the
+"average day" ledger no longer has.
+
 It refuses outside ``config.TRACKED_SESSIONS``. VPbreakout trades London and
 NY only, and a "session so far" for Asia or the halt is a number nobody asked
 for and a rule could accidentally read.
@@ -107,6 +128,7 @@ from src.indicators.base import Indicator
 from src.profile import store
 from src.profile.store import Ladder
 from src.profile.value_area import EmptyProfile, value_area
+from src.session_history import store as history
 
 logger = logging.getLogger(__name__)
 
@@ -121,6 +143,8 @@ _NOTHING = {
     "session_poc": None, "session_poc_ratio": None,
     "session_val": None, "session_vah": None, "session_bins": None,
     "session_hvn": None, "session_lvn": None,
+    "session_range_percentile": None, "session_travel_percentile": None,
+    "session_volume_percentile": None, "session_travel_budget": None,
     "session_from_time": None, "session_to_time": None,
 }
 
@@ -288,13 +312,36 @@ class SessionStats(Indicator):
                         "carrying at most LVN_MAX_SHARE of the POC's volume. A "
                         "target, not an entry: price that reaches one tends to "
                         "keep moving through it."),
+        "session_range_percentile": ("0..1", "Where session_range ranks against "
+                                     "history AT THE SAME ELAPSED BAR of the same "
+                                     "session name (src/session_history). Not "
+                                     "points, and not x-range_scale alone - "
+                                     "range_scale corrects for the regime the "
+                                     "market is in NOW, not for drift in the "
+                                     "history it is measured against. None "
+                                     "without the cached table (python -m "
+                                     "src.cli.session_history)."),
+        "session_travel_percentile": ("0..1", "The same, for cumulative travel "
+                                      "since the session opened."),
+        "session_volume_percentile": ("0..1", "The same, for cumulative volume. "
+                                      "Needs order flow, same as session_volume."),
+        "session_travel_budget": ("ratio", "Cumulative travel so far / a TYPICAL "
+                                  "(median) full session's travel. Past 1.0, this "
+                                  "session has already covered more ground than an "
+                                  "average day covers start to finish - the fuel "
+                                  "gauge for whether a late break has anything "
+                                  "left to spend."),
         "session_from_time": ("epoch seconds, UTC", "Close time of the session's "
                               "first bar - where the profile drawing anchors."),
         "session_to_time": ("epoch seconds, UTC", "Close time of the current bar - "
                             "the profile's right edge, moving every bar."),
     }
 
-    def __init__(self) -> None:
+    def __init__(self, symbol: str | None = None, timeframe: str | None = None) -> None:
+        # Needed ONLY for the percentile-vs-history fields - see the module
+        # docstring for why this indicator alone needs its dataset identity.
+        self._symbol = symbol
+        self._timeframe = timeframe
         self.reset()
 
     def reset(self) -> None:
@@ -311,6 +358,12 @@ class SessionStats(Indicator):
         self._ladder = Ladder()
         self._first_ts: int | None = None
         self._last_ts: int | None = None
+        # Cumulative since open, in points - NOT published directly (that field
+        # was cut; see the module docstring), but needed as the input to the
+        # percentile-vs-history and travel-budget fields, which are genuinely
+        # about "how far has THIS session travelled so far," not a sliding window.
+        self._cum_travel = 0.0
+        self._session_name: str | None = None
         # Holds enough bars for BOTH the recent and prior windows, sliced by
         # timestamp fresh each publish - small (a handful of bars), so slicing
         # beats maintaining incremental rolling max/min for no real cost.
@@ -321,6 +374,7 @@ class SessionStats(Indicator):
         if up.get("session_new"):
             self._tracking = up.get("session") in cfg.TRACKED_SESSIONS
             self._clear()
+            self._session_name = up.get("session")
 
         if not self._tracking:
             return dict(_NOTHING)
@@ -335,6 +389,7 @@ class SessionStats(Indicator):
             self._first_ts = ts
         self._last_ts = ts
         self._bars += 1
+        self._cum_travel += h - lo
 
         # The bar count at which the running extreme was LAST (re)set, so a
         # later tie still credits the bar that most recently made it.
@@ -409,6 +464,7 @@ class SessionStats(Indicator):
         if scale:
             row["session_range"] = rng / scale
             row["session_net"] = net / scale
+            self._publish_history(row, rng / scale, self._cum_travel / scale)
 
         self._publish_windows(row)
 
@@ -430,6 +486,27 @@ class SessionStats(Indicator):
             except EmptyProfile:
                 pass
         return row
+
+    def _publish_history(self, row: dict, range_x: float, travel_x: float) -> None:
+        """Percentile-vs-history + travel budget. None without both a symbol/
+        timeframe (see __init__) and the cached table (session_history.store)."""
+        if not (self._symbol and self._timeframe and self._session_name):
+            return
+        try:
+            row["session_range_percentile"] = history.percentile_rank(
+                self._symbol, self._timeframe, self._session_name,
+                self._bars, "range", range_x)
+            row["session_travel_percentile"] = history.percentile_rank(
+                self._symbol, self._timeframe, self._session_name,
+                self._bars, "travel", travel_x)
+            if self._volume is not None:
+                row["session_volume_percentile"] = history.percentile_rank(
+                    self._symbol, self._timeframe, self._session_name,
+                    self._bars, "volume", self._volume)
+            row["session_travel_budget"] = history.travel_budget(
+                self._symbol, self._timeframe, self._session_name, travel_x)
+        except history.NotBuilt:
+            pass   # the table has not been built yet; these fields stay None
 
     def _publish_windows(self, row: dict) -> None:
         """The recent/prior phase-detection fields - all dimensionless already."""

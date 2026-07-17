@@ -54,18 +54,27 @@ from src.profile import store as store_vap
 logger = logging.getLogger(__name__)
 
 
-def build_registry(profile_mode: str | None = None) -> Registry:
+def build_registry(profile_mode: str | None = None, symbol: str | None = None,
+                   timeframe: str | None = None) -> Registry:
     """The indicators that run. Add one here when it earns a place in the row.
 
     ``profile_mode`` is "on" or "off" for one request, which is how the chart's
     toolbar runs the volume profile without editing a file. Off runs no profile
     indicator at all, and its volume-at-price lookups are never paid for.
+
+    ``symbol``/``timeframe`` exist for exactly one reason: session_stats'
+    percentile-vs-history fields need to know which cached table to read
+    (src/session_history/store.py is keyed by both). Every other indicator
+    here is dataset-agnostic by design - vap is fetched externally and
+    attached to the event, never looked up by the indicator itself - so this
+    is deliberately narrow rather than a general "give every indicator the
+    dataset identity" door.
     """
     indicators = []
     if sessions_cfg.ENABLED:
         indicators.append(Sessions())
     if session_stats_cfg.ENABLED:
-        indicators.append(SessionStats())
+        indicators.append(SessionStats(symbol=symbol, timeframe=timeframe))
     if orderflow_cfg.ENABLED:
         indicators.append(OrderFlow())
     if absorption_cfg.ENABLED:
@@ -710,7 +719,7 @@ def for_range(symbol: str, timeframe: str, start: int, count: int,
     if len(bars) == 0:
         return []
 
-    registry = build_registry(profile_mode)
+    registry = build_registry(profile_mode, symbol, timeframe)
     registry.reset()
 
     marks: list[dict] = []

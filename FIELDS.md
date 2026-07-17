@@ -136,6 +136,10 @@ Publishes the running session scorecard, or nothing outside London/NY.
 | `session_bins` | payload |  | The session's own histogram so far: [price, volume, buy_volume] per bin, bins range_scale / BINS_PER_SCALE wide. The chart draws it; nothing else should read it - five readings already say what it says. |
 | `session_hvn` | payload |  | Other local volume peaks besides the POC - prices, ascending, each carrying at least HVN_MIN_SHARE of the POC's own volume. What a stop belongs BEHIND, not at the session's tick extreme where resting stops cluster. |
 | `session_lvn` | payload |  | Local volume troughs - prices, ascending, each carrying at most LVN_MAX_SHARE of the POC's volume. A target, not an entry: price that reaches one tends to keep moving through it. |
+| `session_range_percentile` | 0..1 | yes | Where session_range ranks against history AT THE SAME ELAPSED BAR of the same session name (src/session_history). Not points, and not x-range_scale alone - range_scale corrects for the regime the market is in NOW, not for drift in the history it is measured against. None without the cached table (python -m src.cli.session_history). |
+| `session_travel_percentile` | 0..1 | yes | The same, for cumulative travel since the session opened. |
+| `session_volume_percentile` | 0..1 | yes | The same, for cumulative volume. Needs order flow, same as session_volume. |
+| `session_travel_budget` | ratio | yes | Cumulative travel so far / a TYPICAL (median) full session's travel. Past 1.0, this session has already covered more ground than an average day covers start to finish - the fuel gauge for whether a late break has anything left to spend. |
 | `session_from_time` | epoch seconds, UTC |  | Close time of the session's first bar - where the profile drawing anchors. |
 | `session_to_time` | epoch seconds, UTC |  | Close time of the current bar - the profile's right edge, moving every bar. |
 

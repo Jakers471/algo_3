@@ -65,7 +65,7 @@ class Rung:
         self.timeframe = timeframe
         self.symbol = symbol
         self.seconds = overlays.step_seconds(timeframe)
-        self.registry = overlays.build_registry(profile_mode)
+        self.registry = overlays.build_registry(profile_mode, symbol, timeframe)
         self.seq = 0
         self._pending: dict | None = None
         self._bucket: int | None = None

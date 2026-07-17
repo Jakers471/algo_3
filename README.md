@@ -204,6 +204,30 @@ directly, so hiding them by default was the wrong call for this specific pair.
 `session_hvn`/`session_lvn` stay `DETAIL` like `session_bins` does — they're lists of prices,
 not a single reading.
 
+**`session_range_percentile` / `session_travel_percentile` / `session_volume_percentile` /
+`session_travel_budget`** place today's cumulative reading against *history at the same
+elapsed bar of the same session name* — not points, and not even x-`range_scale` alone.
+`range_scale` corrects for the regime the market is in *right now*; it does not correct for
+whether the distribution `range_scale` is measured against has itself drifted over the life of
+the dataset. A percentile rank against the same dataset's history sidesteps that: a number
+isn't "big" or "small" in the abstract, only relative to what usually happens by this point in
+a London or NY session. `session_travel_budget` is the fuel-gauge version of the same idea —
+travel so far ÷ a *typical* (median) full session's travel; past 1.0 the session has already
+covered more ground than an average day covers start to finish, which is exactly the question
+"does a late break have anything left to spend" is asking.
+
+These need `src/session_history`'s cached table (`python -m src.cli.session_history --symbol
+NQT --timeframe 5m`, ~3s on the shipped dataset — 598 London + 609 NY sessions) **and** to be
+told which symbol/timeframe to read it for. `session_stats` is the *one* indicator in this
+codebase with a `symbol`/`timeframe` constructor argument for exactly that reason — every other
+indicator is dataset-agnostic (`profile` reads volume-at-price off the event, never looks it up
+itself), and this is the one exception, threaded from `chart.overlays.build_registry`.
+`session_history/build.py` walks every session with `range_scale` flowing *continuously* across
+session boundaries — it's a rolling window over calendar time, not a session-scoped one — and
+reduces cumulative range/travel/volume per elapsed bar to percentile breakpoints, the same
+segmentation helper (`indicators.sessions.session_runs`) `scratch/analysis/
+session_window_study.py` uses.
+
 **Click the current session's own dashed line** (London or NY) to open a live scorecard in
 the top-right corner — the numbers update on every bar for as long as replay keeps running,
 reading the same `snapshot.fields` the desktop table already receives

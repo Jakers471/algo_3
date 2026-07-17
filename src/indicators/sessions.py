@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from src.config import session as cfg
+from src.events.types import BarClose
 from src.indicators.base import Indicator, Unavailable
 
 logger = logging.getLogger(__name__)
@@ -101,3 +102,41 @@ class Sessions(Indicator):
         self._session = name
 
         return {"session": self._session, "session_new": is_new}
+
+
+def session_runs(bars, tracked: tuple[str, ...]) -> list[tuple[str, list[int]]]:
+    """(session name, row-index run), one per session instance in ``tracked``.
+
+    A batch counterpart to the streaming ``Sessions`` state machine, for code
+    that already holds a whole DataFrame and wants "every London/NY session in
+    this dataset" rather than one bar at a time - scratch/analysis/
+    session_window_study.py and src/session_history/build.py both need exactly
+    this segmentation, so it lives once, here, next to the state machine it
+    reuses rather than reimplements. The name rides along because a caller
+    that needs separate London and NY statistics (session_history/build.py
+    does) cannot recover it from the row indices alone.
+
+    ``bars`` needs only a DatetimeIndex and open/high/low/close columns - the
+    same shape ``BarClose`` reads off a DataFrame row elsewhere in this
+    codebase. A run starts on the bar where ``session_new`` fires into a
+    tracked name and ends the bar before the next ``session_new``.
+    """
+    sessions = Sessions()
+    runs: list[tuple[str, list[int]]] = []
+    current: list[int] | None = None
+    current_name: str | None = None
+
+    for i, (ts, row) in enumerate(zip(bars.index, bars.itertuples())):
+        event = BarClose(ts=ts, open=row.open, high=row.high, low=row.low,
+                         close=row.close, volume=row.volume)
+        out = sessions.update(event)
+        if out["session_new"]:
+            if current:
+                runs.append((current_name, current))
+            current_name = out["session"]
+            current = [] if current_name in tracked else None
+        if current is not None:
+            current.append(i)
+    if current:
+        runs.append((current_name, current))
+    return runs
